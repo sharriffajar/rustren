@@ -15,6 +15,65 @@
 6. **Multi-line Text**: Always specify `max_width` on `type: "text"` so word-wrapping and `taffy` height estimation are accurate.
 7. **Cache**: Read the [Cache Engine](#cache-engine-keys--how-to-write-cache-friendly-json) table below. Place static background layers at the start of `layers[]`, and prefer animating `opacity` / `x` / `y` / `rotation` to get cache **HITs** (avoid animating SVG `width`, `path_progress`, or text `scale` unless needed).
 
+### 7. `keyframes[]`, `dynamic` Text, `stagger_secs`, `outline`/`gradient` & `fit`
+Use these primitives to keep AI-generated JSON compact and expressive:
+```json
+{
+  "canvas": { "width": 1280, "height": 720, "fps": 30, "duration_secs": 4.0, "background": "#0F172A" },
+  "layers": [
+    {
+      "type": "rect",
+      "x": 640,
+      "y": 360,
+      "width": 600,
+      "height": 260,
+      "radius": 28,
+      "color": "#000000",
+      "anchor": "center",
+      "skew_x": -10,
+      "gradient": {
+        "type": "radial",
+        "stops": [
+          { "offset": 0.0, "color": "#2D4AF2" },
+          { "offset": 1.0, "color": "#0F172A" }
+        ]
+      },
+      "animations": [
+        {
+          "property": "opacity",
+          "keyframes": [
+            { "time": 0.0, "value": 0.0 },
+            { "time": 0.4, "value": 1.0, "easing": "ease_out" },
+            { "time": 3.5, "value": 1.0 },
+            { "time": 4.0, "value": 0.0, "easing": "ease_in" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "x": 640,
+      "y": 340,
+      "font_size": 56,
+      "font_weight": "bold",
+      "anchor": "center",
+      "gradient": { "from": "#22D3EE", "to": "#FFFFFF", "angle": 0 },
+      "outline": { "color": "#000000", "width": 3.0 },
+      "dynamic": { "mode": "typewriter", "text": "JSON in -> MP4 out", "start_sec": 0.2, "end_sec": 1.2 }
+    },
+    {
+      "type": "text",
+      "x": 1220,
+      "y": 680,
+      "font_size": 18,
+      "color": "#94A3B8",
+      "anchor": "bottom_right",
+      "dynamic": { "mode": "timecode", "format": "mm:ss.cc" }
+    }
+  ]
+}
+```
+
 ---
 
 ## Root Structure
@@ -270,6 +329,65 @@
 }
 ```
 
+### 7. `keyframes[]`, `dynamic` Text, `stagger_secs`, `outline`/`gradient` & `fit`
+Use these primitives to keep AI-generated JSON compact and expressive:
+```json
+{
+  "canvas": { "width": 1280, "height": 720, "fps": 30, "duration_secs": 4.0, "background": "#0F172A" },
+  "layers": [
+    {
+      "type": "rect",
+      "x": 640,
+      "y": 360,
+      "width": 600,
+      "height": 260,
+      "radius": 28,
+      "color": "#000000",
+      "anchor": "center",
+      "skew_x": -10,
+      "gradient": {
+        "type": "radial",
+        "stops": [
+          { "offset": 0.0, "color": "#2D4AF2" },
+          { "offset": 1.0, "color": "#0F172A" }
+        ]
+      },
+      "animations": [
+        {
+          "property": "opacity",
+          "keyframes": [
+            { "time": 0.0, "value": 0.0 },
+            { "time": 0.4, "value": 1.0, "easing": "ease_out" },
+            { "time": 3.5, "value": 1.0 },
+            { "time": 4.0, "value": 0.0, "easing": "ease_in" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "x": 640,
+      "y": 340,
+      "font_size": 56,
+      "font_weight": "bold",
+      "anchor": "center",
+      "gradient": { "from": "#22D3EE", "to": "#FFFFFF", "angle": 0 },
+      "outline": { "color": "#000000", "width": 3.0 },
+      "dynamic": { "mode": "typewriter", "text": "JSON in -> MP4 out", "start_sec": 0.2, "end_sec": 1.2 }
+    },
+    {
+      "type": "text",
+      "x": 1220,
+      "y": 680,
+      "font_size": 18,
+      "color": "#94A3B8",
+      "anchor": "bottom_right",
+      "dynamic": { "mode": "timecode", "format": "mm:ss.cc" }
+    }
+  ]
+}
+```
+
 ---
 
 ## v1.1 Feature Recipes (Copy-Paste Ready)
@@ -430,12 +548,248 @@ Animate `color` / `background` / `border_color` with hex strings in `from` and `
 }
 ```
 
+### 7. `keyframes[]`, `dynamic` Text, `stagger_secs`, `outline`/`gradient` & `fit`
+Use these primitives to keep AI-generated JSON compact and expressive:
+```json
+{
+  "canvas": { "width": 1280, "height": 720, "fps": 30, "duration_secs": 4.0, "background": "#0F172A" },
+  "layers": [
+    {
+      "type": "rect",
+      "x": 640,
+      "y": 360,
+      "width": 600,
+      "height": 260,
+      "radius": 28,
+      "color": "#000000",
+      "anchor": "center",
+      "skew_x": -10,
+      "gradient": {
+        "type": "radial",
+        "stops": [
+          { "offset": 0.0, "color": "#2D4AF2" },
+          { "offset": 1.0, "color": "#0F172A" }
+        ]
+      },
+      "animations": [
+        {
+          "property": "opacity",
+          "keyframes": [
+            { "time": 0.0, "value": 0.0 },
+            { "time": 0.4, "value": 1.0, "easing": "ease_out" },
+            { "time": 3.5, "value": 1.0 },
+            { "time": 4.0, "value": 0.0, "easing": "ease_in" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "x": 640,
+      "y": 340,
+      "font_size": 56,
+      "font_weight": "bold",
+      "anchor": "center",
+      "gradient": { "from": "#22D3EE", "to": "#FFFFFF", "angle": 0 },
+      "outline": { "color": "#000000", "width": 3.0 },
+      "dynamic": { "mode": "typewriter", "text": "JSON in -> MP4 out", "start_sec": 0.2, "end_sec": 1.2 }
+    },
+    {
+      "type": "text",
+      "x": 1220,
+      "y": 680,
+      "font_size": 18,
+      "color": "#94A3B8",
+      "anchor": "bottom_right",
+      "dynamic": { "mode": "timecode", "format": "mm:ss.cc" }
+    }
+  ]
+}
+```
+
 ---
 
 ## Cache Engine: Keys & How to Write Cache-Friendly JSON
 
 | Cache | Scope & Key | How to Hit (and What Causes Misses) |
-| :--- | :--- | :--- |
+| :### 7. `keyframes[]`, `dynamic` Text, `stagger_secs`, `outline`/`gradient` & `fit`
+Use these primitives to keep AI-generated JSON compact and expressive:
+```json
+{
+  "canvas": { "width": 1280, "height": 720, "fps": 30, "duration_secs": 4.0, "background": "#0F172A" },
+  "layers": [
+    {
+      "type": "rect",
+      "x": 640,
+      "y": 360,
+      "width": 600,
+      "height": 260,
+      "radius": 28,
+      "color": "#000000",
+      "anchor": "center",
+      "skew_x": -10,
+      "gradient": {
+        "type": "radial",
+        "stops": [
+          { "offset": 0.0, "color": "#2D4AF2" },
+          { "offset": 1.0, "color": "#0F172A" }
+        ]
+      },
+      "animations": [
+        {
+          "property": "opacity",
+          "keyframes": [
+            { "time": 0.0, "value": 0.0 },
+            { "time": 0.4, "value": 1.0, "easing": "ease_out" },
+            { "time": 3.5, "value": 1.0 },
+            { "time": 4.0, "value": 0.0, "easing": "ease_in" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "x": 640,
+      "y": 340,
+      "font_size": 56,
+      "font_weight": "bold",
+      "anchor": "center",
+      "gradient": { "from": "#22D3EE", "to": "#FFFFFF", "angle": 0 },
+      "outline": { "color": "#000000", "width": 3.0 },
+      "dynamic": { "mode": "typewriter", "text": "JSON in -> MP4 out", "start_sec": 0.2, "end_sec": 1.2 }
+    },
+    {
+      "type": "text",
+      "x": 1220,
+      "y": 680,
+      "font_size": 18,
+      "color": "#94A3B8",
+      "anchor": "bottom_right",
+      "dynamic": { "mode": "timecode", "format": "mm:ss.cc" }
+    }
+  ]
+}
+```
+
+--- | :### 7. `keyframes[]`, `dynamic` Text, `stagger_secs`, `outline`/`gradient` & `fit`
+Use these primitives to keep AI-generated JSON compact and expressive:
+```json
+{
+  "canvas": { "width": 1280, "height": 720, "fps": 30, "duration_secs": 4.0, "background": "#0F172A" },
+  "layers": [
+    {
+      "type": "rect",
+      "x": 640,
+      "y": 360,
+      "width": 600,
+      "height": 260,
+      "radius": 28,
+      "color": "#000000",
+      "anchor": "center",
+      "skew_x": -10,
+      "gradient": {
+        "type": "radial",
+        "stops": [
+          { "offset": 0.0, "color": "#2D4AF2" },
+          { "offset": 1.0, "color": "#0F172A" }
+        ]
+      },
+      "animations": [
+        {
+          "property": "opacity",
+          "keyframes": [
+            { "time": 0.0, "value": 0.0 },
+            { "time": 0.4, "value": 1.0, "easing": "ease_out" },
+            { "time": 3.5, "value": 1.0 },
+            { "time": 4.0, "value": 0.0, "easing": "ease_in" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "x": 640,
+      "y": 340,
+      "font_size": 56,
+      "font_weight": "bold",
+      "anchor": "center",
+      "gradient": { "from": "#22D3EE", "to": "#FFFFFF", "angle": 0 },
+      "outline": { "color": "#000000", "width": 3.0 },
+      "dynamic": { "mode": "typewriter", "text": "JSON in -> MP4 out", "start_sec": 0.2, "end_sec": 1.2 }
+    },
+    {
+      "type": "text",
+      "x": 1220,
+      "y": 680,
+      "font_size": 18,
+      "color": "#94A3B8",
+      "anchor": "bottom_right",
+      "dynamic": { "mode": "timecode", "format": "mm:ss.cc" }
+    }
+  ]
+}
+```
+
+--- | :### 7. `keyframes[]`, `dynamic` Text, `stagger_secs`, `outline`/`gradient` & `fit`
+Use these primitives to keep AI-generated JSON compact and expressive:
+```json
+{
+  "canvas": { "width": 1280, "height": 720, "fps": 30, "duration_secs": 4.0, "background": "#0F172A" },
+  "layers": [
+    {
+      "type": "rect",
+      "x": 640,
+      "y": 360,
+      "width": 600,
+      "height": 260,
+      "radius": 28,
+      "color": "#000000",
+      "anchor": "center",
+      "skew_x": -10,
+      "gradient": {
+        "type": "radial",
+        "stops": [
+          { "offset": 0.0, "color": "#2D4AF2" },
+          { "offset": 1.0, "color": "#0F172A" }
+        ]
+      },
+      "animations": [
+        {
+          "property": "opacity",
+          "keyframes": [
+            { "time": 0.0, "value": 0.0 },
+            { "time": 0.4, "value": 1.0, "easing": "ease_out" },
+            { "time": 3.5, "value": 1.0 },
+            { "time": 4.0, "value": 0.0, "easing": "ease_in" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "x": 640,
+      "y": 340,
+      "font_size": 56,
+      "font_weight": "bold",
+      "anchor": "center",
+      "gradient": { "from": "#22D3EE", "to": "#FFFFFF", "angle": 0 },
+      "outline": { "color": "#000000", "width": 3.0 },
+      "dynamic": { "mode": "typewriter", "text": "JSON in -> MP4 out", "start_sec": 0.2, "end_sec": 1.2 }
+    },
+    {
+      "type": "text",
+      "x": 1220,
+      "y": 680,
+      "font_size": 18,
+      "color": "#94A3B8",
+      "anchor": "bottom_right",
+      "dynamic": { "mode": "timecode", "format": "mm:ss.cc" }
+    }
+  ]
+}
+```
+
+--- |
 | **Static Background Snapshot** | Prefix `layers[0..k]` per scene | **Hit**: Place all 100% static background layers (`start_sec: 0`, `end_sec` omitted or `>= duration_secs`, `animations: []`, non-`video`) at the **start of `layers[]`**. **Miss**: Putting an animated layer at index `0` stops the prefix scan for later static layers. |
 | **Blurred-Layer Cache** (`THREAD_BLUR_CACHE`) | `(fnv1a(kind_without_opacity, blur), canvas_w, canvas_h)` per thread | **Hit**: Use `blur > 0` without `shadow` on a root non-`container`/non-`video` layer, and animate only `opacity` (or keep static). **Miss**: Adding `shadow`, placing inside a `container`, or animating `x`/`y`/`r`/`width`/`height`. |
 | **SVG Raster Cache** (`THREAD_SVG_RASTER_CACHE`) | `(fnv1a(svg_bytes), byte_len, pw, ph)` per thread | **Hit**: Use `svg` without `path_progress`/`stroke_dashoffset`/`stroke_dasharray`, and do not animate `width`/`height`. Animating `x`, `y`, `rotation`, and `opacity` **still hits**! |
