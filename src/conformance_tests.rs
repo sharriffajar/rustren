@@ -541,6 +541,8 @@ fn test_schema_md_examples_parse_and_validate() {
         rest = &after[end + 3..];
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(block) {
             if val.get("canvas").is_some() && val.get("layers").is_some() {
+                crate::lint::validate_no_unknown_fields(block)
+                    .unwrap_or_else(|e| panic!("SCHEMA.md example #{checked} has unknown field: {e}\n{block}"));
                 let scene: crate::schema::Scene = serde_json::from_value(val)
                     .unwrap_or_else(|e| panic!("SCHEMA.md example #{checked} failed to parse: {e}\n{block}"));
                 crate::capabilities::validate_scene_capabilities(&scene)
@@ -697,4 +699,19 @@ fn test_tier2_anchor_skew_stagger_dynamic_and_golden_hash() {
 
     let center_px = pixel_at(&f1, 320, 160, 90);
     assert!(center_px[2] > 200 && center_px[0] < 80, "centered blue rect expected at (160,90), got {:?}", center_px);
+}
+
+#[test]
+fn test_unknown_field_rejected_by_strict_validation() {
+    let bad = r##"{
+        "canvas": { "width": 320, "height": 180, "fps": 30, "duration_secs": 1.0 },
+        "layers": [
+            { "type": "text", "x": 10, "y": 10, "fontSize": 24, "content": "typo" }
+        ]
+    }"##;
+    let err = crate::lint::validate_no_unknown_fields(bad).unwrap_err();
+    assert!(
+        err.to_string().contains("layers[0].fontSize"),
+        "unexpected error: {err}"
+    );
 }

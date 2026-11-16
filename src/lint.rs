@@ -339,3 +339,149 @@ fn contrast_ratio(a: (f32, f32, f32, f32), b: (f32, f32, f32, f32)) -> f32 {
     let (hi, lo) = if la >= lb { (la, lb) } else { (lb, la) };
     (hi + 0.05) / (lo + 0.05)
 }
+
+/// Reject unknown JSON fields that `serde` would otherwise silently ignore,
+/// keeping `rustren validate` aligned with `schema.json`'s `additionalProperties: false`.
+pub fn validate_no_unknown_fields(raw: &str) -> anyhow::Result<()> {
+    let val: serde_json::Value = serde_json::from_str(raw)?;
+    let Some(root) = val.as_object() else {
+        return Ok(());
+    };
+    check_allowed_keys(
+        root,
+        "root",
+        &["schema_version", "min_renderer_version", "canvas", "fonts", "audio", "layers"],
+    )?;
+    if let Some(canvas) = root.get("canvas").and_then(|v| v.as_object()) {
+        check_allowed_keys(
+            canvas,
+            "canvas",
+            &["width", "height", "fps", "duration_secs", "background"],
+        )?;
+    }
+    if let Some(audio) = root.get("audio").and_then(|v| v.as_array()) {
+        for (i, item) in audio.iter().enumerate() {
+            if let Some(obj) = item.as_object() {
+                check_allowed_keys(
+                    obj,
+                    &format!("audio[{i}]"),
+                    &["src", "start_sec", "volume", "trim_start_sec", "trim_end_sec", "playback_rate"],
+                )?;
+            }
+        }
+    }
+    if let Some(layers) = root.get("layers").and_then(|v| v.as_array()) {
+        check_layers_unknown_fields(layers, "layers")?;
+    }
+    Ok(())
+}
+
+fn check_allowed_keys(
+    obj: &serde_json::Map<String, serde_json::Value>,
+    path: &str,
+    allowed: &[&str],
+) -> anyhow::Result<()> {
+    for key in obj.keys() {
+        if !allowed.contains(&key.as_str()) {
+            anyhow::bail!("Unknown field '{path}.{key}' (not defined in schema)");
+        }
+    }
+    Ok(())
+}
+
+fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> anyhow::Result<()> {
+    const COMMON: &[&str] = &[
+        "name", "type", "start_sec", "end_sec", "duration_secs", "overlap_secs", "position",
+        "flex_grow", "margin", "blend_mode", "blur", "shadow", "anchor", "skew_x", "skew_y",
+        "animations",
+    ];
+    for (i, item) in layers.iter().enumerate() {
+        let path = format!("{prefix}[{i}]");
+        let Some(obj) = item.as_object() else {
+            continue;
+        };
+        let kind = obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
+        let extra: &[&str] = match kind {
+            "rect" => &[
+                "x", "y", "width", "height", "radius", "color", "gradient", "border_color",
+                "border_width", "path_progress", "stroke_dashoffset", "opacity", "scale",
+                "rotation",
+            ],
+            "circle" => &[
+                "cx", "cy", "r", "color", "border_color", "border_width", "path_progress",
+                "stroke_dashoffset", "opacity", "scale",
+            ],
+            "text" => &[
+                "x", "y", "content", "dynamic", "spans", "font_size", "line_height",
+                "letter_spacing", "font_family", "font_weight", "text_align", "color", "opacity",
+                "max_width", "scale",
+            ],
+            "image" => &["x", "y", "width", "height", "src", "opacity", "rotation", "scale"],
+            "svg" => &[
+                "x", "y", "width", "height", "src", "path_progress", "stroke_dashoffset",
+                "stroke_dasharray", "opacity", "rotation",
+            ],
+            "video" => &[
+                "x", "y", "width", "height", "src", "trim_start_sec", "trim_end_sec",
+                "playback_rate", "volume", "muted", "opacity", "rotation", "scale",
+            ],
+            "container" => &[
+                "x", "y", "width", "height", "layout", "background", "gradient", "border_color",
+                "border_width", "radius", "opacity", "scale", "rotation", "clip",
+                "cascade_opacity", "timeline", "stagger_secs", "children",
+            ],
+            _ => continue,
+        };
+        for key in obj.keys() {
+            if !COMMON.contains(&key.as_str()) && !extra.contains(&key.as_str()) {
+                anyhow::bail!("Unknown field '{path}.{key}' on type '{kind}' (not defined in schema)");
+            }
+        }
+        if let Some(shadow) = obj.get("shadow").and_then(|v| v.as_object()) {
+            check_allowed_keys(shadow, &format!("{path}.shadow"), &["color", "offset_x", "offset_y", "blur"])?;
+        }
+        if let Some(grad) = obj.get("gradient").and_then(|v| v.as_object()) {
+            check_allowed_keys(grad, &format!("{path}.gradient"), &["from", "to", "angle"])?;
+        }
+        if let Some(layout) = obj.get("layout").and_then(|v| v.as_object()) {
+            check_allowed_keys(
+                layout,
+                &format!("{path}.layout"),
+                &["direction", "justify_content", "align_items", "gap", "padding"],
+            )?;
+        }
+        if let Some(spans) = obj.get("spans").and_then(|v| v.as_array()) {
+            for (si, sp) in spans.iter().enumerate() {
+                if let Some(so) = sp.as_object() {
+                    check_allowed_keys(
+                        so,
+                        &format!("{path}.spans[{si}]"),
+                        &["text", "color", "font_weight", "font_family"],
+                    )?;
+                }
+            }
+        }
+        if let Some(anims) = obj.get("animations").and_then(|v| v.as_array()) {
+            for (ai, an) in anims.iter().enumerate() {
+                if let Some(ao) = an.as_object() {
+                    check_allowed_keys(
+                        ao,
+                        &format!("{path}.animations[{ai}]"),
+                        &["property", "from", "to", "start_sec", "end_sec", "easing", "bezier", "spring", "repeat", "yoyo"],
+                    )?;
+                    if let Some(sp) = ao.get("spring").and_then(|v| v.as_object()) {
+                        check_allowed_keys(
+                            sp,
+                            &format!("{path}.animations[{ai}].spring"),
+                            &["stiffness", "damping", "mass"],
+                        )?;
+                    }
+                }
+            }
+        }
+        if let Some(children) = obj.get("children").and_then(|v| v.as_array()) {
+            check_layers_unknown_fields(children, &format!("{path}.children"))?;
+        }
+    }
+    Ok(())
+}

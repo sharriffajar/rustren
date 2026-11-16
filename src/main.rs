@@ -148,6 +148,7 @@ fn main() -> Result<()> {
         Commands::Validate { input } => {
             let raw = fs::read_to_string(&input)
                 .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
+            lint::validate_no_unknown_fields(&raw)?;
             let scene: Scene = serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
             capabilities::validate_scene_capabilities(&scene)?;
             let warnings = collect_lint_warnings(&scene);
