@@ -198,3 +198,18 @@ cargo test --release
 
 ## License
 Licensed under the [Apache License, Version 2.0](LICENSE).
+
+
+---
+
+## v0.3.0 Features (Studio UI, Beats & MCP)
+
+- **Web Studio UI (`rustren studio [file]` / `rustren preview <file>`)**:
+  - Auto-opens default browser on Windows/macOS/Linux.
+  - Drag & Drop `.json` / `.html` files directly into the browser.
+  - Direct Canvas Manipulation: Drag to move, Mouse Wheel to scale, `Shift + Drag` to rotate.
+  - Clickable Diamond Keyframes (`◆`) on timeline tracks & background **Render MP4** export.
+- **Audio Beat Detection (`rustren beats <audio.mp3>`)**:
+  - Extracts beat timestamps in seconds as JSON for beat-sync automation.
+- **MCP Server (`rustren mcp <scene.json>`)**:
+  - Stdio JSON-RPC 2.0 server exposing `get_scene_summary`, `add_layer`, `remove_layer`, `add_animation`, and `detect_beats` for AI agents.

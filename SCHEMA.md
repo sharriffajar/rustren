@@ -834,3 +834,18 @@ Use these primitives to keep AI-generated JSON compact and expressive:
 
 ### Additional Coordinate Rules
 - **`circle` inside a `container`**: When using `position: "absolute"` on a `circle` inside a `container`, `cx`/`cy` in `animations` remain **relative to the `container`'s top-left corner**, not the root canvas.
+
+
+---
+
+## v0.3.0 Additions (Track Mattes & Component Reuse)
+
+### Track Mattes (`track_matte` & `matte_layer`)
+Every `Layer` supports After Effects-style track mattes:
+- `track_matte`: `"none"` (default) | `"alpha"` | `"alpha_inverted"` | `"luma"` | `"luma_inverted"`
+- `matte_layer`: Nested `Layer` used as the alpha/luma mask.
+- **HTML syntax**: `<text track-matte="alpha"><matte><rect ... /></matte>Masked Text</text>`
+
+### Component Reuse (`include`)
+- **HTML**: `<include src="card.html" bg="#238636" label="Card A" />` (supports `{{var}}` and `{{var|default}}`, max depth `8`).
+- **JSON**: `{ "type": "include", "src": "card.json", "vars": { "bg": "#238636" } }`.
