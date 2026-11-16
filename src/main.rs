@@ -966,6 +966,15 @@ async fn run_studio(input_path: Option<&Path>, host: &str, port: u16, cache_dir:
     let app = Router::new()
         .route("/", get(|| async { Html(include_str!("studio.html")) }))
         .route(
+            "/logo.png",
+            get(|| async {
+                (
+                    [(axum::http::header::CONTENT_TYPE, "image/png")],
+                    include_bytes!("../assets/logo.png").as_slice(),
+                )
+            }),
+        )
+        .route(
             "/ws",
             get(
                 |ws: WebSocketUpgrade, State(state): State<StudioState>| async move {

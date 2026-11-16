@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Rustren Logo" width="120" />
+</p>
+
 # rustren
 
 Browserless 2D video render engine in Rust — built to be **fast** and **predictable for AI-generated video**.
