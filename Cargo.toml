@@ -26,3 +26,4 @@ ureq = "2.10"
 axum = { version = "0.7", features = ["ws"] }
 tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["v4"] }
+evalexpr = "13.1.0"

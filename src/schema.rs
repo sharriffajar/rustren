@@ -6,6 +6,8 @@ pub struct Scene {
     pub schema_version: String,
     pub canvas: Canvas,
     #[serde(default)]
+    pub profiles: std::collections::HashMap<String, CompositionProfile>,
+    #[serde(default)]
     pub fonts: Vec<String>,
     #[serde(default)]
     pub audio: Vec<AudioTrack>,
@@ -14,6 +16,43 @@ pub struct Scene {
 
 fn default_schema_version() -> String {
     "1.0".to_string()
+}
+
+impl Scene {
+    pub fn apply_profile(&mut self, profile_name: &str) -> anyhow::Result<()> {
+        let Some(p) = self.profiles.get(profile_name) else {
+            anyhow::bail!(
+                "Profile '{}' not found in scene.profiles. Available: {:?}",
+                profile_name,
+                self.profiles.keys().collect::<Vec<_>>()
+            );
+        };
+        if let Some(w) = p.width {
+            self.canvas.width = w;
+        }
+        if let Some(h) = p.height {
+            self.canvas.height = h;
+        }
+        if let Some(fps) = p.fps {
+            self.canvas.fps = fps;
+        }
+        if let Some(d) = p.duration_secs {
+            self.canvas.duration_secs = d;
+        }
+        if let Some(bg) = &p.background {
+            self.canvas.background = bg.clone();
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CompositionProfile {
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub fps: Option<u32>,
+    pub duration_secs: Option<f32>,
+    pub background: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -348,6 +387,8 @@ pub enum LayerKind {
         font_weight: FontWeightSpec,
         #[serde(default)]
         text_align: TextAlignSpec,
+        #[serde(default)]
+        direction: TextDirectionSpec,
         #[serde(default = "default_text_color")]
         color: String,
         #[serde(default)]
@@ -439,6 +480,25 @@ pub enum LayerKind {
         color: String,
         #[serde(default = "default_waveform_seed")]
         seed: u64,
+        #[serde(default = "default_scale")]
+        speed: f32,
+        #[serde(default = "default_opacity")]
+        opacity: f32,
+        #[serde(default)]
+        rotation: f32,
+        #[serde(default = "default_scale")]
+        scale: f32,
+    },
+    Lottie {
+        #[serde(default)]
+        x: f32,
+        #[serde(default)]
+        y: f32,
+        width: Option<f32>,
+        height: Option<f32>,
+        src: String,
+        #[serde(default)]
+        loop_animation: bool,
         #[serde(default = "default_scale")]
         speed: f32,
         #[serde(default = "default_opacity")]
@@ -620,6 +680,8 @@ fn default_anim_zero() -> AnimValue {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Animation {
     pub property: AnimProperty,
+    #[serde(default)]
+    pub expr: Option<String>,
     #[serde(default = "default_anim_zero")]
     pub from: AnimValue,
     #[serde(default = "default_anim_zero")]
@@ -688,7 +750,16 @@ pub enum Easing {
     Spring,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TextDirectionSpec {
+    #[default]
+    Auto,
+    Ltr,
+    Rtl,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TextAlignSpec {
     #[default]

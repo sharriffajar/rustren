@@ -45,6 +45,8 @@ pub struct ElementCapabilities {
     pub svg: bool,
     pub image: bool,
     pub video: bool,
+    pub waveform: bool,
+    pub lottie: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -77,6 +79,7 @@ pub struct AnimationCapabilities {
     pub path_animation: bool,
     pub stroke_animation: bool,
     pub cubic_bezier: bool,
+    pub expressions: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -92,6 +95,7 @@ pub struct TypographyCapabilities {
     pub multiline_wrap: bool,
     pub rich_text: bool,
     pub letter_spacing: bool,
+    pub rtl_direction: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -115,6 +119,8 @@ impl CapabilityRegistry {
                     svg: true,
                     image: true,
                     video: true,
+                    waveform: true,
+                    lottie: true,
                 },
                 styles: StyleCapabilities {
                     solid_color: true,
@@ -176,6 +182,7 @@ impl CapabilityRegistry {
                     path_animation: true,
                     stroke_animation: true,
                     cubic_bezier: true,
+                    expressions: true,
                 },
                 timeline: TimelineCapabilities {
                     global_absolute: true,
@@ -194,6 +201,7 @@ impl CapabilityRegistry {
                     multiline_wrap: true,
                     rich_text: true,
                     letter_spacing: true,
+                    rtl_direction: true,
                 },
                 media: MediaCapabilities {
                     audio: true,

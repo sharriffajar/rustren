@@ -899,3 +899,64 @@ fn sprint6_waveform_parallel_timeline_and_audio_fade() {
     assert_ne!(f0, f1, "waveform bars should animate over time");
     assert!(f0.iter().any(|&b| b > 0), "waveform should render non-black pixels");
 }
+
+#[test]
+fn test_p2_expression_rtl_and_composition_profile() {
+    let json = r##"{
+        "canvas": { "width": 200, "height": 100, "fps": 30, "duration_secs": 2.0 },
+        "profiles": {
+            "portrait": { "width": 1080, "height": 1920 },
+            "square": { "width": 600, "height": 600 }
+        },
+        "layers": [
+            {
+                "type": "rect",
+                "x": 0,
+                "y": 0,
+                "width": 50,
+                "height": 50,
+                "color": "#FF0000",
+                "animations": [
+                    {
+                        "property": "x",
+                        "expr": "val + t * 50.0"
+                    }
+                ]
+            },
+            {
+                "type": "text",
+                "x": 10,
+                "y": 60,
+                "content": "مرحبا بالعالم",
+                "direction": "rtl",
+                "text_align": "right",
+                "font_size": 20,
+                "color": "#FFFFFF"
+            },
+            {
+                "type": "lottie",
+                "x": 20,
+                "y": 20,
+                "width": 60,
+                "height": 60,
+                "src": "assets/anim.json",
+                "opacity": 0.8
+            }
+        ]
+    }"##;
+
+    crate::lint::validate_no_unknown_fields(json).unwrap();
+    let mut scene: crate::schema::Scene = serde_json::from_str(json).unwrap();
+    assert_eq!(scene.canvas.width, 200);
+
+    // Test composition profile application
+    scene.apply_profile("portrait").unwrap();
+    assert_eq!(scene.canvas.width, 1080);
+    assert_eq!(scene.canvas.height, 1920);
+
+    // Test math expression evaluation
+    let assets = crate::assets::AssetStore::load_for_scene(&scene, &std::env::temp_dir()).unwrap();
+    let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
+    let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
+    assert_ne!(f0, f1, "expression animation should change frames over time");
+}

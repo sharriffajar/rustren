@@ -28,6 +28,21 @@
         "background": { "$ref": "#/$defs/HexColor", "default": "#000000" }
       }
     },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "width": { "type": "integer", "minimum": 1 },
+          "height": { "type": "integer", "minimum": 1 },
+          "fps": { "type": "integer", "minimum": 1 },
+          "duration_secs": { "type": "number", "exclusiveMinimum": 0 },
+          "background": { "$ref": "#/$defs/HexColor" }
+        }
+      },
+      "description": "Named composition variants (e.g. portrait, square, 4k) selectable via --composition <name>"
+    },
     "fonts": {
       "type": "array",
       "items": { "type": "string" },
@@ -145,6 +160,7 @@
           ],
           "description": "Animatable layer property."
         },
+        "expr": { "type": "string", "description": "Mathematical expression evaluated per frame (e.g. 'sin(t*2.0)*50 + val')" },
         "from": {
           "oneOf": [{ "type": "number" }, { "$ref": "#/$defs/HexColor" }]
         },
@@ -200,7 +216,9 @@
         { "$ref": "#/$defs/TextLayer" },
         { "$ref": "#/$defs/SvgLayer" },
         { "$ref": "#/$defs/ImageLayer" },
-        { "$ref": "#/$defs/VideoLayer" }
+        { "$ref": "#/$defs/VideoLayer" },
+        { "$ref": "#/$defs/WaveformLayer" },
+        { "$ref": "#/$defs/LottieLayer" }
       ]
     },
     "ContainerLayer": {
@@ -342,6 +360,7 @@
         "font_family": { "type": "string" },
         "font_weight": { "enum": ["normal", "bold"], "default": "normal" },
         "text_align": { "enum": ["left", "center", "right"], "default": "left" },
+        "direction": { "enum": ["auto", "ltr", "rtl"], "default": "auto", "description": "Text layout direction for RTL/BiDi shaping (Arabic, Hebrew)" },
         "color": { "$ref": "#/$defs/HexColor", "default": "#FFFFFF" },
         "gradient": { "$ref": "#/$defs/LinearGradient" },
         "outline": {
@@ -448,6 +467,74 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
         "rotation": { "type": "number", "default": 0.0, "description": "Rotation angle in degrees" },
         "scale": { "type": "number", "default": 1.0, "description": "Video scale factor from center" },
+        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+      }
+    },
+    "WaveformLayer": {
+      "type": "object",
+      "required": ["type", "width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "const": "waveform" },
+        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "end_sec": { "type": "number", "minimum": 0 },
+        "duration_secs": { "type": "number", "minimum": 0 },
+        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0 },
+        "flex_grow": { "type": "number" },
+        "margin": { "type": "number" },
+        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
+        "shadow": { "$ref": "#/$defs/Shadow" },
+        "anchor": { "enum": ["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"], "default": "top_left" },
+        "skew_x": { "type": "number", "default": 0.0 },
+        "skew_y": { "type": "number", "default": 0.0 },
+        "x": { "type": "number", "default": 0.0 },
+        "y": { "type": "number", "default": 0.0 },
+        "width": { "type": "number", "minimum": 1 },
+        "height": { "type": "number", "minimum": 1 },
+        "bars": { "type": "integer", "minimum": 1, "default": 24 },
+        "bar_gap": { "type": "number", "minimum": 0, "default": 4.0 },
+        "color": { "$ref": "#/$defs/HexColor", "default": "#FFFFFF" },
+        "seed": { "type": "integer", "default": 42 },
+        "speed": { "type": "number", "default": 1.0 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "rotation": { "type": "number", "default": 0.0 },
+        "scale": { "type": "number", "default": 1.0 },
+        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+      }
+    },
+    "LottieLayer": {
+      "type": "object",
+      "required": ["type", "src"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "const": "lottie" },
+        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "end_sec": { "type": "number", "minimum": 0 },
+        "duration_secs": { "type": "number", "minimum": 0 },
+        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0 },
+        "flex_grow": { "type": "number" },
+        "margin": { "type": "number" },
+        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
+        "shadow": { "$ref": "#/$defs/Shadow" },
+        "anchor": { "enum": ["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"], "default": "top_left" },
+        "skew_x": { "type": "number", "default": 0.0 },
+        "skew_y": { "type": "number", "default": 0.0 },
+        "x": { "type": "number", "default": 0.0 },
+        "y": { "type": "number", "default": 0.0 },
+        "width": { "type": "number", "minimum": 1 },
+        "height": { "type": "number", "minimum": 1 },
+        "src": { "type": "string", "minLength": 1 },
+        "loop_animation": { "type": "boolean", "default": false },
+        "speed": { "type": "number", "default": 1.0 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "rotation": { "type": "number", "default": 0.0 },
+        "scale": { "type": "number", "default": 1.0 },
         "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
       }
     }

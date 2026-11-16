@@ -1,5 +1,16 @@
 use crate::schema::{AnimProperty, AnimValue, Animation, Easing, RepeatMode, RepeatSpec, SpringConfig};
 
+pub fn eval_math_expression(expr: &str, time_sec: f32, current_val: f32) -> anyhow::Result<f32> {
+    use evalexpr::*;
+    let mut context = HashMapContext::<DefaultNumericTypes>::new();
+    context.set_value("t".into(), Value::Float(time_sec as f64))?;
+    context.set_value("time".into(), Value::Float(time_sec as f64))?;
+    context.set_value("val".into(), Value::Float(current_val as f64))?;
+    context.set_value("PI".into(), Value::Float(std::f64::consts::PI))?;
+    let val = eval_number_with_context(expr, &context)?;
+    Ok(val as f32)
+}
+
 pub fn eval_spring_physics(elapsed_sec: f32, cfg: SpringConfig) -> f32 {
     let t = elapsed_sec.max(0.0);
     let k = cfg.stiffness.max(1e-3);
@@ -245,6 +256,11 @@ pub fn eval_property(animations: &[Animation], prop: AnimProperty, time_sec: f32
     let Some(first) = matching.peek().copied() else {
         return default;
     };
+    if let Some(expr_str) = &first.expr {
+        if let Ok(v) = eval_math_expression(expr_str, time_sec, default) {
+            return v;
+        }
+    }
     if !first.keyframes.is_empty() {
         if time_sec <= first.keyframes[0].time {
             return match first.keyframes[0].value {
@@ -261,6 +277,12 @@ pub fn eval_property(animations: &[Animation], prop: AnimProperty, time_sec: f32
 
     let mut result = default;
     for anim in matching {
+        if let Some(expr_str) = &anim.expr {
+            if let Ok(v) = eval_math_expression(expr_str, time_sec, result) {
+                result = v;
+                continue;
+            }
+        }
         if !anim.keyframes.is_empty() {
             if time_sec < anim.keyframes[0].time {
                 break;
@@ -405,6 +427,7 @@ mod tests {
     fn test_eval_linear_and_clamping() {
         let anims = vec![Animation {
             property: AnimProperty::X,
+            expr: None,
             from: 100.0.into(),
             to: 200.0.into(),
             start_sec: 1.0,
@@ -446,6 +469,7 @@ mod tests {
     fn test_repeat_and_yoyo() {
         let anims = vec![Animation {
             property: AnimProperty::Scale,
+            expr: None,
             from: 0.5.into(),
             to: 1.5.into(),
             start_sec: 0.0,
@@ -466,6 +490,7 @@ mod tests {
     fn test_color_interpolation_and_cubic_bezier() {
         let anims = vec![Animation {
             property: AnimProperty::Color,
+            expr: None,
             from: AnimValue::Color("#ff0000".to_string()),
             to: AnimValue::Color("#0000ff".to_string()),
             start_sec: 0.0,

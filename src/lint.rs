@@ -197,6 +197,13 @@ fn static_layer_bounds(layer: &Layer) -> Option<(f32, f32, f32, f32)> {
             height: h,
             ..
         }
+        | LayerKind::Lottie {
+            x,
+            y,
+            width: Some(w),
+            height: Some(h),
+            ..
+        }
         | LayerKind::Container {
             x,
             y,
@@ -357,8 +364,19 @@ pub fn validate_no_unknown_fields(raw: &str) -> anyhow::Result<()> {
     check_allowed_keys(
         root,
         "root",
-        &["schema_version", "min_renderer_version", "canvas", "fonts", "audio", "layers"],
+        &["schema_version", "min_renderer_version", "canvas", "profiles", "fonts", "audio", "layers"],
     )?;
+    if let Some(profiles) = root.get("profiles").and_then(|v| v.as_object()) {
+        for (name, prof) in profiles {
+            if let Some(po) = prof.as_object() {
+                check_allowed_keys(
+                    po,
+                    &format!("profiles.{name}"),
+                    &["width", "height", "fps", "duration_secs", "background"],
+                )?;
+            }
+        }
+    }
     if let Some(canvas) = root.get("canvas").and_then(|v| v.as_object()) {
         check_allowed_keys(
             canvas,
@@ -420,7 +438,7 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
             ],
             "text" => &[
                 "x", "y", "content", "dynamic", "spans", "font_size", "line_height",
-                "letter_spacing", "font_family", "font_weight", "text_align", "color",
+                "letter_spacing", "font_family", "font_weight", "text_align", "direction", "color",
                 "gradient", "outline", "opacity", "max_width", "scale",
             ],
             "image" => &["x", "y", "width", "height", "src", "fit", "opacity", "rotation", "scale"],
@@ -430,7 +448,15 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
             ],
             "video" => &[
                 "x", "y", "width", "height", "src", "fit", "trim_start_sec", "trim_end_sec",
-                "playback_rate", "volume", "muted", "opacity", "rotation", "scale", "bars", "bar_gap", "seed", "speed",
+                "playback_rate", "volume", "muted", "opacity", "rotation", "scale",
+            ],
+            "waveform" => &[
+                "x", "y", "width", "height", "bars", "bar_gap", "color", "seed", "speed",
+                "opacity", "rotation", "scale",
+            ],
+            "lottie" => &[
+                "x", "y", "width", "height", "src", "loop_animation", "speed", "opacity",
+                "rotation", "scale",
             ],
             "container" => &[
                 "x", "y", "width", "height", "layout", "background", "gradient", "border_color",
@@ -485,7 +511,7 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
                         ao,
                         &format!("{path}.animations[{ai}]"),
                         &[
-                            "property", "from", "to", "start_sec", "end_sec", "keyframes",
+                            "property", "expr", "from", "to", "start_sec", "end_sec", "keyframes",
                             "easing", "bezier", "spring", "repeat", "yoyo",
                         ],
                     )?;

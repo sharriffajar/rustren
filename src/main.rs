@@ -51,6 +51,9 @@ enum Commands {
         /// Print per-layer timing and cache hit/miss stats after render
         #[arg(long, default_value_t = false)]
         profile: bool,
+        /// Name of composition profile to apply (e.g. "portrait", "square", "4k")
+        #[arg(long)]
+        composition: Option<String>,
     },
     /// Validate and lint a scene JSON file without rendering
     Validate {
@@ -227,12 +230,16 @@ fn main() -> Result<()> {
             crf,
             preset,
             profile,
+            composition,
         } => {
             let start_time = Instant::now();
             let raw = fs::read_to_string(&input)
                 .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
-            let scene: Scene =
+            let mut scene: Scene =
                 serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+            if let Some(comp_name) = composition {
+                scene.apply_profile(&comp_name)?;
+            }
             capabilities::validate_scene_capabilities(&scene)?;
 
             let total_frames = (scene.canvas.duration_secs * scene.canvas.fps as f32).ceil() as u32;

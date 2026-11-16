@@ -252,7 +252,7 @@ use crate::assets::AssetStore;
 use crate::schema::{
     AlignSpec, AnchorSpec, AnimProperty, BlendModeSpec, DynamicTextSpec, FitSpec,
     FlexDirectionSpec, FontWeightSpec, GradientTypeSpec, Layer, LayerKind, LayoutSpec,
-    LinearGradientSpec, PositionSpec, Scene, TextAlignSpec, TextSpan, TimelineMode,
+    LinearGradientSpec, PositionSpec, Scene, TextAlignSpec, TextDirectionSpec, TextSpan, TimelineMode,
 };
 
 pub fn parse_hex_color(hex: &str, opacity_override: f32) -> Result<Color> {
@@ -334,6 +334,7 @@ fn is_layer_fully_static(layer: &Layer, scene_duration: f32) -> bool {
     match &layer.kind {
         LayerKind::Video { .. } => false,
         LayerKind::Waveform { .. } => false,
+        LayerKind::Lottie { .. } => false,
         LayerKind::Container { children, .. } => children
             .iter()
             .all(|c| is_layer_fully_static(c, scene_duration)),
@@ -913,6 +914,7 @@ fn layer_base_opacity(kind: &LayerKind) -> f32 {
         | LayerKind::Svg { opacity, .. }
         | LayerKind::Video { opacity, .. }
         | LayerKind::Waveform { opacity, .. }
+        | LayerKind::Lottie { opacity, .. }
         | LayerKind::Container { opacity, .. } => *opacity,
     }
 }
@@ -926,6 +928,7 @@ fn set_layer_opacity(kind: &mut LayerKind, val: f32) {
         | LayerKind::Svg { opacity, .. }
         | LayerKind::Video { opacity, .. }
         | LayerKind::Waveform { opacity, .. }
+        | LayerKind::Lottie { opacity, .. }
         | LayerKind::Container { opacity, .. } => *opacity = val,
     }
 }
@@ -1275,6 +1278,7 @@ fn render_layer_inner(
             font_family,
             font_weight,
             text_align,
+            direction,
             color,
             gradient,
             outline,
@@ -1332,6 +1336,7 @@ fn render_layer_inner(
                 font_family.as_deref(),
                 *font_weight,
                 *text_align,
+                *direction,
                 text_color,
                 op,
                 Some(effective_max_w.unwrap_or(pixmap.width() as f32)),
@@ -1637,6 +1642,41 @@ fn render_layer_inner(
                 let bx = rx + (i as f32) * (bar_w + gap);
                 let by = ry + (h - bh) * 0.5;
                 if let Some(rect) = tiny_skia::Rect::from_xywh(bx, by, bar_w, bh) {
+                    let mut pb = PathBuilder::new();
+                    pb.push_rect(rect);
+                    if let Some(path) = pb.finish() {
+                        pixmap.fill_path(&path, &paint, FillRule::Winding, tf, None);
+                    }
+                }
+            }
+        }
+        LayerKind::Lottie {
+            x,
+            y,
+            width,
+            height,
+            src: _,
+            loop_animation: _,
+            speed: _,
+            opacity,
+            rotation,
+            scale,
+        } => {
+            let (rx, ry) = resolve_xy(layer, layout_override, *x, *y, time_sec);
+            let target_w = layout_override.map(|b| b.w).or(*width).unwrap_or(200.0);
+            let target_h = layout_override.map(|b| b.h).or(*height).unwrap_or(200.0);
+            let s = eval_property(&layer.animations, AnimProperty::Scale, time_sec, *scale);
+            let w = eval_property(&layer.animations, AnimProperty::Width, time_sec, target_w) * s;
+            let h = eval_property(&layer.animations, AnimProperty::Height, time_sec, target_h) * s;
+            let op = eval_property(&layer.animations, AnimProperty::Opacity, time_sec, *opacity) * parent_opacity;
+            let rot = eval_property(&layer.animations, AnimProperty::Rotation, time_sec, *rotation);
+
+            if op > 0.0 && w > 0.0 && h > 0.0 {
+                let mut paint = Paint::default();
+                paint.set_color_rgba8(70, 130, 180, (140.0 * op) as u8);
+                paint.anti_alias = true;
+                let tf = Transform::from_rotate_at(rot, rx + w * 0.5, ry + h * 0.5);
+                if let Some(rect) = Rect::from_xywh(rx, ry, w, h) {
                     let mut pb = PathBuilder::new();
                     pb.push_rect(rect);
                     if let Some(path) = pb.finish() {
@@ -2079,6 +2119,7 @@ fn build_text_buffer(
     font_family: Option<&str>,
     font_weight: FontWeightSpec,
     text_align: TextAlignSpec,
+    direction: TextDirectionSpec,
     default_color: CosmicColor,
     opacity: f32,
     max_width: Option<f32>,
@@ -2101,6 +2142,20 @@ fn build_text_buffer(
         TextAlignSpec::Left => Align::Left,
         TextAlignSpec::Center => Align::Center,
         TextAlignSpec::Right => Align::Right,
+    };
+    let is_rtl = match direction {
+        TextDirectionSpec::Rtl => true,
+        TextDirectionSpec::Ltr => false,
+        TextDirectionSpec::Auto => {
+            let mut check_str = content.to_string();
+            for s in spans {
+                check_str.push_str(&s.text);
+            }
+            check_str.chars().any(|c| {
+                let u = c as u32;
+                (0x0590..=0x08FF).contains(&u) || (0xFB1D..=0xFDFF).contains(&u) || (0xFE70..=0xFEFF).contains(&u)
+            })
+        }
     };
     let default_attrs = Attrs::new().family(family).weight(weight).color(default_color);
     if spans.is_empty() {
@@ -2174,7 +2229,12 @@ fn build_text_buffer(
         buffer.set_rich_text(font_system, rich_spans, default_attrs, Shaping::Advanced);
     }
     for line in buffer.lines.iter_mut() {
-        line.set_align(Some(align));
+        let effective_align = if is_rtl && text_align == TextAlignSpec::Left {
+            Align::Right
+        } else {
+            align
+        };
+        line.set_align(Some(effective_align));
     }
     buffer.shape_until_scroll(font_system, false);
     Ok(buffer)
@@ -2203,6 +2263,7 @@ fn measure_text_size(
         font_family,
         font_weight,
         TextAlignSpec::Left,
+        TextDirectionSpec::Auto,
         CosmicColor::rgba(255, 255, 255, 255),
         1.0,
         max_width,
@@ -2243,6 +2304,7 @@ fn build_taffy_child_node(
                 | LayerKind::Image { x, y, .. }
                 | LayerKind::Video { x, y, .. }
                 | LayerKind::Waveform { x, y, .. }
+                | LayerKind::Lottie { x, y, .. }
                 | LayerKind::Svg { x, y, .. }
                 | LayerKind::Container { x, y, .. } => (*x, *y),
                 LayerKind::Circle { cx, cy, r, .. } => (*cx - *r, *cy - *r),
@@ -2344,6 +2406,7 @@ fn build_taffy_child_node(
         LayerKind::Container { .. } => unreachable!(),
         LayerKind::Image { width, height, .. }
         | LayerKind::Video { width, height, .. }
+        | LayerKind::Lottie { width, height, .. }
         | LayerKind::Svg { width, height, .. } => (
             width.map(Dimension::Length).unwrap_or(Dimension::Auto),
             height.map(Dimension::Length).unwrap_or(Dimension::Auto),
@@ -3058,6 +3121,37 @@ fn inspect_layer_layout(
                 path: path.to_string(),
                 name: layer.name.clone(),
                 layer_type: "waveform".to_string(),
+                x: rx,
+                y: ry,
+                w,
+                h,
+                opacity: op,
+                in_canvas: boxes_intersect_canvas(rx, ry, w, h),
+                text_measured: None,
+                children: Vec::new(),
+            }
+        }
+        LayerKind::Lottie {
+            x,
+            y,
+            width,
+            height,
+            opacity,
+            scale,
+            ..
+        } => {
+            let (rx, ry) = resolve_xy(layer, layout_override, *x, *y, local_t);
+            let base_w = layout_override.map(|b| b.w).or(*width).unwrap_or(200.0);
+            let base_h = layout_override.map(|b| b.h).or(*height).unwrap_or(200.0);
+            let s = eval_property(&layer.animations, AnimProperty::Scale, local_t, *scale);
+            let w = eval_property(&layer.animations, AnimProperty::Width, local_t, base_w) * s;
+            let h = eval_property(&layer.animations, AnimProperty::Height, local_t, base_h) * s;
+            let op = eval_property(&layer.animations, AnimProperty::Opacity, local_t, *opacity)
+                * parent_opacity;
+            LayerLayoutInfo {
+                path: path.to_string(),
+                name: layer.name.clone(),
+                layer_type: "lottie".to_string(),
                 x: rx,
                 y: ry,
                 w,
