@@ -1,8 +1,43 @@
 # Rustren Scene Schema (v1.1) — AI & Developer Guide
 
-`rustren` is a browserless 2D video render engine. Every video is defined in **one declarative JSON file** with no HTML/CSS/JS required.
+`rustren` is a browserless 2D video render engine. Scenes can be authored in declarative **JSON** (`.json`) or declarative **HTML** (`.html`).
 
-> Run `rustren capabilities` to inspect supported features and versions (`renderer_version: "1.1"`, `schema_version: "1.1"`, `min_schema_version: "1.0"`) before generating JSON.
+> Run `rustren capabilities` to inspect supported features and versions (`renderer_version: "1.1"`, `schema_version: "1.1"`, `min_schema_version: "1.0"`) before generating scenes.
+
+---
+
+## Declarative HTML Syntax (Sprint 6)
+In addition to JSON, `rustren` natively compiles declarative HTML files into the internal IR (`CompiledScene`):
+
+```html
+<scene width="1280" height="720" fps="30" duration="5.0" background="#0F172A">
+    <!-- Responsive composition profiles -->
+    <profiles>
+        <profile name="portrait" width="1080" height="1920" />
+        <profile name="square" width="720" height="720" />
+    </profiles>
+
+    <!-- Vector primitives -->
+    <circle cx="640" cy="360" r="160" color="#38BDF8" opacity="0.3">
+        <animate property="scale" from="0.5" to="1.5" start="0" end="2.0" easing="ease_out" />
+    </circle>
+
+    <!-- Flexbox Container -->
+    <container x="200" y="240" width="880" height="240" radius="16" background="#1E293B" layout="column" padding="24" gap="12">
+        <text font-size="40" color="#FFFFFF" font-weight="bold">
+            Declarative HTML Video
+            <animate property="opacity" from="0" to="1" start="0.2" end="0.8" easing="ease_out" />
+        </text>
+        <text font-size="20" color="#94A3B8">
+            Rendered natively by rustren without Chromium!
+        </text>
+    </container>
+</scene>
+```
+
+Supported tags: `<scene>`, `<profiles>`, `<profile>`, `<fonts>`, `<font>`, `<audio-tracks>`, `<audio>`, `<container>`, `<rect>`, `<circle>`, `<text>`, `<image>`, `<svg>`, `<video>`, `<waveform>`, `<lottie>`, and `<animate>`.
+
+---
 
 ## One-Shot Rules
 1. **Do not invent fields outside this schema** (see [schema.json](schema.json) for the official JSON Schema).

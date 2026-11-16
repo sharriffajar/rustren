@@ -3,13 +3,13 @@
 Browserless 2D video render engine in Rust — built to be **fast** and **predictable for AI-generated video**.
 
 ```
-AI generates → Schema validates → Capability checks → Snapshot/Layout previews → Renderer executes → Regression tests verify
+AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Previews (snapshot / layout) → Renderer executes → MP4 out
 ```
 
-`rustren` compiles a single declarative JSON scene into an MP4 video or PNG frame snapshots without spawning a headless browser, DOM, or CSS engine. Every stage of the pipeline is explicit, inspectable, and deterministic.
+`rustren` compiles declarative **JSON** or **HTML** scenes into an MP4 video or PNG frame snapshots without spawning a headless browser, DOM, or Chromium engine. Every stage of the pipeline is explicit, inspectable, and deterministic.
 
 ## Teaser — Rustren Showreel (17s, 30fps)
-**100% Rust, no browser. `JSON in → MP4 out.`**
+**100% Rust, no browser. `JSON / HTML in → MP4 out.`**
 
 - **Source JSON:** [examples/showreel.json](examples/showreel.json) (`44` root layers, `65 KB`)
 - **Output MP4:** [assets/showreel.mp4](assets/showreel.mp4) (`1280×720 @ 30fps`, `17.0s` / `510` frames, `--crf 18 --preset medium`)
@@ -50,13 +50,25 @@ rustren diff baseline.json current.json -t 1.5 --threshold 0.01 --out diff.png
 - **Built-in Render Caches**: Static background prefix snapshotting, thread-local SVG raster/tree caches, and blurred-layer caching avoid re-computing unchanged pixels across frames.
 - **Deterministic & Inspectable**: Same JSON produces identical frames across runs, with `snapshot` PNG previews and `layout` bounding-box inspection built into the CLI.
 
+## Multi-Format Input (JSON & HTML)
+`rustren` features an Intermediate Representation (IR) compiler architecture supporting multiple declarative input formats:
+- **JSON (`.json`)**: Raw declarative scene schema (compact for AI generation and programmatic pipelines).
+- **HTML (`.html`, `.htm`)**: Clean declarative markup with tags like `<scene>`, `<container>`, `<rect>`, `<circle>`, `<text>`, `<animate>`, and `<profiles>`.
+
+```bash
+# Render from JSON or HTML interchangeably:
+rustren render examples/showreel.json -o showreel.mp4
+rustren render examples/cuboid_carousel.html -o cuboid.mp4
+```
+
 ## Key Features
+- **Multi-Format Compiler Architecture**: Extensible compiler trait with automatic format detection (`.json`, `.html`).
 - **Capability Registry & Version Gate**: `rustren capabilities` publishes renderer version (`1.1`), schema version (`1.1`), and supported features.
-- **Declarative Layout & Visuals**: Flexbox (`taffy`), `container` (`clip`, `cascade_opacity`, `stagger_secs`), `rect`, `circle`, `text` (rich text `spans` with per-span `font_size`, `letter_spacing`, `outline`, `gradient`, RTL/BiDi `direction: "rtl"`, `dynamic` typewriter/counter/timecode), `waveform` visualizer, `lottie` animation, `svg`, `image` & `video` (`fit: "fill" | "cover" | "contain"`), `anchor`, `skew_x`/`skew_y`, linear/radial multi-stop `gradient`, plus `blur`, `shadow`, and `blend_mode`.
-- **Composition Profiles**: Define multi-format variants (`profiles: { "portrait": { ... }, "square": { ... } }`) in one JSON and render via `rustren render scene.json --composition portrait`.
+- **Declarative Layout & Visuals**: Flexbox (`taffy`), `container` (`clip`, `cascade_opacity`, `stagger_secs`), `rect`, `circle`, `text` (rich text `spans` with per-span `font_size`, `letter_spacing`, `outline`, `gradient`, RTL/BiDi `direction: "auto" | "ltr" | "rtl"`, dynamic alignment `text_align: "start" | "end"`, `dynamic` typewriter/counter/timecode), `waveform` visualizer, `lottie` animation, `svg`, `image` & `video` (`fit: "fill" | "cover" | "contain"`), `anchor`, `skew_x`/`skew_y`, linear/radial multi-stop `gradient`, plus `blur`, `shadow`, and `blend_mode`.
+- **Composition Profiles**: Define multi-format variants (`profiles: { "portrait": { ... }, "square": { ... } }`) in one scene and render via `--composition <name>` across all CLI commands (`render`, `validate`, `snapshot`, `layout`, `watch`, and `/jobs` API).
 - **Timeline & Sequencing**: Global `start_sec`/`end_sec`, `duration_secs`, `timeline: "local"`, and `timeline: "series"` with `overlap_secs`.
 - **Media & A/V Sync**: `video` layer with `trim_start_sec`, `trim_end_sec`, `playback_rate`, `volume`, and `muted` synced to FFmpeg; multi-track `audio` with `fade_in_secs`, `fade_out_secs`, and volume ducking keyframes.
-- **Advanced Motion**: `keyframes[]` multi-stop timelines, mathematical per-frame `expr` ("val + sin(t*2.0)*50"), custom `spring` (`stiffness`, `damping`, `mass`), `repeat` & `yoyo`, `cubic_bezier` + Penner easings, color interpolation (`color`, `border_color`), and path/stroke animation (`path_progress`, `stroke_dashoffset`).
+- **Advanced Motion**: `keyframes[]` multi-stop timelines, mathematical per-frame `expr` with precompiled AST cache and math helpers (`clamp`, `lerp`, `smoothstep`, `abs`, `min`, `max`), custom `spring` (`stiffness`, `damping`, `mass`), `repeat` & `yoyo`, `cubic_bezier` + Penner easings, color interpolation (`color`, `border_color`), and path/stroke animation (`path_progress`, `stroke_dashoffset`).
 - **AI Authoring & Debugging Tools**: Instant single-frame / contact-sheet `snapshot`, computed bounding-box `layout` inspection, smart `validate` linting, and `--profile` performance breakdown.
 
 ## Prerequisites & Installation
@@ -170,7 +182,9 @@ Type definitions matching `schema.json` are included for AI pipelines:
 
 ## Examples
 Browse [examples/](examples) for full scenes you can validate or render directly, including:
-- [examples/showreel.json](examples/showreel.json) — 17-second v1.1 showreel (`dynamic` typewriter & timecode, `skew_x`, `anchor`, `stagger_secs`) used to generate the preview sheet above
+- [examples/showreel.json](examples/showreel.json) — 17-second v1.1 showreel (`dynamic` typewriter & timecode, `skew_x`, `anchor`, `stagger_secs`)
+- [examples/showreel.html](examples/showreel.html) — declarative HTML showreel scene
+- [examples/cuboid_carousel.html](examples/cuboid_carousel.html) — 200-frame 1080p declarative HTML card carousel
 - [examples/rustren_showcase_15s.json](examples/rustren_showcase_15s.json) — 15-second multi-scene showcase
 - [examples/benchmark_scene.json](examples/benchmark_scene.json) — animation benchmark scene
 - [examples/demo.json](examples/demo.json) — minimal starter scene
