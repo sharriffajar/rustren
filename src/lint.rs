@@ -37,26 +37,26 @@ pub fn collect_lint_warnings(scene: &Scene) -> Vec<String> {
             let preview = items[..2].join("; ");
             let summary = match category {
                 "font_size" => format!(
-                    "{} layer memiliki font_size < {min_font_px}px (profil {profile_label}; contoh: {preview})",
+                    "{} layers have font_size < {min_font_px}px ({profile_label} profile; e.g.: {preview})",
                     items.len()
                 ),
                 "end_sec" => format!(
-                    "{} layer memiliki end_sec > canvas.duration_secs (contoh: {preview})",
+                    "{} layers have end_sec > canvas.duration_secs (e.g.: {preview})",
                     items.len()
                 ),
                 "missing_max_width" => format!(
-                    "{} text layer di dalam container tanpa max_width (contoh: {preview})",
+                    "{} text layers inside a container are missing max_width (e.g.: {preview})",
                     items.len()
                 ),
                 "out_of_canvas" => format!(
-                    "{} layer berada di luar kanvas (contoh: {preview})",
+                    "{} layers are outside the canvas bounds (e.g.: {preview})",
                     items.len()
                 ),
                 "low_contrast" => format!(
-                    "{} text layer memiliki kontras warna rendah (contoh: {preview})",
+                    "{} text layers have low color contrast (e.g.: {preview})",
                     items.len()
                 ),
-                _ => format!("{} peringatan {category} (contoh: {preview})", items.len()),
+                _ => format!("{} {category} warnings (e.g.: {preview})", items.len()),
             };
             out.push(summary);
         }
@@ -91,7 +91,7 @@ fn lint_layers(
                 && (lx + lw <= 0.0 || ly + lh <= 0.0 || lx >= canvas_w || ly >= canvas_h)
             {
                 groups.entry("out_of_canvas").or_default().push(format!(
-                    "{path} di luar kanvas ({lx:.0},{ly:.0} {lw:.0}x{lh:.0})"
+                    "{path} outside canvas bounds ({lx:.0},{ly:.0} {lw:.0}x{lh:.0})"
                 ));
             }
         }
@@ -115,7 +115,7 @@ fn lint_layers(
                     groups
                         .entry("missing_max_width")
                         .or_default()
-                        .push(format!("{path} text di dalam container tanpa max_width"));
+                        .push(format!("{path} text inside container missing max_width"));
                 }
                 if *opacity >= 0.2 {
                     if let Some(fg) = parse_rgb(color) {
@@ -126,7 +126,7 @@ fn lint_layers(
                         let ratio = contrast_ratio(fg, bg);
                         if ratio < 2.2 {
                             groups.entry("low_contrast").or_default().push(format!(
-                                "{path} kontras rendah ({ratio:.2}:1, teks {color})"
+                                "{path} low contrast ({ratio:.2}:1, text {color})"
                             ));
                         }
                     }

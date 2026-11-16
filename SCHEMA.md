@@ -1,23 +1,23 @@
 # Rustren Scene Schema (v1.1) — AI & Developer Guide
 
-`rustren` adalah browserless 2D video render engine. Semua video didefinisikan dengan **1 file JSON deklaratif** tanpa HTML/CSS/JS.
+`rustren` is a browserless 2D video render engine. Every video is defined in **one declarative JSON file** with no HTML/CSS/JS required.
 
-> Gunakan `rustren capabilities` untuk memeriksa fitur dan versi renderer (`renderer_version: "1.1"`, `schema_version: "1.1"`, `min_schema_version: "1.0"`) sebelum menghasilkan JSON.
+> Run `rustren capabilities` to inspect supported features and versions (`renderer_version: "1.1"`, `schema_version: "1.1"`, `min_schema_version: "1.0"`) before generating JSON.
 
-## Aturan Penting (One-Shot Rules)
-1. **Jangan gunakan field di luar skema ini** (lihat [schema.json](schema.json) untuk JSON Schema resmi).
-2. **Timing Scene**: Gunakan `start_sec`, `end_sec`, atau `duration_secs` (dalam detik), serta `timeline: "series"` pada container untuk sequencing otomatis.
-3. **Animasi `x` / `y`**:
-   - Pada root layer (`position: "absolute"`): `from` dan `to` adalah **koordinat kanvas absolut**.
-   - Pada child `relative` di dalam `container`: hindari menganimasikan `x`/`y` jika tidak perlu; gunakan `opacity` dan `scale` agar posisi `taffy` tetap stabil.
-4. **Animasi `width` / `height` di dalam `container` (mis. progress bar)**: Gunakan `position: "absolute"`, `x: 0`, `y: 0` pada `rect` tersebut agar lebarnya tidak tertahan oleh kalkulasi `taffy`.
-5. **Background Grid & Radial Glow**: Gunakan layer `type: "svg"` dengan `<pattern>` dan `<radialGradient>` di urutan paling bawah `layers`.
-6. **Teks Multi-baris**: Selalu isi `max_width` pada `type: "text"` agar word-wrapping dan estimasi tinggi `taffy` akurat.
-7. **Cache**: Baca tabel [Cache Engine](#cache-engine-key--cara-nulis-json-biar-hit) di bawah. Taruh layer background statis di indeks paling awal `layers[]`, dan utamakan animasi `opacity` / `x` / `y` / `rotation` biar **HIT** (hindari animasi `width` SVG / `path_progress` / `scale` teks kalau bukan perlu).
+## One-Shot Rules
+1. **Do not invent fields outside this schema** (see [schema.json](schema.json) for the official JSON Schema).
+2. **Scene Timing**: Use `start_sec`, `end_sec`, or `duration_secs` (in seconds), and `timeline: "series"` on a container for automatic sequencing.
+3. **`x` / `y` Animations**:
+   - On root layers or `position: "absolute"` children inside a container: `from` and `to` are **absolute coordinates** (relative to the canvas for root layers, or relative to the container origin).
+   - On `position: "relative"` flex children inside a `container`: `from` and `to` are **offsets** added to the computed `taffy` flex position; prefer `opacity`, `scale`, or `stagger_secs` when flex positioning should stay fixed.
+4. **`width` / `height` Animations Inside a `container` (e.g. progress bar)**: Set `position: "absolute"`, `x: 0`, `y: 0` on that `rect` so its size is not overridden by `taffy` flex layout.
+5. **Grid & Radial Glow Backgrounds**: Use an `svg` layer with `<pattern>` and `<radialGradient>` at the bottom of `layers[]`.
+6. **Multi-line Text**: Always specify `max_width` on `type: "text"` so word-wrapping and `taffy` height estimation are accurate.
+7. **Cache**: Read the [Cache Engine](#cache-engine-keys--how-to-write-cache-friendly-json) table below. Place static background layers at the start of `layers[]`, and prefer animating `opacity` / `x` / `y` / `rotation` to get cache **HITs** (avoid animating SVG `width`, `path_progress`, or text `scale` unless needed).
 
 ---
 
-## Struktur Root
+## Root Structure
 ```json
 {
   "schema_version": "1.1",
@@ -44,61 +44,68 @@
 }
 ```
 
-## Properti Umum Setiap Layer
-- `name` (opsional): string
-- `type` (wajib): `"container"` | `"rect"` | `"circle"` | `"text"` | `"svg"` | `"image"` | `"video"`
-- `position` (opsional, default `"relative"`): `"relative"` | `"absolute"`
-- `start_sec` (opsional, default `0.0`): f32
-- `end_sec` (opsional, default `canvas.duration_secs`): f32
-- `duration_secs` (opsional): f32 (alternatif `end_sec = start_sec + duration_secs`, wajib untuk sequencing `series`)
-- `overlap_secs` (opsional, default `0.0`): f32 (overlap mundur antar item di mode container `timeline: "series"`)
-- `flex_grow` (opsional): f32
-- `margin` (opsional): f32
-- `blend_mode` (opsional, default `"normal"`): `"normal"` | `"multiply"` | `"screen"` | `"overlay"` | `"darken"` | `"lighten"` | `"difference"`
-- `blur` (opsional, default `0.0`): f32 (Gaussian blur radius dalam px)
-- `shadow` (opsional): `{ "offset_x": 0.0, "offset_y": 8.0, "blur": 16.0, "color": "#00000080" }`
-- `animations` (opsional): array of Animation
+## Common Layer Properties
+- `name` (optional): string
+- `type` (required): `"container"` | `"rect"` | `"circle"` | `"text"` | `"svg"` | `"image"` | `"video"`
+- `position` (optional, default `"relative"`): `"relative"` | `"absolute"`
+- `anchor` (optional, default `"top_left"`): `"top_left"` | `"top_center"` | `"top_right"` | `"center_left"` | `"center"` | `"center_right"` | `"bottom_left"` | `"bottom_center"` | `"bottom_right"`
+- `skew_x`, `skew_y` (optional, default `0.0`): f32 (degrees)
+- `start_sec` (optional, default `0.0`): f32
+- `end_sec` (optional, default `canvas.duration_secs`): f32
+- `duration_secs` (optional): f32 (alternative `end_sec = start_sec + duration_secs`, useful for `series` sequencing)
+- `overlap_secs` (optional, default `0.0`): f32 (backward overlap between items in `timeline: "series"` containers)
+- `flex_grow` (optional): f32
+- `margin` (optional): f32
+- `blend_mode` (optional, default `"normal"`): `"normal"` | `"multiply"` | `"screen"` | `"overlay"` | `"darken"` | `"lighten"` | `"difference"`
+- `blur` (optional, default `0.0`): f32 (Gaussian blur radius in px)
+- `shadow` (optional): `{ "offset_x": 0.0, "offset_y": 8.0, "blur": 16.0, "color": "#00000080" }`
+- `animations` (optional): array of Animation
 
-## Tipe Layer
+## Layer Types
 
 ### 1. `container` (Flexbox via `taffy` & Nested Timeline)
-- `x`, `y` (default `0.0`), `width`, `height` (opsional, auto-size jika kosong)
-- `radius` (default `0.0`), `background` (opsional hex `#RGB` / `#RRGGBB` / `#RRGGBBAA`)
-- `gradient` (opsional): `{ "from": "#22D3EE", "to": "#818CF8", "angle": 90 }`
-- `border_color` (opsional), `border_width` (default `0.0`), `opacity` (default `1.0`), `scale` (default `1.0`), `rotation` (default `0.0`, derajat), `clip` (default `false`), `cascade_opacity` (default `false`)
-- `timeline` (opsional, default `"absolute"`): `"absolute"` | `"local"` (waktu animasi child relatif terhadap `start_sec` container) | `"series"` (children dirangkai berurutan otomatis berdasarkan `duration_secs` & `overlap_secs`)
+- `x`, `y` (default `0.0`), `width`, `height` (optional, auto-sizes to content if omitted)
+- `radius` (default `0.0`), `background` (optional hex `#RGB` / `#RRGGBB` / `#RRGGBBAA`)
+- `gradient` (optional): `{ "from": "#22D3EE", "to": "#818CF8", "angle": 90 }`
+- `border_color` (optional), `border_width` (default `0.0`), `opacity` (default `1.0`), `scale` (default `1.0`), `rotation` (default `0.0`, degrees), `clip` (default `false`), `cascade_opacity` (default `false`)
+- `timeline` (optional, default `"global"`): `"global"` | `"local"` (child animation times relative to container `start_sec`) | `"series"` (children sequenced automatically via `duration_secs` & `overlap_secs`)
+- `stagger_secs` (optional, default `0.0`): f32 (progressive delay `i * stagger_secs` applied to each child)
 - `layout`:
   - `direction`: `"row"` | `"column"`
-  - `justify_content`: `"start"` | `"center"` | `"end"` | `"space_between"` | `"space_around"` | `"stretch"` (alias: `"flex_start"`, `"flex_end"`)
-  - `align_items`: `"start"` | `"center"` | `"end"` | `"space_between"` | `"space_around"` | `"stretch"` (alias: `"flex_start"`, `"flex_end"`)
+  - `justify_content`: `"start"` | `"center"` | `"end"` | `"space_between"` | `"space_around"` | `"stretch"` (aliases: `"flex_start"`, `"flex_end"`)
+  - `align_items`: `"start"` | `"center"` | `"end"` | `"space_between"` | `"space_around"` | `"stretch"` (aliases: `"flex_start"`, `"flex_end"`)
   - `gap` (default `0.0`), `padding` (default `0.0`)
 - `children`: array of Layer
 
 ### 2. `rect`
-- `x`, `y` (default `0.0`), `width`, `height` (wajib)
-- `radius` (default `0.0`), `color` (wajib hex; jika `gradient` juga diisi, **`gradient` yang menang**), `scale` (default `1.0`), `rotation` (default `0.0`, derajat)
-- `gradient`, `border_color`, `border_width`, `path_progress` (default `1.0`), `stroke_dashoffset` (opsional), `opacity`
+- `x`, `y` (default `0.0`), `width`, `height` (required)
+- `radius` (default `0.0`), `color` (required hex; if `gradient` is also set, **`gradient` takes precedence**), `scale` (default `1.0`), `rotation` (default `0.0`, degrees)
+- `gradient`, `border_color`, `border_width`, `path_progress` (default `1.0`), `stroke_dashoffset` (optional), `opacity`
 
 ### 3. `circle`
-- `cx`, `cy` (default `0.0`), `r` (wajib), `color` (wajib hex), `border_color` (opsional), `border_width` (default `0.0`), `path_progress` (default `1.0`), `stroke_dashoffset` (opsional), `opacity` (default `1.0`), `scale` (default `1.0`)
-- Jika diletakkan sebagai child `relative` di dalam `container`, ukurannya di layout flex adalah `2r × 2r` dan `cx`/`cy` ditimpa ke titik tengah kotak flex.
+- `cx`, `cy` (default `0.0`), `r` (required), `color` (required hex), `border_color` (optional), `border_width` (default `0.0`), `path_progress` (default `1.0`), `stroke_dashoffset` (optional), `opacity` (default `1.0`), `scale` (default `1.0`)
+- When placed as a `relative` child inside a `container`, its flex box size is `2r × 2r` and `cx`/`cy` is placed at the flex box center.
 
 ### 4. `text`
-- `x`, `y` (default `0.0`), `content` (opsional jika `spans` diisi)
-- `spans` (opsional): array of `{ "text": "...", "color": "#...", "font_weight": "bold", "font_family": "...", "font_size": 48.0 }` untuk rich text multi-style
-- `font_size` (default `48.0`), `line_height` (opsional, default `1.25 × font_size`), `letter_spacing` (default `0.0`, px), `font_family` (opsional), `font_weight`: `"normal"` | `"bold"`
+- `x`, `y` (default `0.0`), `content` (optional if `spans` or `dynamic` is provided)
+- `dynamic` (optional): declarative dynamic text:
+  - `{"mode": "typewriter", "text": "...", "start_sec": 0.0, "end_sec": 1.0, "cursor": "|"}`
+  - `{"mode": "counter", "from": 0, "to": 100, "decimals": 0, "prefix": "", "suffix": "%", "easing": "ease_out"}`
+  - `{"mode": "timecode", "format": "mm:ss", "offset_sec": 0.0}` (`"mm:ss"`, `"mm:ss.cc"`, `"hh:mm:ss"`)
+- `spans` (optional): array of `{ "text": "...", "color": "#...", "font_weight": "bold", "font_family": "...", "font_size": 48.0 }` for multi-style rich text
+- `font_size` (default `48.0`), `line_height` (optional, default `1.25 × font_size`), `letter_spacing` (default `0.0`, px), `font_family` (optional), `font_weight`: `"normal"` | `"bold"`
 - `text_align`: `"left"` | `"center"` | `"right"`
-- `color` (default `"#FFFFFF"`), `opacity` (default `1.0`), `scale` (default `1.0`), `max_width` (opsional, disarankan diisi)
+- `color` (default `"#FFFFFF"`), `opacity` (default `1.0`), `scale` (default `1.0`), `max_width` (optional, recommended)
 
 ### 5. `svg`
-- `x`, `y` (default `0.0`), `width`, `height` (opsional), `src` (wajib: path file, URL, atau inline `<svg ...>...</svg>`), `path_progress` (default `1.0`), `stroke_dashoffset` (opsional), `stroke_dasharray` (opsional array of f32), `opacity` (default `1.0`), `rotation` (default `0.0`, derajat)
+- `x`, `y` (default `0.0`), `width`, `height` (optional), `src` (required: file path, URL, or inline `<svg ...>...</svg>`), `path_progress` (default `1.0`), `stroke_dashoffset` (optional), `stroke_dasharray` (optional array of f32), `opacity` (default `1.0`), `rotation` (default `0.0`, degrees)
 
 ### 6. `image`
-- `x`, `y` (default `0.0`), `width`, `height` (opsional), `src` (wajib: path file atau URL), `opacity` (default `1.0`), `rotation` (default `0.0`, derajat), `scale` (default `1.0`)
+- `x`, `y` (default `0.0`), `width`, `height` (optional), `src` (required: file path or URL), `opacity` (default `1.0`), `rotation` (default `0.0`, degrees), `scale` (default `1.0`)
 
 ### 7. `video`
-- `x`, `y` (default `0.0`), `width`, `height` (opsional, default ukuran asli video), `src` (wajib: path file atau URL video MP4/MOV/WEBM)
-- `trim_start_sec` (default `0.0`), `trim_end_sec` (opsional), `playback_rate` (default `1.0`, mempengaruhi video & audio), `volume` (default `1.0`), `muted` (default `false`)
+- `x`, `y` (default `0.0`), `width`, `height` (optional, defaults to source video dimensions), `src` (required: file path or URL for MP4/MOV/WEBM)
+- `trim_start_sec` (default `0.0`), `trim_end_sec` (optional), `playback_rate` (default `1.0`, affects both video & audio), `volume` (default `1.0`), `muted` (default `false`)
 - `opacity` (default `1.0`), `rotation` (default `0.0`), `scale` (default `1.0`)
 
 ## `animations[]`
@@ -112,57 +119,59 @@
   "easing": "spring"
 }
 ```
-- `property`: `"x"` | `"y"` | `"width"` | `"height"` | `"opacity"` | `"scale"` | `"rotation"` | `"cx"` | `"cy"` | `"r"` | `"radius"` | `"color"` *(alias: `"background"`)* | `"border_color"` | `"path_progress"` | `"stroke_dashoffset"`
-- `from`, `to`: angka (`f32`) atau hex color (`"#RRGGBB"` / `"#RRGGBBAA"`) untuk `color` / `background` / `border_color`
+- `property`: `"x"` | `"y"` | `"width"` | `"height"` | `"opacity"` | `"scale"` | `"rotation"` | `"skew_x"` | `"skew_y"` | `"cx"` | `"cy"` | `"r"` | `"radius"` | `"color"` *(alias: `"background"`)* | `"border_color"` | `"path_progress"` | `"stroke_dashoffset"`
+- `from`, `to`: number (`f32`) or hex color (`"#RRGGBB"` / `"#RRGGBBAA"`) for `color` / `background` / `border_color`
 - `easing`: `"linear"` | `"ease_in"` | `"ease_out"` | `"ease_in_out"` | `"ease_in_quad"` | `"ease_out_quad"` | `"ease_in_out_quad"` | `"ease_in_expo"` | `"ease_out_expo"` | `"ease_in_out_expo"` | `"ease_in_back"` | `"ease_out_back"` | `"ease_in_out_back"` | `"ease_out_bounce"` | `"cubic_bezier"` | `"spring"`
-- `bezier` *(opsional, khusus `easing: "cubic_bezier"`)*: `[x1, y1, x2, y2]`
-- `spring` *(opsional, khusus `easing: "spring"`)*: `{ "stiffness": 120.0, "damping": 14.0, "mass": 1.0 }`
-- `repeat` *(opsional)*: angka integer (`>= 0`) atau `"infinite"` untuk mengulang siklus `[start_sec, end_sec]`
-- `yoyo` *(opsional, default `false`)*: jika `true`, siklus ganjil membalik arah (`to` → `from`)
+- `bezier` *(optional, for `easing: "cubic_bezier"`)*: `[x1, y1, x2, y2]`
+- `spring` *(optional, for `easing: "spring"`)*: `{ "stiffness": 120.0, "damping": 14.0, "mass": 1.0 }`
+- `repeat` *(optional)*: integer (`>= 0`) or `"infinite"` to repeat the `[start_sec, end_sec]` cycle
+- `yoyo` *(optional, default `false`)*: if `true`, odd cycles reverse direction (`to` → `from`)
 
+## Time, Animation & Inheritance Semantics
+- **Animation Times (`animations[].start_sec` / `end_sec`)**: Evaluated in **global** video time by default (not relative to the layer's `start_sec`), unless inside a `timeline: "local"` or `"series"` container.
+- **Clamping & Multi-keyframe**: Before the first animation starts, the property is clamped to `from`. Between two sequential animations on the same property (e.g. fade-in `0→1` then fade-out `1→0`), the value holds at the previous animation's `to`. After the last animation finishes, it clamps to `to`.
+- **Layer `end_sec`**: **Inclusive** (`time_sec <= end_sec` is rendered), quantized per frame (`frame_idx / fps`). For a clean hard cut without a 1-frame overlap, use `end_sec = next_start - 1/fps`.
+- **Z-order**: Order in `layers[]` and `children[]` is back-to-front (first element at the bottom, last element on top).
+- **Container Inheritance**:
+  - Container `opacity` does **not** cascade to `children` by default (`cascade_opacity: false`), though if `opacity <= 0` children are skipped. Set `"cascade_opacity": true` to fade an entire scene/container together (enable `cascade_opacity: true` on nested containers as well if they should inherit).
+  - `start_sec` / `end_sec` on `children` are evaluated according to the container's `timeline` mode (`"global"`, `"local"`, or `"series"`), and when the parent container is outside its active window, all `children` are skipped.
+  - `cx`, `cy`, `r` apply to `circle` (enabling pulse & ripple animations).
+  - `rotation` applies to `container`, `rect`, `image`, `video`, and `svg`.
+  - `scale` applies to `container`, `rect`, `text`, `image`, `video`, and `circle`.
+- **Spring Overshoot, Clamping & Error Handling**:
+  - `spring` can slightly overshoot `to` before settling. Animated `opacity` is clamped to `[0.0, 1.0]`, and layers with `width <= 0`, `height <= 0`, `r <= 0`, `scale <= 0`, or `opacity <= 0` are not drawn. If two animations on the same property overlap in time, the later one in the array wins.
+  - Missing or unreadable `src` (`image`, `video`, `svg`, `audio`, `fonts`) fails immediately with a non-zero exit code. Unknown `font_family` falls back to system sans-serif.
 
-## Semantik Waktu, Animasi & Pewarisan
-- **Waktu animasi (`animations[].start_sec` / `end_sec`)**: Bersifat **global** (mengikuti timeline video, bukan relatif ke `start_sec` layer).
-- **Clamping & Multi-keyframe**: Sebelum animasi pertama dimulai, properti dikunci ke `from`. Di antara dua animasi berurutan pada properti yang sama (misal fade-in `0→1` lalu fade-out `1→0`), nilai ditahan di `to` animasi sebelumnya. Sesudah animasi terakhir selesai, properti dikunci ke `to`. Pola `opacity: 0` + fade-in + fade-out di satu layer aman digunakan.
-- **`end_sec` layer**: Bersifat **inklusif** (`time_sec <= end_sec` tetap dirender), dikuantisasi per frame (`frame_idx / fps`). Untuk hard cut tanpa 1 frame tumpang tindih, gunakan `end_sec = start_berikutnya - 1/fps`.
-- **Z-order**: Urutan elemen di `layers[]` dan `children[]` adalah urutan gambar dari belakang ke depan (elemen pertama di bawah, elemen terakhir di atas).
-- **Pewarisan container**:
-  - `opacity` container **tidak** cascade ke `children` secara default (`cascade_opacity: false`), namun jika `opacity <= 0` maka seluruh `children` ikut tidak dirender. Aktifkan `"cascade_opacity": true` pada `container` untuk fade-in/out satu scene sekaligus (jika ada container bersarang, aktifkan `cascade_opacity: true` juga di inner container agar opacity efektifnya terus mengalir ke cucu).
-  - `start_sec` / `end_sec` pada `children` tetap dievaluasi sesuai mode `timeline` container (`"absolute"`, `"local"`, atau `"series"`), dan jika parent container berada di luar rentang aktifnya, seluruh `children` ikut tidak dirender.
-  - `cx`, `cy`, `r` berlaku pada `circle` (memungkinkan animasi pulse & ripple).
-  - `rotation` berlaku pada `container`, `rect`, `image`, `video`, dan `svg` (diabaikan pada `text` dan `circle`).
-  - `scale` berlaku pada `container`, `rect`, `text`, `image`, `video`, dan `circle`.
-- **Easing `spring`, Clamping & Error Handling**:
-  - `spring` dapat sedikit overshoot melewati `to` sebelum stabil. Hasil animasi `opacity` selalu di-clamp engine ke `[0.0, 1.0]`, dan elemen dengan `width <= 0`, `height <= 0`, `r <= 0`, `scale <= 0`, atau `opacity <= 0` tidak digambar. Jika dua animasi pada properti yang sama saling tumpang tindih rentang waktunya, animasi yang muncul terakhir di array menang.
-  - Jika file/URL `src` (`image`, `video`, `svg`, `audio`, `fonts`) tidak ditemukan atau gagal dimuat, render langsung berhenti dengan error (exit non-zero). Jika `font_family` tidak ditemukan, teks fallback ke sans-serif sistem.
+## Size, Layout & Text Rules
+- **`container`**: `width` and `height` are **optional** (auto-sizes to children if omitted). When `position: "absolute"` is used on a child inside a `container`, `x`/`y` are **relative to the `container`**, not the root canvas.
+- **Text**:
+  - When `fonts: []`, the engine automatically falls back to system sans-serif.
+  - `font_family` matches the font's internal family name. `font_weight: "bold"` requests bold weight from `cosmic-text`.
+  - `text_align` aligns text within `max_width` (or canvas width if omitted). Supports `\n` newlines and system color emojis.
+- **Gradients & Colors**: Colors use hex strings (`#RGB`, `#RRGGBB`, `#RRGGBBAA`). `gradient.angle` is measured clockwise in degrees from the positive X-axis (`0°` = left-to-right, `90°` = top-to-bottom).
+- **SVG**: Rendered via `resvg`/`usvg` (supports `<path>`, `<rect>`, `<circle>`, `<pattern>`, `<radialGradient>`, `<linearGradient>`, etc.).
 
-## Aturan Ukuran, Layout & Teks
-- **`container`**: `width` dan `height` **opsional** (default `0`, auto-size mengikuti isi jika kosong). Jika `position: "absolute"` dipakai pada child di dalam `container`, koordinat `x`/`y` bersifat **relatif terhadap `container`**, bukan kanvas.
-- **Teks**:
-  - Jika `fonts: []`, engine otomatis fallback ke font sans-serif sistem.
-  - `font_family` dicocokkan dengan nama internal font (family name). `font_weight: "bold"` meminta weight bold dari `cosmic-text` (fallback ke sintetis/regular jika tidak tersedia).
-  - `text_align` meratakan teks di dalam kotak `max_width` (atau lebar kanvas jika `max_width` kosong). **Catatan**: untuk `text` di dalam `container`, isi `max_width` agar teks tidak melebar keluar container. Mendukung `\n` (newline) dan emoji sistem.
-- **Gradien & Warna**: Format warna hanya mendukung hex (`#RGB`, `#RRGGBB`, `#RRGGBBAA`). Pada `gradient`, `angle` dalam derajat diukur searah jarum jam dari sumbu X positif (`0°` = kiri ke kanan, `90°` = atas ke bawah).
-- **SVG**: Dirender oleh `resvg`/`usvg` (mendukung `<path>`, `<rect>`, `<circle>`, `<pattern>`, `<radialGradient>`, `<linearGradient>`, dll.).
-
-## Spesifikasi Output & Performa
+## Output Specs & Performance
 - **Format**: MP4 (H.264 High Profile, `yuv420p`, `30fps` default).
-- **Ukuran & Kecepatan**: Desain flat/vektor 1080×1920 berdurasi ~32s menghasilkan ~1,06 MB (~260 kbps) dengan kecepatan render **~12–16 fps** (estimasi kasar: `total_frames / 14` detik).
+- **CLI Inspection Tools**:
+  - `rustren validate <file.json>`: checks schema compatibility and emits grouped lint warnings (profile-aware font size, out-of-canvas bounds, low text contrast).
+  - `rustren snapshot <file.json> -t 1.5,5.6 --sheet -o sheet.png`: renders individual timestamps or a contact sheet directly to PNG.
+  - `rustren layout <file.json> -t 5.0`: outputs computed bounding boxes and measured text dimensions as JSON.
+  - `rustren render <file.json> -o out.mp4 --profile`: prints per-layer CPU time and cache hit/miss stats.
 
-## Panduan Ukuran & Tipografi Aman (9:16 / 1080×1920)
-- **Margin aman**: ≥ `60` px di kiri/kanan, ≥ `120` px di atas/bawah (menghindari UI TikTok/Reels).
-- **Tipografi**:
-  - Judul utama: `font_size` ≥ `64`
-  - Subjudul / judul kartu: `font_size` ≥ `44`
-  - Body text (isi di dalam kartu/paragraf): `font_size` ≥ `40` (hindari `< 34` karena sulit dibaca di layar HP)
-  - Label / badge kecil: `font_size` ≥ `26`
+## Safe Sizing & Typography Guide (9:16 / 1080×1920)
+- **Safe margins**: `>= 60` px left/right, `>= 120` px top/bottom (avoids Shorts/Reels/TikTok UI overlays).
+- **Typography**:
+  - Main title: `font_size >= 64`
+  - Subtitle / card heading: `font_size >= 44`
+  - Body text: `font_size >= 40` (avoid `< 34` on mobile)
+  - Small label / badge: `font_size >= 26`
 
-## Sistem Koordinat, Anchor & Validasi
-- **Sistem koordinat**: Origin `(0, 0)` di **pojok kiri-atas**, sumbu `x` ke kanan, sumbu `y` ke bawah, satuan **px**. Root layer selalu berada di koordinat absolut kanvas.
-- **Anchor & Pivot**: `rect`, `container`, `image`, `svg`, dan `text` (`y` = sisi atas kotak teks, `line_height ≈ 1.25 × font_size` default) berpatokan pada pojok kiri-atas. `circle` berpusat dan berpivot `scale` di `(cx, cy)`. `image` berpivot `scale`/`rotation` dan `rect`/`svg` berpivot `rotation` di `(x + w/2, y + h/2)` pada frame tersebut (jika `width`/`height` ikut dianimasikan, titik tengahnya ikut bergeser). `text` men-scale `font_size` dan `line_height` dari pojok kiri-atas kotak teksnya.
-- **Validasi CLI**: Jalankan `rustren validate <file.json>` sebelum render. Jika valid, keluar dengan exit code `0`, ringkasan ke stdout, dan lint `warning: ...` ke stderr (`end_sec > duration_secs`, `font_size < 26`, atau `text` di `container` tanpa `max_width`). Jika JSON tidak valid, keluar dengan exit code non-zero dan pesan error.
+## Coordinate System & Anchor
+- **Origin**: `(0, 0)` at **top-left**, `+x` right, `+y` down, units in **px**.
+- **Anchor & Pivot**: Default `anchor` is `"top_left"` (use `"center"` to position by center). `circle` is centered at `(cx, cy)`. `rect`, `container`, `image`, `svg`, and `text` apply `rotation`/`skew_x`/`skew_y` around the center of their bounding box.
 
-## Contoh JSON Lengkap (1 Scene + Progress Bar)
+## Complete Scene Example (1 Scene + Progress Bar)
 ```json
 {
   "canvas": { "width": 1080, "height": 1920, "fps": 30, "duration_secs": 5.0, "background": "#070B14" },
@@ -187,8 +196,8 @@
         { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 4.5, "end_sec": 4.9, "easing": "ease_in" }
       ],
       "children": [
-        { "type": "text", "content": "JUDUL UTAMA", "font_size": 72, "font_weight": "bold", "color": "#22D3EE", "max_width": 880 },
-        { "type": "text", "content": "Penjelasan singkat yang jelas dibaca di layar HP.", "font_size": 44, "color": "#FFFFFF", "max_width": 880 }
+        { "type": "text", "content": "MAIN HEADLINE", "font_size": 72, "font_weight": "bold", "color": "#22D3EE", "max_width": 880 },
+        { "type": "text", "content": "Concise supporting copy readable on mobile screens.", "font_size": 44, "color": "#FFFFFF", "max_width": 880 }
       ]
     },
     {
@@ -208,8 +217,8 @@
 }
 ```
 
-## Resep Pola Layout Cepat
-- **Kartu Perbandingan 2 Kolom (`row` + `flex_grow`)**:
+## Quick Layout Recipes
+- **2-Column Comparison Card (`row` + `flex_grow`)**:
 ```json
 {
   "type": "container",
@@ -226,7 +235,7 @@
       "layout": { "direction": "column", "gap": 12, "padding": 32 },
       "children": [
         { "type": "text", "content": "#7", "font_size": 76, "font_weight": "bold", "color": "#22D3EE", "text_align": "center", "max_width": 400 },
-        { "type": "text", "content": "PDB PPP", "font_size": 36, "color": "#94A3B8", "text_align": "center", "max_width": 400 }
+        { "type": "text", "content": "GDP PPP", "font_size": 36, "color": "#94A3B8", "text_align": "center", "max_width": 400 }
       ]
     },
     {
@@ -237,13 +246,13 @@
       "layout": { "direction": "column", "gap": 12, "padding": 32 },
       "children": [
         { "type": "text", "content": "#1", "font_size": 76, "font_weight": "bold", "color": "#818CF8", "text_align": "center", "max_width": 400 },
-        { "type": "text", "content": "Terbesar ASEAN", "font_size": 36, "color": "#94A3B8", "text_align": "center", "max_width": 400 }
+        { "type": "text", "content": "Largest in ASEAN", "font_size": 36, "color": "#94A3B8", "text_align": "center", "max_width": 400 }
       ]
     }
   ]
 }
 ```
-- **Daftar Poin (`column` + aksen indikator)**:
+- **Bullet List (`column`)**:
 ```json
 {
   "type": "container",
@@ -254,18 +263,18 @@
   "radius": 24,
   "layout": { "direction": "column", "gap": 20, "padding": 36 },
   "children": [
-    { "type": "text", "content": "• Poin pertama yang ringkas", "font_size": 42, "color": "#FFFFFF", "max_width": 888 },
-    { "type": "text", "content": "• Poin kedua dengan warna aksen", "font_size": 42, "color": "#22D3EE", "max_width": 888 }
+    { "type": "text", "content": "• Concise first bullet point", "font_size": 42, "color": "#FFFFFF", "max_width": 888 },
+    { "type": "text", "content": "• Second bullet with accent color", "font_size": 42, "color": "#22D3EE", "max_width": 888 }
   ]
 }
 ```
 
 ---
 
-## Resep Fitur v1.1 (Copy-Paste Ready)
+## v1.1 Feature Recipes (Copy-Paste Ready)
 
 ### 1. SVG Path Draw-On (`path_progress`)
-Gunakan `path_progress` (`0.0` → `1.0`) langsung di layer `svg`—engine otomatis menghitung panjang path sebenarnya (tidak perlu menebak `stroke_dasharray` manual). Gradient fill di dalam SVG tetap ter-render selama animasi berlangsung.
+Use `path_progress` (`0.0` → `1.0`) directly on an `svg` layer—the engine automatically measures path lengths (no manual `stroke_dasharray` guessing). SVG gradient fills continue rendering during the animation.
 ```json
 {
   "type": "svg",
@@ -282,7 +291,7 @@ Gunakan `path_progress` (`0.0` → `1.0`) langsung di layer `svg`—engine otoma
 ```
 
 ### 2. Morphing Container (`radius`, `background`, `clip`)
-Satu `container` dengan `"clip": true` bisa ber-morph mulus dari tombol pill menjadi kartu penuh sambil mengganti isi `children` berdasarkan window `start_sec`/`end_sec`:
+A `container` with `"clip": true` can morph smoothly from a pill button into a full card while swapping `children` via `start_sec`/`end_sec`:
 ```json
 {
   "type": "container",
@@ -305,7 +314,7 @@ Satu `container` dengan `"clip": true` bisa ber-morph mulus dari tombol pill men
 ```
 
 ### 3. Color Interpolation & `cubic_bezier`
-Animasikan `color` / `background` / `border_color` dengan hex string pada `from` dan `to`:
+Animate `color` / `background` / `border_color` with hex strings in `from` and `to`:
 ```json
 {
   "type": "text",
@@ -331,8 +340,8 @@ Animasikan `color` / `background` / `border_color` dengan hex string pada `from`
 ```
 
 ### 4. Rich Text (`spans`), `letter_spacing` & Color Emoji
-- Gunakan `spans` untuk mencampur warna dan ketebalan dalam satu paragraf.
-- Untuk teks emoji (`😊`, `🔥`, `❤️`), **kosongkan `font_family`** agar engine otomatis mengarahkan ke font color emoji sistem (`Noto Color Emoji` / `Apple Color Emoji`).
+- Use `spans` to mix colors, weights, and font sizes in one paragraph.
+- For emoji text (`😊`, `🔥`, `❤️`), **leave `font_family` unset** so the engine falls back to system color emoji fonts (`Noto Color Emoji` / `Apple Color Emoji`).
 ```json
 {
   "type": "text",
@@ -343,14 +352,14 @@ Animasikan `color` / `background` / `border_color` dengan hex string pada `from`
   "max_width": 900,
   "spans": [
     { "text": "Render ", "color": "#FFFFFF" },
-    { "text": "100% deterministik ", "color": "#22D3EE", "font_weight": "bold" },
-    { "text": "tanpa browser.", "color": "#94A3B8" }
+    { "text": "100% deterministic ", "color": "#22D3EE", "font_weight": "bold" },
+    { "text": "without a browser.", "color": "#94A3B8" }
   ]
 }
 ```
 
 ### 5. Relative Sequencing (`timeline: "series"` & `"local"`)
-- `timeline: "series"`: tiap child otomatis berjalan berurutan sesuai `duration_secs` (dan mundur sebesar `overlap_secs` untuk crossfade), dengan waktu animasi child dimulai dari `0.0` (lokal terhadap masing-masing child).
+- `timeline: "series"`: children run sequentially based on `duration_secs` (overlapping backward by `overlap_secs` for crossfades), with each child's animation times starting at `0.0` (local to that child).
 ```json
 {
   "type": "container",
@@ -422,16 +431,16 @@ Animasikan `color` / `background` / `border_color` dengan hex string pada `from`
 
 ---
 
-## Cache Engine: Key & Cara Nulis JSON Biar Hit
+## Cache Engine: Keys & How to Write Cache-Friendly JSON
 
-| Cache | Scope & Key | Cara Nulis JSON Biar Hit (dan Penyebab Miss) |
+| Cache | Scope & Key | How to Hit (and What Causes Misses) |
 | :--- | :--- | :--- |
-| **Static Background Snapshot** | Prefix `layers[0..k]` per scene | **Hit**: Taruh semua layer background 100% statis (`start_sec: 0`, `end_sec` kosong/`>= duration_secs`, `animations: []`, bukan `video`) di **indeks paling awal `layers[]`**. **Miss**: Menaruh layer beranimasi di indeks `0` menghentikan scan prefix untuk layer statis di bawahnya. |
-| **Blurred-Layer Cache** (`THREAD_BLUR_CACHE`) | `(fnv1a(kind_tanpa_opacity, blur), canvas_w, canvas_h)` per thread | **Hit**: Pakai `blur > 0` tanpa `shadow` pada layer root non-`container`/non-`video`, dan hanya animasikan `opacity` (atau statis). **Miss**: Menambahkan `shadow`, menaruh di dalam `container`, atau menganimasikan `x`/`y`/`r`/`width`/`height`. |
-| **SVG Raster Cache** (`THREAD_SVG_RASTER_CACHE`) | `(fnv1a(svg_bytes), byte_len, pw, ph)` per thread | **Hit**: Pakai `svg` tanpa `path_progress`/`stroke_dashoffset`/`stroke_dasharray`, dan jangan animasikan `width`/`height`. Animasi `x`, `y`, `rotation`, dan `opacity` **tetap hit**! |
-| **SVG Tree Cache** (`THREAD_SVG_CACHE`) | `(fnv1a(svg_bytes), byte_len)` per thread | **Hit**: Inline `<svg>` atau `src` yang sama otomatis di-parse sekali per thread (berguna saat `path_progress` dianimasikan). |
-| **AssetStore & Disk Cache** | Disk: `SHA-256(url)` · RAM: `src` string | **Hit**: Gunakan string `src` yang persis sama jika gambar/SVG/video dipakai ulang di beberapa layer agar tidak di-decode ganda. |
-| **Font & Glyph Cache** (`THREAD_FONT_SYS`) | `(fonts.len(), glyph_cache_key)` per thread | **Hit**: Animasi `opacity`/`x`/`y` teks selalu hit cache glyph. **Miss**: Menganimasikan `scale` teks memicu rasterisasi glyph baru di tiap ukuran frame. |
+| **Static Background Snapshot** | Prefix `layers[0..k]` per scene | **Hit**: Place all 100% static background layers (`start_sec: 0`, `end_sec` omitted or `>= duration_secs`, `animations: []`, non-`video`) at the **start of `layers[]`**. **Miss**: Putting an animated layer at index `0` stops the prefix scan for later static layers. |
+| **Blurred-Layer Cache** (`THREAD_BLUR_CACHE`) | `(fnv1a(kind_without_opacity, blur), canvas_w, canvas_h)` per thread | **Hit**: Use `blur > 0` without `shadow` on a root non-`container`/non-`video` layer, and animate only `opacity` (or keep static). **Miss**: Adding `shadow`, placing inside a `container`, or animating `x`/`y`/`r`/`width`/`height`. |
+| **SVG Raster Cache** (`THREAD_SVG_RASTER_CACHE`) | `(fnv1a(svg_bytes), byte_len, pw, ph)` per thread | **Hit**: Use `svg` without `path_progress`/`stroke_dashoffset`/`stroke_dasharray`, and do not animate `width`/`height`. Animating `x`, `y`, `rotation`, and `opacity` **still hits**! |
+| **SVG Tree Cache** (`THREAD_SVG_CACHE`) | `(fnv1a(svg_bytes), byte_len)` per thread | **Hit**: Repeated inline `<svg>` or `src` values are parsed once per thread (still helps when `path_progress` is animated). |
+| **AssetStore & Disk Cache** | Disk: `SHA-256(url)` · RAM: `src` string | **Hit**: Reuse the exact same `src` string across layers so images/SVGs/videos are decoded once. |
+| **Font & Glyph Cache** (`THREAD_FONT_SYS`) | `(fonts.len(), glyph_cache_key)` per thread | **Hit**: Animating text `opacity`/`x`/`y` always hits glyph cache. **Miss**: Animating text `scale` rasterizes glyphs at new sizes every frame. |
 
-### Aturan Koordinat Tambahan
-- **Koordinat `circle` di dalam `container`**: Saat memakai `position: "absolute"` pada `circle` di dalam `container`, `cx`/`cy` di `animations` tetap bersifat **relatif terhadap pojok kiri-atas `container`**, bukan kanvas root.
+### Additional Coordinate Rules
+- **`circle` inside a `container`**: When using `position: "absolute"` on a `circle` inside a `container`, `cx`/`cy` in `animations` remain **relative to the `container`'s top-left corner**, not the root canvas.

@@ -571,15 +571,15 @@ fn test_smart_lint_grouping_contrast_and_bounds() {
     let scene: crate::schema::Scene = serde_json::from_str(json).unwrap();
     let warnings = crate::lint::collect_lint_warnings(&scene);
     assert!(
-        warnings.iter().any(|w| w.contains("4 layer memiliki font_size < 14px")),
+        warnings.iter().any(|w| w.contains("4 layers have font_size < 14px")),
         "expected grouped font_size warning, got {warnings:?}"
     );
     assert!(
-        warnings.iter().any(|w| w.contains("kontras rendah")),
+        warnings.iter().any(|w| w.contains("low contrast")),
         "expected low contrast warning, got {warnings:?}"
     );
     assert!(
-        warnings.iter().any(|w| w.contains("di luar kanvas")),
+        warnings.iter().any(|w| w.contains("outside canvas bounds")),
         "expected out of canvas warning, got {warnings:?}"
     );
     assert!(
