@@ -124,6 +124,168 @@ pub fn execute_action(scene: &mut Scene, req: ActionRequest) -> Result<ActionRes
     }
 }
 
+/// Parse natural language motion prompt into structured `Animation` specs.
+pub fn prompt_to_animations(prompt: &str) -> Vec<Animation> {
+    use crate::schema::{AnimProperty, AnimValue, Easing};
+    let lower = prompt.to_lowercase();
+    let mut anims = Vec::new();
+
+    // Extract optional time range (e.g. "0.5s to 2.0s" or default 0.0 -> 1.0)
+    let mut start_sec = 0.0f32;
+    let mut end_sec = 1.0f32;
+    let nums: Vec<f32> = lower
+        .split(|c: char| !c.is_ascii_digit() && c != '.')
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| s.parse::<f32>().ok())
+        .collect();
+    if nums.len() >= 2 {
+        start_sec = nums[0];
+        end_sec = nums[1].max(start_sec + 0.1);
+    } else if nums.len() == 1 && (lower.contains("at ") || lower.contains("dur")) {
+        end_sec = nums[0].max(0.1);
+    }
+
+    let easing = if lower.contains("bounce") || lower.contains("spring") {
+        Easing::Spring
+    } else if lower.contains("linear") {
+        Easing::Linear
+    } else if lower.contains("in out") || lower.contains("smooth") {
+        Easing::EaseInOut
+    } else {
+        Easing::EaseOut
+    };
+
+    if lower.contains("fade in") {
+        anims.push(Animation {
+            property: AnimProperty::Opacity,
+            from: AnimValue::Number(0.0),
+            to: AnimValue::Number(1.0),
+            keyframes: vec![],
+            start_sec,
+            end_sec,
+            easing,
+            bezier: None,
+            spring: None,
+            repeat: None,
+            yoyo: false,
+            expr: None,
+        });
+    } else if lower.contains("fade out") {
+        anims.push(Animation {
+            property: AnimProperty::Opacity,
+            from: AnimValue::Number(1.0),
+            to: AnimValue::Number(0.0),
+            keyframes: vec![],
+            start_sec,
+            end_sec,
+            easing,
+            bezier: None,
+            spring: None,
+            repeat: None,
+            yoyo: false,
+            expr: None,
+        });
+    }
+
+    if lower.contains("zoom in") || lower.contains("scale up") || lower.contains("bounce") {
+        anims.push(Animation {
+            property: AnimProperty::Scale,
+            from: AnimValue::Number(0.5),
+            to: AnimValue::Number(1.0),
+            keyframes: vec![],
+            start_sec,
+            end_sec,
+            easing,
+            bezier: None,
+            spring: None,
+            repeat: None,
+            yoyo: false,
+            expr: None,
+        });
+    } else if lower.contains("zoom out") || lower.contains("scale down") {
+        anims.push(Animation {
+            property: AnimProperty::Scale,
+            from: AnimValue::Number(1.2),
+            to: AnimValue::Number(0.8),
+            keyframes: vec![],
+            start_sec,
+            end_sec,
+            easing,
+            bezier: None,
+            spring: None,
+            repeat: None,
+            yoyo: false,
+            expr: None,
+        });
+    }
+
+    if lower.contains("slide left") || lower.contains("from left") {
+        anims.push(Animation {
+            property: AnimProperty::X,
+            from: AnimValue::Number(-400.0),
+            to: AnimValue::Number(0.0),
+            keyframes: vec![],
+            start_sec,
+            end_sec,
+            easing,
+            bezier: None,
+            spring: None,
+            repeat: None,
+            yoyo: false,
+            expr: None,
+        });
+    } else if lower.contains("slide right") || lower.contains("from right") {
+        anims.push(Animation {
+            property: AnimProperty::X,
+            from: AnimValue::Number(400.0),
+            to: AnimValue::Number(0.0),
+            keyframes: vec![],
+            start_sec,
+            end_sec,
+            easing,
+            bezier: None,
+            spring: None,
+            repeat: None,
+            yoyo: false,
+            expr: None,
+        });
+    } else if lower.contains("slide up") || lower.contains("from bottom") {
+        anims.push(Animation {
+            property: AnimProperty::Y,
+            from: AnimValue::Number(200.0),
+            to: AnimValue::Number(0.0),
+            keyframes: vec![],
+            start_sec,
+            end_sec,
+            easing,
+            bezier: None,
+            spring: None,
+            repeat: None,
+            yoyo: false,
+            expr: None,
+        });
+    }
+
+    if lower.contains("rotate") || lower.contains("spin") {
+        anims.push(Animation {
+            property: AnimProperty::Rotation,
+            from: AnimValue::Number(0.0),
+            to: AnimValue::Number(360.0),
+            keyframes: vec![],
+            start_sec,
+            end_sec,
+            easing,
+            bezier: None,
+            spring: None,
+            repeat: None,
+            yoyo: false,
+            expr: None,
+        });
+    }
+
+    anims
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,5 +346,16 @@ mod tests {
         let res = execute_action(&mut scene, rm_req).unwrap();
         assert!(res.ok);
         assert_eq!(scene.layers.len(), 0);
+    }
+
+    #[test]
+    fn test_prompt_to_animations() {
+        let anims = prompt_to_animations("fade in and bounce zoom in from 0.5s to 2.0s");
+        assert_eq!(anims.len(), 2);
+        assert_eq!(anims[0].property, AnimProperty::Opacity);
+        assert_eq!(anims[0].start_sec, 0.5);
+        assert_eq!(anims[0].end_sec, 2.0);
+        assert!(matches!(anims[0].easing, Easing::Spring));
+        assert_eq!(anims[1].property, AnimProperty::Scale);
     }
 }
