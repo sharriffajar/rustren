@@ -959,8 +959,21 @@ async fn run_studio(input_path: Option<&Path>, host: &str, port: u16, cache_dir:
         println!("   Loading scene: {}", p.display());
     }
     let listener = tokio::net::TcpListener::bind(&addr).await?;
+    let url = format!("http://{}", addr);
+    open_browser(&url);
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+fn open_browser(url: &str) {
+    #[cfg(target_os = "windows")]
+    let _ = std::process::Command::new("cmd")
+        .args(["/C", "start", "", url])
+        .spawn();
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("open").arg(url).spawn();
+    #[cfg(target_os = "linux")]
+    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
 }
 
 async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: PathBuf, input_path: Option<PathBuf>) {
@@ -974,74 +987,86 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
         #[serde(default)]
         scene: Option<String>,
         #[serde(default)]
+        filename: Option<String>,
+        #[serde(default)]
+        content: Option<String>,
+        #[serde(default)]
         t: Option<f32>,
         #[serde(default)]
         variables: Option<serde_json::Map<String, serde_json::Value>>,
     }
 
-    let load_current_scene = |vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
-        if let Some(ref path) = input_path {
-            let mut content = std::fs::read_to_string(path)?;
-            let mut detected_vars = Vec::new();
-            if let Ok(doc) = scraper::Html::parse_document(&content)
-                .select(&scraper::Selector::parse("html[data-composition-variables]").unwrap())
-                .next()
-                .and_then(|el| el.value().attr("data-composition-variables"))
-                .map(|v| serde_json::from_str::<Vec<serde_json::Value>>(v))
-                .transpose()
-            {
-                if let Some(dv) = doc {
-                    detected_vars = dv;
-                }
-            }
+    let mut dropped_file: Option<(String, String)> = None;
 
-            // Apply dynamic variable overrides if provided
-            if let Some(v_map) = vars {
-                for (k, val) in v_map {
-                    let placeholder = format!("{{{{{}}}}}", k);
-                    let val_str = match val {
-                        serde_json::Value::String(s) => s.clone(),
-                        serde_json::Value::Number(n) => n.to_string(),
-                        serde_json::Value::Bool(b) => b.to_string(),
-                        other => other.to_string(),
-                    };
-                    content = content.replace(&placeholder, &val_str);
-                }
+    let parse_scene_from_str = |raw_content: &str, name_or_path: &str, vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
+        let mut content = raw_content.to_string();
+        let mut detected_vars = Vec::new();
+        if let Ok(doc) = scraper::Html::parse_document(&content)
+            .select(&scraper::Selector::parse("html[data-composition-variables]").unwrap())
+            .next()
+            .and_then(|el| el.value().attr("data-composition-variables"))
+            .map(|v| serde_json::from_str::<Vec<serde_json::Value>>(v))
+            .transpose()
+        {
+            if let Some(dv) = doc {
+                detected_vars = dv;
             }
+        }
 
-            let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-            let scene = if ext == "html" || ext == "htm" {
-                compilers::html::parse_html_scene(&content)?
-            } else {
-                serde_json::from_str::<Scene>(&content)?
-            };
-            let scene_val = serde_json::json!({
-                "canvas": {
-                    "width": scene.canvas.width,
-                    "height": scene.canvas.height,
-                    "fps": scene.canvas.fps,
-                    "duration_secs": scene.canvas.duration_secs,
-                },
-                "layers": scene.layers.iter().map(|l| {
-                    serde_json::json!({
-                        "name": l.name,
-                        "type": match &l.kind {
-                            schema::LayerKind::Text { .. } => "text",
-                            schema::LayerKind::Image { .. } => "image",
-                            schema::LayerKind::Rect { .. } => "rect",
-                            schema::LayerKind::Circle { .. } => "circle",
-                            schema::LayerKind::Video { .. } => "video",
-                            schema::LayerKind::Waveform { .. } => "waveform",
-                            schema::LayerKind::Lottie { .. } => "lottie",
-                            schema::LayerKind::Svg { .. } => "svg",
-                            schema::LayerKind::Container { .. } => "container",
-                        },
-                        "start_sec": l.start_sec,
-                        "duration_secs": l.duration_secs,
-                    })
-                }).collect::<Vec<_>>()
-            });
-            Ok((scene, path.display().to_string(), detected_vars, scene_val))
+        if let Some(v_map) = vars {
+            for (k, val) in v_map {
+                let placeholder = format!("{{{{{}}}}}", k);
+                let val_str = match val {
+                    serde_json::Value::String(s) => s.clone(),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    serde_json::Value::Bool(b) => b.to_string(),
+                    other => other.to_string(),
+                };
+                content = content.replace(&placeholder, &val_str);
+            }
+        }
+
+        let is_html = name_or_path.ends_with(".html") || name_or_path.ends_with(".htm");
+        let scene = if is_html {
+            compilers::html::parse_html_scene(&content)?
+        } else {
+            serde_json::from_str::<Scene>(&content)?
+        };
+        let scene_val = serde_json::json!({
+            "canvas": {
+                "width": scene.canvas.width,
+                "height": scene.canvas.height,
+                "fps": scene.canvas.fps,
+                "duration_secs": scene.canvas.duration_secs,
+            },
+            "layers": scene.layers.iter().map(|l| {
+                serde_json::json!({
+                    "name": l.name,
+                    "type": match &l.kind {
+                        schema::LayerKind::Text { .. } => "text",
+                        schema::LayerKind::Image { .. } => "image",
+                        schema::LayerKind::Rect { .. } => "rect",
+                        schema::LayerKind::Circle { .. } => "circle",
+                        schema::LayerKind::Video { .. } => "video",
+                        schema::LayerKind::Waveform { .. } => "waveform",
+                        schema::LayerKind::Lottie { .. } => "lottie",
+                        schema::LayerKind::Svg { .. } => "svg",
+                        schema::LayerKind::Container { .. } => "container",
+                    },
+                    "start_sec": l.start_sec,
+                    "duration_secs": l.duration_secs,
+                })
+            }).collect::<Vec<_>>()
+        });
+        Ok((scene, name_or_path.to_string(), detected_vars, scene_val))
+    };
+
+    let load_current_scene = |dropped: Option<&(String, String)>, vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
+        if let Some((fname, fcontent)) = dropped {
+            parse_scene_from_str(fcontent, fname, vars)
+        } else if let Some(ref path) = input_path {
+            let content = std::fs::read_to_string(path)?;
+            parse_scene_from_str(&content, &path.display().to_string(), vars)
         } else {
             let default_json = "{\n  \"canvas\": { \"width\": 1280, \"height\": 720, \"fps\": 30, \"duration_secs\": 4.0, \"background\": { \"color\": \"#0b0d13\" } },\n  \"layers\": [\n    { \"type\": \"rect\", \"x\": 340, \"y\": 210, \"width\": 600, \"height\": 300, \"color\": \"#1e293b\" },\n    { \"type\": \"text\", \"x\": 640, \"y\": 360, \"anchor\": \"center\", \"content\": \"RUSTREN STUDIO\", \"font_size\": 48, \"color\": \"#60a5fa\" }\n  ]\n}";
             let scene: Scene = serde_json::from_str(default_json)?;
@@ -1071,8 +1096,32 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
             }
         };
 
+        if req.action.as_deref() == Some("load_file") {
+            if let (Some(fname), Some(fcontent)) = (req.filename, req.content) {
+                match parse_scene_from_str(&fcontent, &fname, None) {
+                    Ok((_scene, path_str, vars, scene_val)) => {
+                        dropped_file = Some((fname, fcontent));
+                        let _ = socket.send(Message::Text(
+                            serde_json::json!({
+                                "type": "init",
+                                "scene": scene_val,
+                                "path": path_str,
+                                "variables": vars
+                            }).to_string()
+                        )).await;
+                    }
+                    Err(e) => {
+                        let _ = socket.send(Message::Text(
+                            serde_json::json!({ "error": format!("Failed to parse dropped file: {:#}", e) }).to_string()
+                        )).await;
+                    }
+                }
+            }
+            continue;
+        }
+
         if req.action.as_deref() == Some("get_scene") {
-            match load_current_scene(None) {
+            match load_current_scene(dropped_file.as_ref(), None) {
                 Ok((_scene, path_str, vars, scene_val)) => {
                     let _ = socket.send(Message::Text(
                         serde_json::json!({
@@ -1099,7 +1148,7 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
                 lint::validate_no_unknown_fields(s_str)?;
                 serde_json::from_str::<Scene>(s_str)?
             } else {
-                let (s, _, _, _) = load_current_scene(req.variables.as_ref())?;
+                let (s, _, _, _) = load_current_scene(dropped_file.as_ref(), req.variables.as_ref())?;
                 s
             };
 
