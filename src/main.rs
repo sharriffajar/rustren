@@ -1016,14 +1016,9 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
         t: Option<f32>,
         #[serde(default)]
         variables: Option<serde_json::Map<String, serde_json::Value>>,
-        #[serde(default)]
-        layer_index: Option<usize>,
-        #[serde(default)]
-        prompt: Option<String>,
     }
 
     let mut dropped_file: Option<(String, String)> = None;
-    let mut extra_anims: Vec<(usize, schema::Animation)> = Vec::new();
 
     let parse_scene_from_str = |raw_content: &str, name_or_path: &str, vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
         let mut content = raw_content.to_string();
@@ -1123,38 +1118,7 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
             }
         };
 
-        if req.action.as_deref() == Some("ai_prompt") {
-            let layer_idx = req.layer_index.unwrap_or(0);
-            let prompt_txt = req.prompt.unwrap_or_default();
-            let anims = actions::prompt_to_animations(&prompt_txt);
-            let count = anims.len();
-            if count == 0 {
-                let _ = socket
-                    .send(Message::Text(
-                        serde_json::json!({ "error": "AI Copilot: no motion keywords matched (try 'fade in', 'zoom in', 'bounce', 'slide left', 'rotate')" })
-                            .to_string(),
-                    ))
-                    .await;
-            } else {
-                for a in anims {
-                    extra_anims.push((layer_idx, a));
-                }
-                let _ = socket
-                    .send(Message::Text(
-                        serde_json::json!({
-                            "type": "ai_applied",
-                            "count": count,
-                            "layer_index": layer_idx
-                        })
-                        .to_string(),
-                    ))
-                    .await;
-            }
-            continue;
-        }
-
         if req.action.as_deref() == Some("load_file") {
-            extra_anims.clear();
             if let (Some(fname), Some(fcontent)) = (req.filename, req.content) {
                 match parse_scene_from_str(&fcontent, &fname, None) {
                     Ok((_scene, path_str, vars, scene_val)) => {
@@ -1254,18 +1218,13 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
         let t = req.t.unwrap_or(0.0);
         let start = std::time::Instant::now();
         let render_res: Result<(Vec<u8>, u32, u32)> = (|| {
-            let mut scene = if let Some(ref s_str) = req.scene {
+            let scene = if let Some(ref s_str) = req.scene {
                 lint::validate_no_unknown_fields(s_str)?;
                 serde_json::from_str::<Scene>(s_str)?
             } else {
                 let (s, _, _, _) = load_current_scene(dropped_file.as_ref(), req.variables.as_ref())?;
                 s
             };
-            for (idx, anim) in &extra_anims {
-                if let Some(layer) = scene.layers.get_mut(*idx) {
-                    layer.animations.push(anim.clone());
-                }
-            }
 
             capabilities::validate_scene_capabilities(&scene)?;
             let assets = AssetStore::load_for_scene(&scene, &cache_dir)?;

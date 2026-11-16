@@ -403,16 +403,8 @@
       </div>
     </div>
 
-    <!-- Right Pane: AI Copilot, Variables & Inspector -->
+    <!-- Right Pane: Variables & Inspector -->
     <div class="pane">
-      <div class="pane-header">
-        <span>🤖 AI Motion Copilot</span>
-      </div>
-      <div style="padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;">
-        <input id="aiLayerIdx" type="number" min="0" value="0" class="var-input" placeholder="Layer index (0, 1, ...)" title="Target Layer Index" />
-        <input id="aiPromptInput" type="text" class="var-input" placeholder="e.g. fade in and bounce zoom in 0s to 1.5s" />
-        <button class="btn" id="aiApplyBtn" style="width: 100%; justify-content: center;">✨ Generate Motion</button>
-      </div>
       <div class="pane-header">
         <span>Variables & Parameters</span>
       </div>
@@ -493,9 +485,6 @@
             } else if (data.type === "export_done") {
               renderStats.innerHTML = `<span class="status-pill"></span>Exported: ${data.path}`;
               alert(`✅ Render MP4 selesai!\nFile tersimpan di: ${data.path}`);
-            } else if (data.type === "ai_applied") {
-              renderStats.innerHTML = `<span class="status-pill"></span>AI: +${data.count} anim(s) on layer #${data.layer_index}`;
-              renderFrame();
             } else if (data.error) {
               renderStats.innerHTML = `<span class="status-pill error"></span>${data.error}`;
             }
@@ -738,20 +727,6 @@
         }
       };
       reader.readAsText(file);
-    });
-
-    const aiApplyBtn = document.getElementById("aiApplyBtn");
-    const aiLayerIdx = document.getElementById("aiLayerIdx");
-    const aiPromptInput = document.getElementById("aiPromptInput");
-
-    aiApplyBtn.addEventListener("click", () => {
-      const prompt = (aiPromptInput.value || "").trim();
-      if (!prompt || !ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({
-        action: "ai_prompt",
-        layer_index: parseInt(aiLayerIdx.value, 10) || 0,
-        prompt: prompt
-      }));
     });
 
     connect();
