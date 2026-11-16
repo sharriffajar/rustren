@@ -6,20 +6,22 @@
   <title>Rustren Studio</title>
   <style>
     :root {
-      --bg-base: #0b0d13;
-      --bg-panel: #131722;
-      --bg-panel-header: #1a202c;
-      --border: #2d3748;
+      --bg-base: #0f0f11;
+      --bg-panel: #18181b;
+      --bg-header: #202024;
+      --bg-hover: #27272c;
+      --border: #2a2a30;
       --accent: #3b82f6;
       --accent-hover: #2563eb;
-      --text-main: #f1f5f9;
-      --text-muted: #94a3b8;
+      --text-main: #e4e4e7;
+      --text-muted: #8b8b96;
       --danger: #ef4444;
-      --success: #10b981;
+      --success: #22c55e;
+      --keyframe: #facc15;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg-base);
       color: var(--text-main);
       height: 100vh;
@@ -27,75 +29,74 @@
       flex-direction: column;
       overflow: hidden;
       user-select: none;
+      font-size: 12px;
     }
     header {
-      height: 48px;
-      background: var(--bg-panel-header);
+      height: 38px;
+      background: var(--bg-header);
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 16px;
-      font-size: 13px;
-      font-weight: 500;
+      padding: 0 12px;
     }
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
-    }
-    .brand span.logo {
-      font-size: 18px;
+      gap: 8px;
     }
     .brand span.title {
       font-weight: 700;
-      color: #60a5fa;
-      letter-spacing: 0.5px;
+      font-size: 12px;
+      color: var(--text-main);
+      letter-spacing: 0.8px;
     }
     .file-badge {
-      background: #1e293b;
-      padding: 3px 8px;
-      border-radius: 4px;
+      background: #121214;
+      padding: 2px 7px;
+      border-radius: 2px;
       border: 1px solid var(--border);
       font-size: 11px;
       color: var(--text-muted);
-      font-family: monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     }
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
     }
     .stats-badge {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-muted);
-      font-family: monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      margin-right: 6px;
     }
     .btn {
-      background: #2563eb;
-      color: white;
-      border: none;
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-size: 12px;
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid transparent;
+      padding: 4px 10px;
+      border-radius: 2px;
+      font-size: 11px;
       font-weight: 600;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 6px;
-      transition: background 0.15s;
+      gap: 5px;
+      transition: background 0.12s;
     }
-    .btn:hover { background: #1d4ed8; }
+    .btn:hover { background: var(--accent-hover); }
     .btn-secondary {
-      background: #334155;
+      background: #27272c;
+      border-color: #36363d;
       color: var(--text-main);
     }
-    .btn-secondary:hover { background: #475569; }
+    .btn-secondary:hover { background: #323238; }
 
     main {
       flex: 1;
       display: grid;
-      grid-template-columns: 320px 1fr 280px;
+      grid-template-columns: 260px 1fr 260px;
       min-height: 0;
       border-bottom: 1px solid var(--border);
     }
@@ -107,51 +108,58 @@
       overflow: hidden;
       border-right: 1px solid var(--border);
     }
-    .pane:last-child {
-      border-right: none;
-    }
+    .pane:last-child { border-right: none; }
     .pane-header {
-      height: 36px;
-      background: #182030;
+      height: 28px;
+      background: var(--bg-header);
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 12px;
-      font-size: 11px;
+      padding: 0 10px;
+      font-size: 10px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.7px;
       color: var(--text-muted);
     }
 
-    /* Left pane: layers / outline */
+    /* Left pane: layers */
     .layer-list {
       flex: 1;
       overflow-y: auto;
-      padding: 8px;
+      padding: 4px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
     }
     .layer-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 10px;
-      background: #1e2638;
-      border-radius: 5px;
-      font-size: 12px;
+      gap: 7px;
+      padding: 5px 8px;
+      background: transparent;
+      border-radius: 2px;
+      font-size: 11px;
       cursor: pointer;
       border: 1px solid transparent;
-      transition: all 0.15s;
     }
-    .layer-item:hover {
-      background: #28334a;
-      border-color: #3b82f6;
+    .layer-item:hover { background: var(--bg-hover); }
+    .layer-item.selected {
+      background: #1e293b;
+      border-color: var(--accent);
     }
-    .layer-item .icon {
-      font-size: 14px;
+    .layer-item .type-tag {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 1px 4px;
+      border-radius: 2px;
+      background: #27272c;
+      color: var(--text-muted);
+      font-family: ui-monospace, monospace;
+      min-width: 34px;
+      text-align: center;
     }
     .layer-item .name {
       flex: 1;
@@ -163,7 +171,7 @@
     .layer-item .time {
       font-size: 10px;
       color: var(--text-muted);
-      font-family: monospace;
+      font-family: ui-monospace, monospace;
     }
 
     /* Center pane: viewport */
@@ -172,7 +180,7 @@
       display: flex;
       flex-direction: column;
       min-height: 0;
-      background: #07090e;
+      background: #0a0a0c;
       position: relative;
     }
     .canvas-container {
@@ -180,241 +188,240 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 16px;
       overflow: hidden;
-      position: relative;
+      background-image:
+        linear-gradient(45deg, #111114 25%, transparent 25%),
+        linear-gradient(-45deg, #111114 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #111114 75%),
+        linear-gradient(-45deg, transparent 75%, #111114 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
     }
     .canvas-container img {
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-      border-radius: 4px;
-      border: 1px solid #1f293d;
+      border: 1px solid #33333a;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
+      background: #000;
     }
     .viewport-toolbar {
-      height: 42px;
+      height: 36px;
       background: var(--bg-panel);
       border-top: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 16px;
-      padding: 0 16px;
+      gap: 6px;
+      padding: 0 12px;
     }
     .control-btn {
-      background: transparent;
-      border: 1px solid var(--border);
+      background: #222227;
+      border: 1px solid #323238;
       color: var(--text-main);
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
+      width: 28px;
+      height: 24px;
+      border-radius: 2px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      font-size: 14px;
-      transition: all 0.15s;
     }
-    .control-btn:hover {
-      background: #2563eb;
-      border-color: #2563eb;
-    }
+    .control-btn:hover { background: #2f2f37; }
     .control-btn.play-btn {
-      width: 40px;
-      height: 32px;
-      background: #2563eb;
-      border-color: #2563eb;
-      font-weight: bold;
+      width: 36px;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
     }
+    .control-btn.play-btn:hover { background: var(--accent-hover); }
 
-    /* Right pane: variables & inspector */
+    /* Right pane: variables */
     .variable-list {
       flex: 1;
       overflow-y: auto;
-      padding: 12px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
     }
     .var-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
     }
     .var-label {
       font-size: 11px;
       color: var(--text-muted);
-      font-weight: 500;
       display: flex;
       justify-content: space-between;
     }
-    .var-input {
-      background: #0e121a;
-      border: 1px solid var(--border);
-      color: var(--text-main);
-      padding: 6px 10px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-family: monospace;
-      outline: none;
-    }
-    .var-input:focus { border-color: var(--accent); }
-    .var-slider-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
     .var-slider {
-      flex: 1;
+      width: 100%;
       accent-color: var(--accent);
+      cursor: pointer;
     }
     .var-color {
-      height: 30px;
+      height: 24px;
       width: 100%;
       cursor: pointer;
-      background: none;
+      background: #121214;
       border: 1px solid var(--border);
-      border-radius: 4px;
+      border-radius: 2px;
+      padding: 1px;
     }
 
     /* Bottom pane: Timeline */
     footer.timeline {
-      height: 140px;
+      height: 156px;
       background: var(--bg-panel);
       display: flex;
       flex-direction: column;
-      user-select: none;
     }
     .timeline-ruler-wrap {
-      height: 30px;
-      background: #182030;
+      height: 28px;
+      background: var(--bg-header);
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
-      padding: 0 16px;
-      gap: 16px;
+      padding: 0 12px;
+      gap: 12px;
     }
     .timecode {
-      font-family: monospace;
-      font-size: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
       font-weight: 600;
       color: #60a5fa;
-      min-width: 110px;
+      min-width: 118px;
     }
     .ruler {
       flex: 1;
-      height: 100%;
-      position: relative;
-      cursor: pointer;
       display: flex;
       align-items: center;
     }
     .scrubber-slider {
       width: 100%;
-      accent-color: #ef4444;
+      accent-color: var(--danger);
       cursor: pointer;
     }
     .timeline-tracks {
       flex: 1;
       overflow-y: auto;
-      padding: 10px 16px;
+      padding: 6px 12px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      position: relative;
+      gap: 4px;
     }
     .track-lane {
-      height: 22px;
-      background: #192233;
-      border-radius: 4px;
+      height: 20px;
+      background: #121215;
+      border-radius: 2px;
       position: relative;
       overflow: hidden;
-      border: 1px solid #232d42;
+      border: 1px solid #242429;
     }
     .track-block {
       position: absolute;
-      top: 2px;
-      bottom: 2px;
-      background: #3b82f6;
-      border-radius: 3px;
+      top: 1px;
+      bottom: 1px;
+      background: #2563eb;
+      border-radius: 1px;
       font-size: 10px;
       padding: 0 6px;
       display: flex;
       align-items: center;
-      color: white;
+      color: #fff;
       white-space: nowrap;
       overflow: hidden;
       font-weight: 500;
-      opacity: 0.85;
+      opacity: 0.88;
     }
-    .track-block.audio { background: #10b981; }
-    .track-block.text { background: #8b5cf6; }
-    .track-block.rect { background: #f59e0b; }
-    .track-block.image { background: #ec4899; }
+    .track-block.text { background: #7c3aed; }
+    .track-block.rect { background: #d97706; }
+    .track-block.circle { background: #0891b2; }
+    .track-block.image { background: #db2777; }
+    .track-block.video { background: #059669; }
 
-    /* Modal / Alert */
     .status-pill {
       display: inline-block;
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      background: #10b981;
+      background: var(--success);
       margin-right: 6px;
     }
-    .status-pill.error { background: #ef4444; }
+    .status-pill.error { background: var(--danger); }
   </style>
 </head>
 <body>
   <header>
     <div class="brand">
-      <span class="logo">🦀</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
       <span class="title">RUSTREN STUDIO</span>
       <span class="file-badge" id="scenePath">Scene Loaded</span>
     </div>
     <div class="header-actions">
-      <span class="stats-badge" id="renderStats">Ready</span>
-      <button class="btn btn-secondary" id="snapBtn">📸 Snapshot PNG</button>
-      <button class="btn" id="exportBtn">⚡ Render MP4</button>
+      <span class="stats-badge" id="renderStats">Connecting...</span>
+      <button class="btn btn-secondary" id="snapBtn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+        Snapshot PNG
+      </button>
+      <button class="btn" id="exportBtn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Render MP4
+      </button>
     </div>
   </header>
 
   <main>
-    <!-- Left Pane: Layer Tree -->
     <div class="pane">
       <div class="pane-header">
-        <span>Timeline Layers</span>
-        <span id="layerCount">0 layers</span>
+        <span>Layers</span>
+        <span id="layerCount">0</span>
       </div>
       <div class="layer-list" id="layerList"></div>
     </div>
 
-    <!-- Center Pane: Viewport & Controls -->
     <div class="viewport">
       <div class="canvas-container">
         <img id="previewImg" alt="Rustren Viewport" />
       </div>
       <div class="viewport-toolbar">
-        <button class="control-btn" id="btnStart" title="Jump to start">⏮️</button>
-        <button class="control-btn" id="btnPrev" title="Previous frame (-1/30s)">◀️</button>
-        <button class="control-btn play-btn" id="btnPlay" title="Play / Pause (Space)">▶</button>
-        <button class="control-btn" id="btnNext" title="Next frame (+1/30s)">▶️</button>
-        <button class="control-btn" id="btnEnd" title="Jump to end">⏭️</button>
+        <button class="control-btn" id="btnStart" title="Jump to start">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button class="control-btn" id="btnPrev" title="Previous frame">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <button class="control-btn play-btn" id="btnPlay" title="Play / Pause (Space)">
+          <svg id="playIcon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button class="control-btn" id="btnNext" title="Next frame">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
+        <button class="control-btn" id="btnEnd" title="Jump to end">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
       </div>
     </div>
 
-    <!-- Right Pane: Variables & Inspector -->
     <div class="pane">
       <div class="pane-header">
-        <span>Variables & Parameters</span>
+        <span>Properties &amp; Variables</span>
       </div>
       <div class="variable-list" id="varList">
-        <div style="font-size: 11px; color: var(--text-muted);">No dynamic variables detected in this scene.</div>
+        <div style="font-size: 11px; color: var(--text-muted);">No dynamic variables found in scene.</div>
       </div>
     </div>
   </main>
 
-  <!-- Bottom Pane: Timeline & Scrubber -->
   <footer class="timeline">
     <div class="timeline-ruler-wrap">
       <div class="timecode" id="timecodeDisplay">00:00.00 / 00:00.00</div>
@@ -441,6 +448,7 @@
     const timecodeDisplay = document.getElementById("timecodeDisplay");
     const renderStats = document.getElementById("renderStats");
     const btnPlay = document.getElementById("btnPlay");
+    const playIcon = document.getElementById("playIcon");
     const btnStart = document.getElementById("btnStart");
     const btnEnd = document.getElementById("btnEnd");
     const btnPrev = document.getElementById("btnPrev");
@@ -485,15 +493,12 @@
               renderStats.innerHTML = `<span class="status-pill"></span>${data.width}x${data.height} | ${data.ms.toFixed(1)}ms`;
             } else if (data.type === "export_done") {
               renderStats.innerHTML = `<span class="status-pill"></span>Exported: ${data.path}`;
-              alert(`✅ Render MP4 selesai!\nFile tersimpan di: ${data.path}`);
+              alert(`Render MP4 selesai: ${data.path}`);
             } else if (data.error) {
               renderStats.innerHTML = `<span class="status-pill error"></span>${data.error}`;
             }
-          } catch (e) {
-            console.error(e);
-          }
+          } catch (e) { console.error(e); }
         } else {
-          // Binary PNG frame
           if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
           lastBlobUrl = URL.createObjectURL(ev.data);
           previewImg.src = lastBlobUrl;
@@ -530,29 +535,21 @@
 
     function renderLayers(layers) {
       layerList.innerHTML = "";
-      layerCount.textContent = `${layers.length} layers`;
+      layerCount.textContent = `${layers.length}`;
       layers.forEach((l, idx) => {
         const item = document.createElement("div");
-        item.className = "layer-item";
-        let icon = "📦";
-        if (l.type === "text") icon = "🔤";
-        else if (l.type === "image") icon = "🖼️";
-        else if (l.type === "rect") icon = "⏹️";
-        else if (l.type === "circle") icon = "⚪";
-        else if (l.type === "video") icon = "🎬";
-        else if (l.type === "audio") icon = "🎵";
-
+        item.className = "layer-item" + (idx === selectedLayerIdx ? " selected" : "");
         const start = l.start_sec || 0;
         const dur = l.duration_secs || duration;
         item.innerHTML = `
-          <span class="icon">${icon}</span>
+          <span class="type-tag">${(l.type || "box").slice(0, 4)}</span>
           <span class="name">${l.name || l.id || l.type + ' #' + (idx + 1)}</span>
-          <span class="time">${start.toFixed(1)}s - ${(start + dur).toFixed(1)}s</span>
+          <span class="time">${start.toFixed(1)}s</span>
         `;
         item.onclick = () => {
           selectedLayerIdx = idx;
           document.querySelectorAll(".layer-item").forEach((el, i) => {
-            el.style.borderColor = i === idx ? "#3b82f6" : "transparent";
+            el.classList.toggle("selected", i === idx);
           });
           scrubber.value = start;
           updateTimeDisplay();
@@ -579,7 +576,6 @@
         block.textContent = l.name || l.id || `${l.type || 'layer'} #${idx + 1}`;
         lane.appendChild(block);
 
-        // Render clickable Diamond Keyframes (◆) for animations
         if (Array.isArray(l.animations)) {
           l.animations.forEach((a) => {
             [a.start_sec, a.end_sec].forEach((kt) => {
@@ -587,8 +583,8 @@
               const pct = Math.min(100, Math.max(0, (kt / duration) * 100));
               const kf = document.createElement("span");
               kf.textContent = "◆";
-              kf.title = `Keyframe @ ${kt.toFixed(2)}s (click to jump)`;
-              kf.style.cssText = `position:absolute;left:${pct}%;top:50%;transform:translate(-50%,-50%);color:#facc15;font-size:12px;cursor:pointer;z-index:2;text-shadow:0 0 4px #000;`;
+              kf.title = `Keyframe @ ${kt.toFixed(2)}s`;
+              kf.style.cssText = `position:absolute;left:${pct}%;top:50%;transform:translate(-50%,-50%);color:var(--keyframe);font-size:11px;cursor:pointer;z-index:2;text-shadow:0 0 3px #000;`;
               kf.onclick = (ev) => {
                 ev.stopPropagation();
                 scrubber.value = kt;
@@ -599,7 +595,6 @@
             });
           });
         }
-
         timelineTracks.appendChild(lane);
       });
     }
@@ -622,8 +617,6 @@
         group.appendChild(label);
 
         if (v.type === "number") {
-          const wrap = document.createElement("div");
-          wrap.className = "var-slider-wrap";
           const slider = document.createElement("input");
           slider.type = "range";
           slider.className = "var-slider";
@@ -636,8 +629,7 @@
             activeVariables[v.id] = parseFloat(e.target.value);
             renderFrame();
           };
-          wrap.appendChild(slider);
-          group.appendChild(wrap);
+          group.appendChild(slider);
         } else if (v.type === "color") {
           const colorInput = document.createElement("input");
           colorInput.type = "color";
@@ -658,11 +650,7 @@
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       const t = parseFloat(scrubber.value) || 0;
       updateTimeDisplay();
-      ws.send(JSON.stringify({
-        action: "render_frame",
-        t: t,
-        variables: activeVariables
-      }));
+      ws.send(JSON.stringify({ action: "render_frame", t: t, variables: activeVariables }));
     }
 
     scrubber.addEventListener("input", () => {
@@ -672,7 +660,9 @@
 
     function togglePlay() {
       playing = !playing;
-      btnPlay.textContent = playing ? "⏸" : "▶";
+      playIcon.innerHTML = playing
+        ? `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`
+        : `<path d="M8 5v14l11-7z"/>`;
       if (playing) {
         const frameInterval = 1000 / fps;
         playTimer = setInterval(() => {
@@ -720,25 +710,19 @@
     });
 
     exportBtn.addEventListener("click", () => {
-      alert("Render to MP4 dimulai di background! Cek terminal output untuk progress.");
       if (ws && ws.readyState === WebSocket.OPEN) {
+        renderStats.innerHTML = `<span class="status-pill"></span>Exporting MP4...`;
         ws.send(JSON.stringify({ action: "export_mp4", variables: activeVariables }));
       }
     });
 
-    // Drag & Drop JSON / HTML files directly into Studio
     const dropOverlay = document.createElement("div");
-    dropOverlay.style.cssText = "position:fixed;inset:0;background:rgba(37,99,235,0.22);border:3px dashed #60a5fa;z-index:9999;display:none;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;pointer-events:none;backdrop-filter:blur(4px);";
-    dropOverlay.textContent = "📂 Drop .json or .html scene file here to load";
+    dropOverlay.style.cssText = "position:fixed;inset:0;background:rgba(37,99,235,0.18);border:2px dashed #3b82f6;z-index:9999;display:none;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:#fff;pointer-events:none;backdrop-filter:blur(3px);";
+    dropOverlay.textContent = "Drop .json or .html scene file to load";
     document.body.appendChild(dropOverlay);
 
-    window.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      dropOverlay.style.display = "flex";
-    });
-    window.addEventListener("dragleave", (e) => {
-      if (e.relatedTarget === null) dropOverlay.style.display = "none";
-    });
+    window.addEventListener("dragover", (e) => { e.preventDefault(); dropOverlay.style.display = "flex"; });
+    window.addEventListener("dragleave", (e) => { if (e.relatedTarget === null) dropOverlay.style.display = "none"; });
     window.addEventListener("drop", (e) => {
       e.preventDefault();
       dropOverlay.style.display = "none";
@@ -749,17 +733,12 @@
         if (ws && ws.readyState === WebSocket.OPEN) {
           activeVariables = {};
           scrubber.value = 0;
-          ws.send(JSON.stringify({
-            action: "load_file",
-            filename: file.name,
-            content: reader.result
-          }));
+          ws.send(JSON.stringify({ action: "load_file", filename: file.name, content: reader.result }));
         }
       };
       reader.readAsText(file);
     });
 
-    // Direct Canvas Drag-to-Move Gizmo for selected layer
     let isDraggingCanvas = false;
     let dragStartX = 0;
     let dragStartY = 0;
@@ -784,18 +763,9 @@
       dragStartY = e.clientY;
       if (ws && ws.readyState === WebSocket.OPEN) {
         if (e.shiftKey) {
-          ws.send(JSON.stringify({
-            action: "transform_layer",
-            layer_index: selectedLayerIdx,
-            drot: (e.clientX - dragStartX) * 0.5
-          }));
+          ws.send(JSON.stringify({ action: "transform_layer", layer_index: selectedLayerIdx, drot: (e.clientX - dragStartX) * 0.5 }));
         } else {
-          ws.send(JSON.stringify({
-            action: "move_layer",
-            layer_index: selectedLayerIdx,
-            dx: dx,
-            dy: dy
-          }));
+          ws.send(JSON.stringify({ action: "move_layer", layer_index: selectedLayerIdx, dx: dx, dy: dy }));
         }
         renderFrame();
       }
@@ -804,11 +774,7 @@
       e.preventDefault();
       if (ws && ws.readyState === WebSocket.OPEN) {
         const ds = e.deltaY < 0 ? 0.05 : -0.05;
-        ws.send(JSON.stringify({
-          action: "transform_layer",
-          layer_index: selectedLayerIdx,
-          ds: ds
-        }));
+        ws.send(JSON.stringify({ action: "transform_layer", layer_index: selectedLayerIdx, ds: ds }));
         renderFrame();
       }
     }, { passive: false });
