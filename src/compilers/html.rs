@@ -177,6 +177,8 @@ fn parse_html_scene_internal(
             let fade_in_secs = get_attr_f32(&a_elem, "fade-in").or_else(|| get_attr_f32(&a_elem, "fade-in-secs")).unwrap_or(0.0);
             let fade_out_secs = get_attr_f32(&a_elem, "fade-out").or_else(|| get_attr_f32(&a_elem, "fade-out-secs")).unwrap_or(0.0);
 
+            let animations = parse_animations(&a_elem)?;
+
             audio.push(AudioTrack {
                 src,
                 start_sec,
@@ -186,7 +188,7 @@ fn parse_html_scene_internal(
                 playback_rate,
                 fade_in_secs,
                 fade_out_secs,
-                animations: Vec::new(),
+                animations,
             });
         }
     }
