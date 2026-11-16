@@ -22,9 +22,6 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             asset: rustren-macos-aarch64.tar.gz
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            asset: rustren-macos-x86_64.tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             asset: rustren-windows-x86_64.zip
@@ -51,8 +48,27 @@ jobs:
         run: |
           Compress-Archive -Path target/${{ matrix.target }}/release/rustren.exe -DestinationPath ${{ matrix.asset }}
 
-      - name: Upload release asset
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+
+  publish:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all built assets
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.asset }}
+          files: release-assets/*
           generate_release_notes: true
