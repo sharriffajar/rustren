@@ -5,7 +5,6 @@ edition = "2024"
 license = "Apache-2.0"
 description = "Browserless 2D Video Render Engine in Rust"
 repository = "https://github.com/sharriffajar/rustren"
-homepage = "https://github.com/sharriffajar/rustren"
 readme = "README.md"
 keywords = ["video", "render", "2d", "json", "ffmpeg"]
 categories = ["multimedia::video", "command-line-utilities"]
