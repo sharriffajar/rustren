@@ -14,11 +14,11 @@ Unlike traditional video pipelines that force you to encode a full MP4 just to c
 ![Rustren contact sheet preview](assets/showreel_sheet.png)
 
 ```bash
-# Render 6 keyframes across a 17s showreel into one 3x2 contact sheet (~0.20s, no FFmpeg)
-rustren snapshot scene.json -t 1.5,3.2,5.6,7.0,11.0,14.5 --sheet --cols 3 -o assets/showreel_sheet.png
+# Render 6 keyframes across the 17s showreel into one 3x2 contact sheet (~0.22s, no FFmpeg)
+rustren snapshot examples/showreel.json -t 1.5,3.2,5.6,7.0,11.0,14.5 --sheet --cols 3 -o assets/showreel_sheet.png
 
 # Or inspect exact computed bounding boxes & measured text widths as JSON
-rustren layout scene.json -t 14.5
+rustren layout examples/showreel.json -t 14.5
 ```
 
 ## Architecture & Why Browserless?
@@ -135,6 +135,7 @@ Endpoints:
 
 ## Examples
 Browse [examples/](examples) for full scenes you can validate or render directly, including:
+- [examples/showreel.json](examples/showreel.json) — 17-second v1.1 showreel (`dynamic` typewriter & timecode, `skew_x`, `anchor`, `stagger_secs`) used to generate the preview sheet above
 - [examples/rustren_showcase_15s.json](examples/rustren_showcase_15s.json) — 15-second multi-scene showcase
 - [examples/benchmark_scene.json](examples/benchmark_scene.json) — animation benchmark scene
 - [examples/demo.json](examples/demo.json) — minimal starter scene
