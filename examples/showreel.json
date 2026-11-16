@@ -359,12 +359,14 @@
       "children": [
         {
           "type": "rect",
-          "x": 160,
+          "x": 640,
           "y": 426,
           "width": 960,
           "height": 2,
           "color": "#CFC9B6",
           "radius": 0,
+          "anchor": "center",
+          "rotation": 0.0,
           "position": "absolute",
           "animations": [
             {
@@ -374,6 +376,22 @@
               "start_sec": 4.4,
               "end_sec": 4.85,
               "easing": "ease_out"
+            },
+            {
+              "property": "y",
+              "from": 426,
+              "to": 429,
+              "start_sec": 4.9,
+              "end_sec": 5.5,
+              "easing": "ease_in_out"
+            },
+            {
+              "property": "rotation",
+              "from": 0.0,
+              "to": -5.83,
+              "start_sec": 4.9,
+              "end_sec": 5.5,
+              "easing": "ease_in_out"
             }
           ]
         },
@@ -2013,7 +2031,7 @@
       "children": [
         {
           "type": "rect",
-          "x": 260,
+          "x": 266,
           "y": 288,
           "width": 150,
           "height": 130,
@@ -2034,8 +2052,8 @@
             },
             {
               "property": "x",
-              "from": 260,
-              "to": 240,
+              "from": 266,
+              "to": 246,
               "start_sec": 12.45,
               "end_sec": 12.95,
               "easing": "ease_in_out_expo"
@@ -2066,7 +2084,7 @@
             {
               "property": "x",
               "from": 620,
-              "to": 288,
+              "to": 294,
               "start_sec": 12.53,
               "end_sec": 13.03,
               "easing": "ease_in_out_expo"
@@ -2097,7 +2115,7 @@
             {
               "property": "x",
               "from": 390,
-              "to": 336,
+              "to": 342,
               "start_sec": 12.61,
               "end_sec": 13.11,
               "easing": "ease_in_out_expo"
@@ -2106,8 +2124,8 @@
         },
         {
           "type": "text",
-          "x": 545,
-          "y": 296,
+          "x": 536,
+          "y": 274,
           "font_size": 124,
           "color": "#161310",
           "font_weight": "bold",
@@ -2127,8 +2145,8 @@
             },
             {
               "property": "x",
-              "from": 515,
-              "to": 545,
+              "from": 506,
+              "to": 536,
               "start_sec": 12.8,
               "end_sec": 13.3,
               "easing": "ease_out_expo"
