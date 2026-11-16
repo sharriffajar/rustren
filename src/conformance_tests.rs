@@ -842,3 +842,60 @@ fn diff_command_identical_and_modified() {
     let _ = std::fs::remove_file(&mod_path);
     let _ = std::fs::remove_file(&out_png);
 }
+
+#[test]
+fn sprint6_waveform_parallel_timeline_and_audio_fade() {
+    let audio_json = r##"{
+        "canvas": { "width": 120, "height": 80, "fps": 30, "duration_secs": 2.0 },
+        "audio": [
+            {
+                "src": "https://example.com/bgm.mp3",
+                "volume": 0.8,
+                "fade_in_secs": 0.5,
+                "fade_out_secs": 0.5,
+                "animations": [
+                    { "property": "volume", "from": 0.8, "to": 0.2, "start_sec": 0.5, "end_sec": 1.0 }
+                ]
+            }
+        ],
+        "layers": []
+    }"##;
+    crate::lint::validate_no_unknown_fields(audio_json).unwrap();
+    let _: crate::schema::Scene = serde_json::from_str(audio_json).unwrap();
+
+    let json = r##"{
+        "canvas": { "width": 120, "height": 80, "fps": 30, "duration_secs": 2.0 },
+        "layers": [
+            {
+                "type": "container",
+                "x": 0,
+                "y": 0,
+                "width": 120,
+                "height": 80,
+                "timeline": "parallel",
+                "children": [
+                    {
+                        "type": "waveform",
+                        "x": 10,
+                        "y": 10,
+                        "width": 100,
+                        "height": 60,
+                        "bars": 12,
+                        "bar_gap": 2,
+                        "color": "#00FF88",
+                        "seed": 7,
+                        "speed": 1.5
+                    }
+                ]
+            }
+        ]
+    }"##;
+
+    crate::lint::validate_no_unknown_fields(json).unwrap();
+    let scene: crate::schema::Scene = serde_json::from_str(json).unwrap();
+    let assets = crate::assets::AssetStore::load_for_scene(&scene, &std::env::temp_dir()).unwrap();
+    let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.2).unwrap();
+    let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
+    assert_ne!(f0, f1, "waveform bars should animate over time");
+    assert!(f0.iter().any(|&b| b > 0), "waveform should render non-black pixels");
+}

@@ -171,6 +171,18 @@ enum Commands {
         #[arg(long, default_value = ".rustren_cache")]
         cache_dir: PathBuf,
     },
+    /// Launch browser-based live studio UI (JSON editor + WebSocket preview + scrubber)
+    Studio {
+        /// Listen host
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+        /// Listen port
+        #[arg(short, long, default_value_t = 8080)]
+        port: u16,
+        /// Directory for caching downloaded assets
+        #[arg(long, default_value = ".rustren_cache")]
+        cache_dir: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -341,6 +353,16 @@ fn main() -> Result<()> {
         } => {
             run_diff(&baseline, &current, t, threshold, out.as_deref(), &cache_dir)?;
         }
+        Commands::Studio {
+            host,
+            port,
+            cache_dir,
+        } => {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()?;
+            rt.block_on(run_studio(&host, port, &cache_dir))?;
+        }
     }
 
     Ok(())
@@ -391,6 +413,9 @@ fn collect_video_audio_tracks(
                                 trim_start_sec: Some(*trim_start_sec),
                                 trim_end_sec: effective_trim_end,
                                 playback_rate: *playback_rate,
+                                fade_in_secs: 0.0,
+                                fade_out_secs: 0.0,
+                                animations: Vec::new(),
                             },
                             va.path.clone(),
                         ));
@@ -824,4 +849,92 @@ fn run_diff(
     }
 
     Ok(())
+}
+
+async fn run_studio(host: &str, port: u16, cache_dir: &Path) -> Result<()> {
+    use axum::{
+        extract::{ws::WebSocketUpgrade, State},
+        response::Html,
+        routing::get,
+        Router,
+    };
+
+    let cache = cache_dir.to_path_buf();
+    let app = Router::new()
+        .route("/", get(|| async { Html(include_str!("studio.html")) }))
+        .route(
+            "/ws",
+            get(
+                |ws: WebSocketUpgrade, State(cache): State<PathBuf>| async move {
+                    ws.on_upgrade(move |socket| handle_studio_ws(socket, cache))
+                },
+            ),
+        )
+        .with_state(cache);
+
+    let addr = format!("{}:{}", host, port);
+    println!("rustren studio listening at http://{}", addr);
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    axum::serve(listener, app).await?;
+    Ok(())
+}
+
+async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: PathBuf) {
+    use axum::extract::ws::Message;
+    use std::io::Cursor;
+
+    #[derive(serde::Deserialize)]
+    struct StudioReq {
+        scene: String,
+        t: f32,
+    }
+
+    while let Some(Ok(msg)) = socket.recv().await {
+        let Message::Text(txt) = msg else { continue };
+        let req: StudioReq = match serde_json::from_str(&txt) {
+            Ok(r) => r,
+            Err(e) => {
+                let _ = socket
+                    .send(Message::Text(
+                        serde_json::json!({ "error": format!("Invalid request: {}", e) })
+                            .to_string(),
+                    ))
+                    .await;
+                continue;
+            }
+        };
+
+        let start = std::time::Instant::now();
+        let render_res: Result<(Vec<u8>, u32, u32)> = (|| {
+            lint::validate_no_unknown_fields(&req.scene)?;
+            let scene: Scene = serde_json::from_str(&req.scene)?;
+            capabilities::validate_scene_capabilities(&scene)?;
+            let assets = AssetStore::load_for_scene(&scene, &cache_dir)?;
+            let rgba = renderer::render_frame_at_time(&scene, &assets, req.t)?;
+            let img = premul_to_rgba_image(scene.canvas.width, scene.canvas.height, rgba)?;
+            let mut png_bytes = Vec::new();
+            img.write_to(&mut Cursor::new(&mut png_bytes), image::ImageFormat::Png)?;
+            Ok((png_bytes, scene.canvas.width, scene.canvas.height))
+        })();
+
+        match render_res {
+            Ok((png_bytes, width, height)) => {
+                let ms = start.elapsed().as_secs_f64() * 1000.0;
+                let _ = socket.send(Message::Binary(png_bytes)).await;
+                let _ = socket
+                    .send(Message::Text(
+                        serde_json::json!({ "width": width, "height": height, "ms": ms })
+                            .to_string(),
+                    ))
+                    .await;
+            }
+            Err(e) => {
+                let _ = socket
+                    .send(Message::Text(
+                        serde_json::json!({ "error": format!("{:#}", e) }).to_string(),
+                    ))
+                    .await;
+            }
+        }
+    }
 }

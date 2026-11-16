@@ -43,6 +43,12 @@ pub struct AudioTrack {
     pub trim_end_sec: Option<f32>,
     #[serde(default = "default_scale")]
     pub playback_rate: f32,
+    #[serde(default)]
+    pub fade_in_secs: f32,
+    #[serde(default)]
+    pub fade_out_secs: f32,
+    #[serde(default)]
+    pub animations: Vec<Animation>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -85,6 +91,7 @@ pub struct Layer {
 pub enum TimelineMode {
     #[default]
     Global,
+    #[serde(alias = "parallel")]
     Local,
     Series,
 }
@@ -417,6 +424,30 @@ pub enum LayerKind {
         #[serde(default = "default_scale")]
         scale: f32,
     },
+    Waveform {
+        #[serde(default)]
+        x: f32,
+        #[serde(default)]
+        y: f32,
+        width: f32,
+        height: f32,
+        #[serde(default = "default_waveform_bars")]
+        bars: usize,
+        #[serde(default = "default_waveform_gap")]
+        bar_gap: f32,
+        #[serde(default = "default_color_white")]
+        color: String,
+        #[serde(default = "default_waveform_seed")]
+        seed: u64,
+        #[serde(default = "default_scale")]
+        speed: f32,
+        #[serde(default = "default_opacity")]
+        opacity: f32,
+        #[serde(default)]
+        rotation: f32,
+        #[serde(default = "default_scale")]
+        scale: f32,
+    },
     Container {
         #[serde(default)]
         x: f32,
@@ -490,6 +521,22 @@ pub enum AlignSpec {
     SpaceBetween,
     SpaceAround,
     Stretch,
+}
+
+fn default_waveform_bars() -> usize {
+    24
+}
+
+fn default_waveform_gap() -> f32 {
+    4.0
+}
+
+fn default_waveform_seed() -> u64 {
+    42
+}
+
+fn default_color_white() -> String {
+    "#FFFFFF".to_string()
 }
 
 fn default_opacity() -> f32 {
@@ -598,6 +645,7 @@ pub struct Animation {
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AnimProperty {
+    Volume,
     X,
     Y,
     Width,

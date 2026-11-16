@@ -190,6 +190,13 @@ fn static_layer_bounds(layer: &Layer) -> Option<(f32, f32, f32, f32)> {
             height: Some(h),
             ..
         }
+        | LayerKind::Waveform {
+            x,
+            y,
+            width: w,
+            height: h,
+            ..
+        }
         | LayerKind::Container {
             x,
             y,
@@ -365,7 +372,7 @@ pub fn validate_no_unknown_fields(raw: &str) -> anyhow::Result<()> {
                 check_allowed_keys(
                     obj,
                     &format!("audio[{i}]"),
-                    &["src", "start_sec", "volume", "trim_start_sec", "trim_end_sec", "playback_rate"],
+                    &["src", "start_sec", "volume", "trim_start_sec", "trim_end_sec", "playback_rate", "fade_in_secs", "fade_out_secs", "animations"],
                 )?;
             }
         }
@@ -423,7 +430,7 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
             ],
             "video" => &[
                 "x", "y", "width", "height", "src", "fit", "trim_start_sec", "trim_end_sec",
-                "playback_rate", "volume", "muted", "opacity", "rotation", "scale",
+                "playback_rate", "volume", "muted", "opacity", "rotation", "scale", "bars", "bar_gap", "seed", "speed",
             ],
             "container" => &[
                 "x", "y", "width", "height", "layout", "background", "gradient", "border_color",

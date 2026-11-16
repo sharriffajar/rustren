@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>rustren studio</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: #0d1117;
+      color: #e6edf3;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+    }
+    header h1 { margin: 0; font-size: 15px; font-weight: 600; color: #58a6ff; }
+    #status { font-size: 12px; color: #8b949e; }
+    #status.err { color: #f85149; }
+    main { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+    .pane { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid #30363d; }
+    textarea {
+      flex: 1;
+      width: 100%;
+      background: #0d1117;
+      color: #e6edf3;
+      border: none;
+      padding: 14px;
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+    }
+    .preview-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #010409;
+      padding: 16px;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .preview-wrap img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #161b22;
+      border-top: 1px solid #30363d;
+    }
+    .controls input[type="range"] { flex: 1; }
+    button {
+      background: #238636;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+    }
+    button:hover { background: #2ea043; }
+    #timeLabel { font-size: 12px; min-width: 72px; text-align: right; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>rustren studio</h1>
+    <span id="status">Connecting...</span>
+  </header>
+  <main>
+    <div class="pane">
+      <textarea id="editor" spellcheck="false"></textarea>
+    </div>
+    <div class="pane" style="border-right:none;">
+      <div class="preview-wrap">
+        <img id="preview" alt="Preview frame" />
+      </div>
+      <div class="controls">
+        <button id="playBtn">Play</button>
+        <input id="scrubber" type="range" min="0" max="5" step="0.033" value="0" />
+        <span id="timeLabel">0.00s</span>
+      </div>
+    </div>
+  </main>
+  <script>
+    const defaultScene = {
+      canvas: { width: 720, height: 720, fps: 30, duration_secs: 3.0, bg_color: "#0d1117" },
+      layers: [
+        {
+          type: "rect",
+          x: 160, y: 260, width: 400, height: 200,
+          corner_radius: 24,
+          color: "#238636",
+          animations: [{ property: "scale", from: 0.85, to: 1.0, start_secs: 0.0, end_secs: 1.0, easing: "ease_out" }]
+        },
+        {
+          type: "text",
+          x: 360, y: 360,
+          anchor: "center",
+          content: "rustren studio",
+          font_size: 42,
+          color: "#ffffff"
+        }
+      ]
+    };
+
+    const editor = document.getElementById("editor");
+    const preview = document.getElementById("preview");
+    const scrubber = document.getElementById("scrubber");
+    const timeLabel = document.getElementById("timeLabel");
+    const statusEl = document.getElementById("status");
+    const playBtn = document.getElementById("playBtn");
+
+    editor.value = JSON.stringify(defaultScene, null, 2);
+
+    let ws;
+    let playing = false;
+    let timer = null;
+    let lastBlobUrl = null;
+
+    function connect() {
+      const proto = location.protocol === "https:" ? "wss:" : "ws:";
+      ws = new WebSocket(`${proto}//${location.host}/ws`);
+      ws.binaryType = "blob";
+      ws.onopen = () => {
+        statusEl.textContent = "Connected";
+        statusEl.className = "";
+        sendRender();
+      };
+      ws.onmessage = (ev) => {
+        if (typeof ev.data === "string") {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.error) {
+              statusEl.textContent = msg.error;
+              statusEl.className = "err";
+            } else if (msg.ms !== undefined) {
+              statusEl.textContent = `Rendered ${msg.width}x${msg.height} in ${msg.ms.toFixed(1)}ms`;
+              statusEl.className = "";
+            }
+          } catch {}
+        } else {
+          if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+          lastBlobUrl = URL.createObjectURL(ev.data);
+          preview.src = lastBlobUrl;
+        }
+      };
+      ws.onclose = () => {
+        statusEl.textContent = "Disconnected — retrying...";
+        statusEl.className = "err";
+        setTimeout(connect, 1000);
+      };
+    }
+
+    function sendRender() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      try {
+        const parsed = JSON.parse(editor.value);
+        if (parsed.canvas && parsed.canvas.duration_secs) {
+          scrubber.max = parsed.canvas.duration_secs;
+        }
+      } catch {}
+      const t = parseFloat(scrubber.value) || 0;
+      timeLabel.textContent = `${t.toFixed(2)}s`;
+      ws.send(JSON.stringify({ scene: editor.value, t }));
+    }
+
+    let debounce = null;
+    editor.addEventListener("input", () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(sendRender, 120);
+    });
+    scrubber.addEventListener("input", sendRender);
+
+    playBtn.addEventListener("click", () => {
+      playing = !playing;
+      playBtn.textContent = playing ? "Pause" : "Play";
+      if (playing) {
+        timer = setInterval(() => {
+          let next = parseFloat(scrubber.value) + 0.05;
+          if (next > parseFloat(scrubber.max)) next = 0;
+          scrubber.value = next;
+          sendRender();
+        }, 50);
+      } else {
+        clearInterval(timer);
+      }
+    });
+
+    connect();
+  </script>
+</body>
+</html>

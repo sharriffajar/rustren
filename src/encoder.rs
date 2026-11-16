@@ -96,9 +96,56 @@ impl FfmpegPipe {
                 } else {
                     format!("{},", tempo_filters.join(","))
                 };
+                let mut extra_filters = Vec::new();
+                if track.fade_in_secs > 0.0 {
+                    extra_filters.push(format!(
+                        "afade=t=in:st={:.3}:d={:.3}",
+                        track.start_sec.max(0.0),
+                        track.fade_in_secs
+                    ));
+                }
+                if track.fade_out_secs > 0.0 {
+                    let end_t = track.trim_end_sec.unwrap_or(track.start_sec + track.fade_out_secs);
+                    let fade_start = (end_t - track.fade_out_secs).max(0.0);
+                    extra_filters.push(format!(
+                        "afade=t=out:st={:.3}:d={:.3}",
+                        fade_start, track.fade_out_secs
+                    ));
+                }
+                let vol_anims: Vec<_> = track
+                    .animations
+                    .iter()
+                    .filter(|a| a.property == crate::schema::AnimProperty::Volume)
+                    .collect();
+                if vol_anims.is_empty() {
+                    extra_filters.push(format!("volume={:.3}", track.volume));
+                } else {
+                    let mut expr = format!("{:.3}", track.volume);
+                    for anim in vol_anims.iter().rev() {
+                        let s = anim.start_sec;
+                        let e = anim.end_sec.max(s + 0.001);
+                        let from = match anim.from {
+                            crate::schema::AnimValue::Number(v) => v,
+                            _ => track.volume,
+                        };
+                        let to = match anim.to {
+                            crate::schema::AnimValue::Number(v) => v,
+                            _ => track.volume,
+                        };
+                        expr = format!(
+                            "if(between(t\\,{s:.3}\\,{e:.3})\\,{from:.3}+({to:.3}-{from:.3})*(t-{s:.3})/({e:.3}-{s:.3})\\,{expr})"
+                        );
+                    }
+                    extra_filters.push(format!("volume='{}':eval=frame", expr));
+                }
+
                 filters.push(format!(
-                    "[{}:a]{}adelay={}:all=1,volume={:.3}{}",
-                    input_idx, tempo_prefix, delay_ms, track.volume, label
+                    "[{}:a]{}adelay={}:all=1,{}{}",
+                    input_idx,
+                    tempo_prefix,
+                    delay_ms,
+                    extra_filters.join(","),
+                    label
                 ));
                 mix_inputs.push(label);
             }
