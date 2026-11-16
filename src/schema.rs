@@ -119,10 +119,25 @@ pub struct Layer {
     pub skew_x: f32,
     #[serde(default)]
     pub skew_y: f32,
+    #[serde(default)]
+    pub track_matte: TrackMatteMode,
+    #[serde(default)]
+    pub matte_layer: Option<Box<Layer>>,
     #[serde(flatten)]
     pub kind: LayerKind,
     #[serde(default)]
     pub animations: Vec<Animation>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TrackMatteMode {
+    #[default]
+    None,
+    Alpha,
+    AlphaInverted,
+    Luma,
+    LumaInverted,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]

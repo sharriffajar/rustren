@@ -325,6 +325,28 @@ fn parse_layer_element(
 
     let anchor = parse_anchor(get_attr_str(elem, "anchor").as_deref());
     let skew_x = get_attr_f32(elem, "skew-x").or_else(|| get_attr_f32(elem, "skew_x")).unwrap_or(0.0);
+    let track_matte = match get_attr_str(elem, "track-matte")
+        .or_else(|| get_attr_str(elem, "track_matte"))
+        .as_deref()
+    {
+        Some("alpha") => TrackMatteMode::Alpha,
+        Some("alpha_inverted") | Some("alpha-inverted") => TrackMatteMode::AlphaInverted,
+        Some("luma") => TrackMatteMode::Luma,
+        Some("luma_inverted") | Some("luma-inverted") => TrackMatteMode::LumaInverted,
+        _ => TrackMatteMode::None,
+    };
+    let mut matte_layer = None;
+    for c in elem.children() {
+        if let Some(c_el) = ElementRef::wrap(c) {
+            if c_el.value().name() == "matte" {
+                let matte_children = parse_children_layers(&c_el, base_dir, depth, vars)?;
+                if let Some(first) = matte_children.into_iter().next() {
+                    matte_layer = Some(Box::new(first));
+                }
+                break;
+            }
+        }
+    }
     let skew_y = get_attr_f32(elem, "skew-y").or_else(|| get_attr_f32(elem, "skew_y")).unwrap_or(0.0);
 
     let animations = parse_animations(elem)?;
@@ -658,6 +680,8 @@ fn parse_layer_element(
         anchor,
         skew_x,
         skew_y,
+        track_matte,
+        matte_layer,
         kind,
         animations,
     }))

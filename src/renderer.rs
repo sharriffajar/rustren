@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use crate::schema::TrackMatteMode;
 use cosmic_text::{
     Align, Attrs, Buffer, Color as CosmicColor, Family, FontSystem, Metrics, Shaping, SwashCache,
     Weight,
@@ -891,6 +892,72 @@ fn render_layer(
     layout_override: Option<LayoutBox>,
     parent_opacity: f32,
 ) -> Result<()> {
+    if layer.track_matte != TrackMatteMode::None {
+        if let Some(ref matte) = layer.matte_layer {
+            let w = pixmap.width();
+            let h = pixmap.height();
+            let mut layer_pm = Pixmap::new(w, h).ok_or_else(|| anyhow::anyhow!("Failed to allocate matte layer pixmap"))?;
+            let mut matte_pm = Pixmap::new(w, h).ok_or_else(|| anyhow::anyhow!("Failed to allocate matte mask pixmap"))?;
+
+            render_layer_scoped(
+                layer,
+                scene_duration,
+                time_sec,
+                assets,
+                font_system,
+                swash_cache,
+                &mut layer_pm,
+                layout_override,
+                parent_opacity,
+                false,
+            )?;
+            render_layer_scoped(
+                matte,
+                scene_duration,
+                time_sec,
+                assets,
+                font_system,
+                swash_cache,
+                &mut matte_pm,
+                None,
+                1.0,
+                false,
+            )?;
+
+            let layer_data = layer_pm.data_mut();
+            let matte_data = matte_pm.data();
+            for (lp, mp) in layer_data.chunks_exact_mut(4).zip(matte_data.chunks_exact(4)) {
+                let factor = match layer.track_matte {
+                    TrackMatteMode::Alpha => mp[3] as f32 / 255.0,
+                    TrackMatteMode::AlphaInverted => 1.0 - (mp[3] as f32 / 255.0),
+                    TrackMatteMode::Luma => {
+                        (0.299 * mp[0] as f32 + 0.587 * mp[1] as f32 + 0.114 * mp[2] as f32) / 255.0
+                    }
+                    TrackMatteMode::LumaInverted => {
+                        let a = mp[3] as f32 / 255.0;
+                        let luma = (0.299 * mp[0] as f32 + 0.587 * mp[1] as f32 + 0.114 * mp[2] as f32) / 255.0;
+                        (a - luma).max(0.0)
+                    }
+                    TrackMatteMode::None => 1.0,
+                };
+                lp[0] = (lp[0] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+                lp[1] = (lp[1] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+                lp[2] = (lp[2] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+                lp[3] = (lp[3] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+            }
+
+            pixmap.draw_pixmap(
+                0,
+                0,
+                layer_pm.as_ref(),
+                &PixmapPaint::default(),
+                Transform::identity(),
+                None,
+            );
+            return Ok(());
+        }
+    }
+
     render_layer_scoped(
         layer,
         scene_duration,
@@ -2046,7 +2113,73 @@ fn render_layer_inner(
                         parent_x: 0.0,
                         parent_y: 0.0,
                     };
-                    render_layer_scoped(
+                    if layer.track_matte != TrackMatteMode::None {
+        if let Some(ref matte) = layer.matte_layer {
+            let w = pixmap.width();
+            let h = pixmap.height();
+            let mut layer_pm = Pixmap::new(w, h).ok_or_else(|| anyhow::anyhow!("Failed to allocate matte layer pixmap"))?;
+            let mut matte_pm = Pixmap::new(w, h).ok_or_else(|| anyhow::anyhow!("Failed to allocate matte mask pixmap"))?;
+
+            render_layer_scoped(
+                layer,
+                scene_duration,
+                time_sec,
+                assets,
+                font_system,
+                swash_cache,
+                &mut layer_pm,
+                layout_override,
+                parent_opacity,
+                false,
+            )?;
+            render_layer_scoped(
+                matte,
+                scene_duration,
+                time_sec,
+                assets,
+                font_system,
+                swash_cache,
+                &mut matte_pm,
+                None,
+                1.0,
+                false,
+            )?;
+
+            let layer_data = layer_pm.data_mut();
+            let matte_data = matte_pm.data();
+            for (lp, mp) in layer_data.chunks_exact_mut(4).zip(matte_data.chunks_exact(4)) {
+                let factor = match layer.track_matte {
+                    TrackMatteMode::Alpha => mp[3] as f32 / 255.0,
+                    TrackMatteMode::AlphaInverted => 1.0 - (mp[3] as f32 / 255.0),
+                    TrackMatteMode::Luma => {
+                        (0.299 * mp[0] as f32 + 0.587 * mp[1] as f32 + 0.114 * mp[2] as f32) / 255.0
+                    }
+                    TrackMatteMode::LumaInverted => {
+                        let a = mp[3] as f32 / 255.0;
+                        let luma = (0.299 * mp[0] as f32 + 0.587 * mp[1] as f32 + 0.114 * mp[2] as f32) / 255.0;
+                        (a - luma).max(0.0)
+                    }
+                    TrackMatteMode::None => 1.0,
+                };
+                lp[0] = (lp[0] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+                lp[1] = (lp[1] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+                lp[2] = (lp[2] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+                lp[3] = (lp[3] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+            }
+
+            pixmap.draw_pixmap(
+                0,
+                0,
+                layer_pm.as_ref(),
+                &PixmapPaint::default(),
+                Transform::identity(),
+                None,
+            );
+            return Ok(());
+        }
+    }
+
+    render_layer_scoped(
                         child,
                         cdur,
                         ct,
@@ -2091,7 +2224,73 @@ fn render_layer_inner(
                         parent_x: cx,
                         parent_y: cy,
                     };
-                    render_layer_scoped(
+                    if layer.track_matte != TrackMatteMode::None {
+        if let Some(ref matte) = layer.matte_layer {
+            let w = pixmap.width();
+            let h = pixmap.height();
+            let mut layer_pm = Pixmap::new(w, h).ok_or_else(|| anyhow::anyhow!("Failed to allocate matte layer pixmap"))?;
+            let mut matte_pm = Pixmap::new(w, h).ok_or_else(|| anyhow::anyhow!("Failed to allocate matte mask pixmap"))?;
+
+            render_layer_scoped(
+                layer,
+                scene_duration,
+                time_sec,
+                assets,
+                font_system,
+                swash_cache,
+                &mut layer_pm,
+                layout_override,
+                parent_opacity,
+                false,
+            )?;
+            render_layer_scoped(
+                matte,
+                scene_duration,
+                time_sec,
+                assets,
+                font_system,
+                swash_cache,
+                &mut matte_pm,
+                None,
+                1.0,
+                false,
+            )?;
+
+            let layer_data = layer_pm.data_mut();
+            let matte_data = matte_pm.data();
+            for (lp, mp) in layer_data.chunks_exact_mut(4).zip(matte_data.chunks_exact(4)) {
+                let factor = match layer.track_matte {
+                    TrackMatteMode::Alpha => mp[3] as f32 / 255.0,
+                    TrackMatteMode::AlphaInverted => 1.0 - (mp[3] as f32 / 255.0),
+                    TrackMatteMode::Luma => {
+                        (0.299 * mp[0] as f32 + 0.587 * mp[1] as f32 + 0.114 * mp[2] as f32) / 255.0
+                    }
+                    TrackMatteMode::LumaInverted => {
+                        let a = mp[3] as f32 / 255.0;
+                        let luma = (0.299 * mp[0] as f32 + 0.587 * mp[1] as f32 + 0.114 * mp[2] as f32) / 255.0;
+                        (a - luma).max(0.0)
+                    }
+                    TrackMatteMode::None => 1.0,
+                };
+                lp[0] = (lp[0] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+                lp[1] = (lp[1] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+                lp[2] = (lp[2] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+                lp[3] = (lp[3] as f32 * factor).round().clamp(0.0, 255.0) as u8;
+            }
+
+            pixmap.draw_pixmap(
+                0,
+                0,
+                layer_pm.as_ref(),
+                &PixmapPaint::default(),
+                Transform::identity(),
+                None,
+            );
+            return Ok(());
+        }
+    }
+
+    render_layer_scoped(
                         child,
                         cdur,
                         ct,
@@ -3445,5 +3644,41 @@ mod tests {
         };
         let frame = render_frame(&scene, &assets, 0).unwrap();
         assert_eq!(frame.len(), 320 * 240 * 4);
+    }
+
+    #[test]
+    fn test_track_matte_alpha_and_inverted() {
+        let json = r##"{
+            "canvas": { "width": 100, "height": 100, "fps": 30, "duration_secs": 1.0, "background": "#000000" },
+            "layers": [
+                {
+                    "type": "rect",
+                    "x": 0, "y": 0, "width": 100, "height": 100,
+                    "color": "#FF0000",
+                    "track_matte": "alpha",
+                    "matte_layer": {
+                        "type": "rect",
+                        "x": 20, "y": 20, "width": 40, "height": 40,
+                        "color": "#FFFFFF"
+                    }
+                }
+            ]
+        }"##;
+        let scene: Scene = serde_json::from_str(json).unwrap();
+        let assets = AssetStore {
+            fonts: vec![],
+            images: HashMap::new(),
+            videos: HashMap::new(),
+            svgs: HashMap::new(),
+            audio_paths: vec![],
+        };
+        let frame = render_frame(&scene, &assets, 0).unwrap();
+        // Pixel at (10, 10) is outside matte -> should be black (0, 0, 0)
+        let idx_out = (10 * 100 + 10) * 4;
+        assert_eq!(frame[idx_out], 0);
+        // Pixel at (30, 30) is inside matte -> should be red (255, 0, 0)
+        let idx_in = (30 * 100 + 30) * 4;
+        assert_eq!(frame[idx_in], 255);
+        assert_eq!(frame[idx_in + 1], 0);
     }
 }
