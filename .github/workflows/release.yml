@@ -22,7 +22,7 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             asset: rustren-macos-aarch64.tar.gz
-          - os: macos-13
+          - os: macos-latest
             target: x86_64-apple-darwin
             asset: rustren-macos-x86_64.tar.gz
           - os: windows-latest
@@ -55,3 +55,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.asset }}
+          generate_release_notes: true
