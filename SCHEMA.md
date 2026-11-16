@@ -95,16 +95,16 @@
 - `spans` (optional): array of `{ "text": "...", "color": "#...", "font_weight": "bold", "font_family": "...", "font_size": 48.0 }` for multi-style rich text
 - `font_size` (default `48.0`), `line_height` (optional, default `1.25 × font_size`), `letter_spacing` (default `0.0`, px), `font_family` (optional), `font_weight`: `"normal"` | `"bold"`
 - `text_align`: `"left"` | `"center"` | `"right"`
-- `color` (default `"#FFFFFF"`), `opacity` (default `1.0`), `scale` (default `1.0`), `max_width` (optional, recommended)
+- `color` (default `"#FFFFFF"`), `gradient` (optional, overrides `color` fill), `outline` (optional: `{ "color": "#000000", "width": 2.0 }`), `opacity` (default `1.0`), `scale` (default `1.0`), `max_width` (optional, recommended)
 
 ### 5. `svg`
 - `x`, `y` (default `0.0`), `width`, `height` (optional), `src` (required: file path, URL, or inline `<svg ...>...</svg>`), `path_progress` (default `1.0`), `stroke_dashoffset` (optional), `stroke_dasharray` (optional array of f32), `opacity` (default `1.0`), `rotation` (default `0.0`, degrees)
 
 ### 6. `image`
-- `x`, `y` (default `0.0`), `width`, `height` (optional), `src` (required: file path or URL), `opacity` (default `1.0`), `rotation` (default `0.0`, degrees), `scale` (default `1.0`)
+- `x`, `y` (default `0.0`), `width`, `height` (optional), `src` (required: file path or URL), `fit` (default `"fill"`: `"fill"` | `"cover"` | `"contain"`), `opacity` (default `1.0`), `rotation` (default `0.0`, degrees), `scale` (default `1.0`)
 
 ### 7. `video`
-- `x`, `y` (default `0.0`), `width`, `height` (optional, defaults to source video dimensions), `src` (required: file path or URL for MP4/MOV/WEBM)
+- `x`, `y` (default `0.0`), `width`, `height` (optional, defaults to source video dimensions), `src` (required: file path or URL for MP4/MOV/WEBM), `fit` (default `"fill"`: `"fill"` | `"cover"` | `"contain"`)
 - `trim_start_sec` (default `0.0`), `trim_end_sec` (optional), `playback_rate` (default `1.0`, affects both video & audio), `volume` (default `1.0`), `muted` (default `false`)
 - `opacity` (default `1.0`), `rotation` (default `0.0`), `scale` (default `1.0`)
 
@@ -121,6 +121,7 @@
 ```
 - `property`: `"x"` | `"y"` | `"width"` | `"height"` | `"opacity"` | `"scale"` | `"rotation"` | `"skew_x"` | `"skew_y"` | `"cx"` | `"cy"` | `"r"` | `"radius"` | `"color"` *(alias: `"background"`)* | `"border_color"` | `"path_progress"` | `"stroke_dashoffset"`
 - `from`, `to`: number (`f32`) or hex color (`"#RRGGBB"` / `"#RRGGBBAA"`) for `color` / `background` / `border_color`
+- `keyframes` *(optional alternative to `from`/`to`/`start_sec`/`end_sec`)*: array of `{ "time": 0.0, "value": 0.0, "easing": "ease_out" }` for multi-stop timelines in one block (e.g., fade-in → hold → fade-out)
 - `easing`: `"linear"` | `"ease_in"` | `"ease_out"` | `"ease_in_out"` | `"ease_in_quad"` | `"ease_out_quad"` | `"ease_in_out_quad"` | `"ease_in_expo"` | `"ease_out_expo"` | `"ease_in_out_expo"` | `"ease_in_back"` | `"ease_out_back"` | `"ease_in_out_back"` | `"ease_out_bounce"` | `"cubic_bezier"` | `"spring"`
 - `bezier` *(optional, for `easing: "cubic_bezier"`)*: `[x1, y1, x2, y2]`
 - `spring` *(optional, for `easing: "spring"`)*: `{ "stiffness": 120.0, "damping": 14.0, "mass": 1.0 }`
@@ -148,13 +149,13 @@
   - When `fonts: []`, the engine automatically falls back to system sans-serif.
   - `font_family` matches the font's internal family name. `font_weight: "bold"` requests bold weight from `cosmic-text`.
   - `text_align` aligns text within `max_width` (or canvas width if omitted). Supports `\n` newlines and system color emojis.
-- **Gradients & Colors**: Colors use hex strings (`#RGB`, `#RRGGBB`, `#RRGGBBAA`). `gradient.angle` is measured clockwise in degrees from the positive X-axis (`0°` = left-to-right, `90°` = top-to-bottom).
+- **Gradients & Colors**: Colors use hex strings (`#RGB`, `#RRGGBB`, `#RRGGBBAA`). `gradient` supports `"type": "linear" | "radial"` and multi-stop `"stops": [{ "offset": 0.0, "color": "#..." }, ...]` (or 2-stop `"from"` / `"to"`). `angle` is measured clockwise in degrees from the positive X-axis (`0°` = left-to-right, `90°` = top-to-bottom).
 - **SVG**: Rendered via `resvg`/`usvg` (supports `<path>`, `<rect>`, `<circle>`, `<pattern>`, `<radialGradient>`, `<linearGradient>`, etc.).
 
 ## Output Specs & Performance
 - **Format**: MP4 (H.264 High Profile, `yuv420p`, `30fps` default).
 - **CLI Inspection Tools**:
-  - `rustren validate <file.json>`: checks schema compatibility and emits grouped lint warnings (profile-aware font size, out-of-canvas bounds, low text contrast).
+  - `rustren validate <file.json>` (`--strict-determinism` flags remote URLs, empty `fonts[]`, and `repeat: "infinite"`): checks schema compatibility, rejects unknown fields, and emits grouped lint warnings (profile-aware font size, out-of-canvas bounds, low text contrast).
   - `rustren snapshot <file.json> -t 1.5,5.6 --sheet -o sheet.png`: renders individual timestamps or a contact sheet directly to PNG.
   - `rustren layout <file.json> -t 5.0`: outputs computed bounding boxes and measured text dimensions as JSON.
   - `rustren render <file.json> -o out.mp4 --profile`: prints per-layer CPU time and cache hit/miss stats.

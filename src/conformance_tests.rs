@@ -715,3 +715,90 @@ fn test_unknown_field_rejected_by_strict_validation() {
         "unexpected error: {err}"
     );
 }
+
+#[test]
+fn test_keyframes_fit_text_fx_radial_gradient_and_strict_determinism() {
+    let tmp_img = std::env::temp_dir().join("rustren_conformance_fit_img.png");
+    let mut img = image::RgbaImage::from_pixel(40, 20, image::Rgba([0, 255, 0, 255]));
+    img.put_pixel(0, 0, image::Rgba([255, 0, 0, 255]));
+    img.save(&tmp_img).unwrap();
+    let img_path = tmp_img.to_string_lossy().replace('\\', "/");
+
+    let json = format!(
+        r##"{{
+        "canvas": {{ "width": 200, "height": 200, "fps": 10, "duration_secs": 2.0, "background": "#000000" }},
+        "layers": [
+            {{
+                "type": "rect",
+                "x": 0,
+                "y": 0,
+                "width": 200,
+                "height": 200,
+                "color": "#000000",
+                "gradient": {{
+                    "type": "radial",
+                    "stops": [
+                        {{ "offset": 0.0, "color": "#FF0000" }},
+                        {{ "offset": 0.5, "color": "#00FF00" }},
+                        {{ "offset": 1.0, "color": "#0000FF" }}
+                    ]
+                }},
+                "animations": [
+                    {{
+                        "property": "opacity",
+                        "keyframes": [
+                            {{ "time": 0.0, "value": 0.0 }},
+                            {{ "time": 0.5, "value": 1.0, "easing": "linear" }},
+                            {{ "time": 1.5, "value": 1.0 }},
+                            {{ "time": 2.0, "value": 0.0 }}
+                        ]
+                    }}
+                ]
+            }},
+            {{
+                "type": "image",
+                "x": 20,
+                "y": 20,
+                "width": 40,
+                "height": 40,
+                "src": "{img_path}",
+                "fit": "contain"
+            }},
+            {{
+                "type": "text",
+                "x": 20,
+                "y": 90,
+                "font_size": 36,
+                "max_width": 160,
+                "gradient": {{ "from": "#22D3EE", "to": "#818CF8", "angle": 0 }},
+                "outline": {{ "color": "#FFFFFF", "width": 2.0 }},
+                "spans": [
+                    {{ "text": "Hi ", "font_size": 24, "color": "#FFFFFF" }},
+                    {{ "text": "Rust", "font_size": 40, "font_weight": "bold" }}
+                ]
+            }}
+        ]
+    }}"##
+    );
+
+    crate::lint::validate_no_unknown_fields(&json).unwrap();
+    let scene: crate::schema::Scene = serde_json::from_str(&json).unwrap();
+    let assets = crate::assets::AssetStore::load_for_scene(&scene, &std::env::temp_dir()).unwrap();
+
+    // At t=0.0s, keyframes opacity=0 -> radial rect invisible (black background)
+    let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
+    assert_eq!(pixel_at(&f0, 200, 100, 100), [0, 0, 0, 255]);
+
+    // At t=1.0s, keyframes opacity=1 -> radial center (100,100) is red, image contain keeps green at (40,40)
+    let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
+    let p_rad = pixel_at(&f1, 200, 100, 100);
+    assert!(p_rad[0] > 180 && p_rad[2] < 80, "expected radial red center, got {:?}", p_rad);
+    let p_img = pixel_at(&f1, 200, 40, 40);
+    assert!(p_img[1] > 200 && p_img[0] < 50, "expected green contained image pixel, got {:?}", p_img);
+
+    // Strict determinism check flags empty fonts[]
+    let det_warnings = crate::lint::collect_determinism_warnings(&scene);
+    assert!(det_warnings.iter().any(|w| w.contains("fonts[] is empty")), "got {det_warnings:?}");
+
+    let _ = std::fs::remove_file(&tmp_img);
+}

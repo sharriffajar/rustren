@@ -413,16 +413,16 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
             ],
             "text" => &[
                 "x", "y", "content", "dynamic", "spans", "font_size", "line_height",
-                "letter_spacing", "font_family", "font_weight", "text_align", "color", "opacity",
-                "max_width", "scale",
+                "letter_spacing", "font_family", "font_weight", "text_align", "color",
+                "gradient", "outline", "opacity", "max_width", "scale",
             ],
-            "image" => &["x", "y", "width", "height", "src", "opacity", "rotation", "scale"],
+            "image" => &["x", "y", "width", "height", "src", "fit", "opacity", "rotation", "scale"],
             "svg" => &[
                 "x", "y", "width", "height", "src", "path_progress", "stroke_dashoffset",
                 "stroke_dasharray", "opacity", "rotation",
             ],
             "video" => &[
-                "x", "y", "width", "height", "src", "trim_start_sec", "trim_end_sec",
+                "x", "y", "width", "height", "src", "fit", "trim_start_sec", "trim_end_sec",
                 "playback_rate", "volume", "muted", "opacity", "rotation", "scale",
             ],
             "container" => &[
@@ -441,7 +441,17 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
             check_allowed_keys(shadow, &format!("{path}.shadow"), &["color", "offset_x", "offset_y", "blur"])?;
         }
         if let Some(grad) = obj.get("gradient").and_then(|v| v.as_object()) {
-            check_allowed_keys(grad, &format!("{path}.gradient"), &["from", "to", "angle"])?;
+            check_allowed_keys(grad, &format!("{path}.gradient"), &["type", "from", "to", "stops", "angle"])?;
+            if let Some(stops) = grad.get("stops").and_then(|v| v.as_array()) {
+                for (si, st) in stops.iter().enumerate() {
+                    if let Some(so) = st.as_object() {
+                        check_allowed_keys(so, &format!("{path}.gradient.stops[{si}]"), &["offset", "color"])?;
+                    }
+                }
+            }
+        }
+        if let Some(outline) = obj.get("outline").and_then(|v| v.as_object()) {
+            check_allowed_keys(outline, &format!("{path}.outline"), &["color", "width"])?;
         }
         if let Some(layout) = obj.get("layout").and_then(|v| v.as_object()) {
             check_allowed_keys(
@@ -456,7 +466,7 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
                     check_allowed_keys(
                         so,
                         &format!("{path}.spans[{si}]"),
-                        &["text", "color", "font_weight", "font_family"],
+                        &["text", "color", "font_weight", "font_family", "font_size"],
                     )?;
                 }
             }
@@ -467,8 +477,22 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
                     check_allowed_keys(
                         ao,
                         &format!("{path}.animations[{ai}]"),
-                        &["property", "from", "to", "start_sec", "end_sec", "easing", "bezier", "spring", "repeat", "yoyo"],
+                        &[
+                            "property", "from", "to", "start_sec", "end_sec", "keyframes",
+                            "easing", "bezier", "spring", "repeat", "yoyo",
+                        ],
                     )?;
+                    if let Some(kfs) = ao.get("keyframes").and_then(|v| v.as_array()) {
+                        for (ki, kf) in kfs.iter().enumerate() {
+                            if let Some(ko) = kf.as_object() {
+                                check_allowed_keys(
+                                    ko,
+                                    &format!("{path}.animations[{ai}].keyframes[{ki}]"),
+                                    &["time", "value", "easing", "bezier"],
+                                )?;
+                            }
+                        }
+                    }
                     if let Some(sp) = ao.get("spring").and_then(|v| v.as_object()) {
                         check_allowed_keys(
                             sp,
@@ -484,4 +508,53 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
         }
     }
     Ok(())
+}
+
+/// Flag scene patterns that can hurt cross-machine determinism (network assets,
+/// system font fallbacks, or infinite repeat cycles).
+pub fn collect_determinism_warnings(scene: &Scene) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut has_text = false;
+    for (i, audio) in scene.audio.iter().enumerate() {
+        if audio.src.starts_with("http://") || audio.src.starts_with("https://") {
+            out.push(format!("determinism: audio[{i}] uses remote URL '{}'", audio.src));
+        }
+    }
+    collect_layer_determinism(&scene.layers, "layers", &mut has_text, &mut out);
+    if has_text && scene.fonts.is_empty() {
+        out.push("determinism: fonts[] is empty; text rendering relies on host system fonts".to_string());
+    }
+    out
+}
+
+fn collect_layer_determinism(
+    layers: &[Layer],
+    prefix: &str,
+    has_text: &mut bool,
+    out: &mut Vec<String>,
+) {
+    for (i, layer) in layers.iter().enumerate() {
+        let path = format!("{prefix}[{i}]");
+        for (ai, anim) in layer.animations.iter().enumerate() {
+            if matches!(anim.repeat, Some(crate::schema::RepeatSpec::Mode(crate::schema::RepeatMode::Infinite))) {
+                out.push(format!(
+                    "determinism: {path}.animations[{ai}] uses repeat='infinite' (unbounded cycle)"
+                ));
+            }
+        }
+        match &layer.kind {
+            LayerKind::Text { .. } => {
+                *has_text = true;
+            }
+            LayerKind::Image { src, .. } | LayerKind::Video { src, .. } | LayerKind::Svg { src, .. } => {
+                if src.starts_with("http://") || src.starts_with("https://") {
+                    out.push(format!("determinism: {path} uses remote URL '{src}'"));
+                }
+            }
+            LayerKind::Container { children, .. } => {
+                collect_layer_determinism(children, &format!("{path}.children"), has_text, out);
+            }
+            _ => {}
+        }
+    }
 }

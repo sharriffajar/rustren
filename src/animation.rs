@@ -222,12 +222,37 @@ fn eval_anim_step(anim: &Animation, time_sec: f32) -> AnimStep {
     }
 }
 
+fn eval_keyframes_step(kfs: &[crate::schema::Keyframe], time_sec: f32) -> Option<(&crate::schema::Keyframe, &crate::schema::Keyframe, f32)> {
+    let first = kfs.first()?;
+    if kfs.len() == 1 || time_sec <= first.time {
+        return Some((first, first, 0.0));
+    }
+    for win in kfs.windows(2) {
+        let (k0, k1) = (&win[0], &win[1]);
+        if time_sec <= k1.time {
+            let dur = (k1.time - k0.time).max(1e-6);
+            let raw_t = ((time_sec - k0.time) / dur).clamp(0.0, 1.0);
+            let eased_t = apply_easing_with_bezier(raw_t, k1.easing, k1.bezier);
+            return Some((k0, k1, eased_t));
+        }
+    }
+    let last = kfs.last()?;
+    Some((last, last, 1.0))
+}
+
 pub fn eval_property(animations: &[Animation], prop: AnimProperty, time_sec: f32, default: f32) -> f32 {
     let mut matching = animations.iter().filter(|a| a.property == prop).peekable();
     let Some(first) = matching.peek().copied() else {
         return default;
     };
-    if time_sec <= first.start_sec {
+    if !first.keyframes.is_empty() {
+        if time_sec <= first.keyframes[0].time {
+            return match first.keyframes[0].value {
+                AnimValue::Number(v) => v,
+                AnimValue::Color(_) => default,
+            };
+        }
+    } else if time_sec <= first.start_sec {
         return match first.from {
             AnimValue::Number(v) => v,
             AnimValue::Color(_) => default,
@@ -236,6 +261,17 @@ pub fn eval_property(animations: &[Animation], prop: AnimProperty, time_sec: f32
 
     let mut result = default;
     for anim in matching {
+        if !anim.keyframes.is_empty() {
+            if time_sec < anim.keyframes[0].time {
+                break;
+            }
+            if let Some((k0, k1, eased_t)) = eval_keyframes_step(&anim.keyframes, time_sec) {
+                if let (AnimValue::Number(v0), AnimValue::Number(v1)) = (&k0.value, &k1.value) {
+                    result = *v0 + (*v1 - *v0) * eased_t;
+                }
+            }
+            continue;
+        }
         if time_sec < anim.start_sec {
             break;
         }
@@ -287,7 +323,14 @@ pub fn eval_color_property(
     let Some(first) = matching.peek().copied() else {
         return default.map(|s| s.to_string());
     };
-    if time_sec <= first.start_sec {
+    if !first.keyframes.is_empty() {
+        if time_sec <= first.keyframes[0].time {
+            return match &first.keyframes[0].value {
+                AnimValue::Color(c) => Some(c.clone()),
+                AnimValue::Number(_) => default.map(|s| s.to_string()),
+            };
+        }
+    } else if time_sec <= first.start_sec {
         return match &first.from {
             AnimValue::Color(c) => Some(c.clone()),
             AnimValue::Number(_) => default.map(|s| s.to_string()),
@@ -296,6 +339,32 @@ pub fn eval_color_property(
 
     let mut result = default.map(|s| s.to_string());
     for anim in matching {
+        if !anim.keyframes.is_empty() {
+            if time_sec < anim.keyframes[0].time {
+                break;
+            }
+            if let Some((k0, k1, eased_t)) = eval_keyframes_step(&anim.keyframes, time_sec) {
+                if let (AnimValue::Color(c0s), AnimValue::Color(c1s)) = (&k0.value, &k1.value) {
+                    if let (Some(c0), Some(c1)) = (parse_rgba_u8(c0s), parse_rgba_u8(c1s)) {
+                        let lerp = |a: u8, b: u8| -> u8 {
+                            ((a as f32) + ((b as f32) - (a as f32)) * eased_t)
+                                .round()
+                                .clamp(0.0, 255.0) as u8
+                        };
+                        result = Some(format!(
+                            "#{:02X}{:02X}{:02X}{:02X}",
+                            lerp(c0[0], c1[0]),
+                            lerp(c0[1], c1[1]),
+                            lerp(c0[2], c1[2]),
+                            lerp(c0[3], c1[3])
+                        ));
+                    } else {
+                        result = Some(c1s.clone());
+                    }
+                }
+            }
+            continue;
+        }
         if time_sec < anim.start_sec {
             break;
         }
@@ -340,6 +409,7 @@ mod tests {
             to: 200.0.into(),
             start_sec: 1.0,
             end_sec: 3.0,
+            keyframes: vec![],
             easing: Easing::Linear,
             bezier: None,
             spring: None,
@@ -380,6 +450,7 @@ mod tests {
             to: 1.5.into(),
             start_sec: 0.0,
             end_sec: 1.0,
+            keyframes: vec![],
             easing: Easing::Linear,
             bezier: None,
             spring: None,
@@ -399,6 +470,7 @@ mod tests {
             to: AnimValue::Color("#0000ff".to_string()),
             start_sec: 0.0,
             end_sec: 1.0,
+            keyframes: vec![],
             easing: Easing::Linear,
             bezier: None,
             spring: None,

@@ -132,6 +132,33 @@ pub struct TextSpan {
     pub font_weight: Option<FontWeightSpec>,
     #[serde(default)]
     pub font_family: Option<String>,
+    #[serde(default)]
+    pub font_size: Option<f32>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FitSpec {
+    #[default]
+    Fill,
+    Cover,
+    Contain,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TextOutlineSpec {
+    #[serde(default = "default_text_outline_color")]
+    pub color: String,
+    #[serde(default = "default_text_outline_width")]
+    pub width: f32,
+}
+
+fn default_text_outline_color() -> String {
+    "#000000".to_string()
+}
+
+fn default_text_outline_width() -> f32 {
+    2.0
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
@@ -213,10 +240,30 @@ pub enum PositionSpec {
     Absolute,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GradientTypeSpec {
+    #[default]
+    Linear,
+    Radial,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct GradientStopSpec {
+    pub offset: f32,
+    pub color: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct LinearGradientSpec {
-    pub from: String,
-    pub to: String,
+    #[serde(default, rename = "type")]
+    pub kind: GradientTypeSpec,
+    #[serde(default)]
+    pub from: Option<String>,
+    #[serde(default)]
+    pub to: Option<String>,
+    #[serde(default)]
+    pub stops: Vec<GradientStopSpec>,
     #[serde(default)]
     pub angle: f32,
 }
@@ -296,6 +343,10 @@ pub enum LayerKind {
         text_align: TextAlignSpec,
         #[serde(default = "default_text_color")]
         color: String,
+        #[serde(default)]
+        gradient: Option<LinearGradientSpec>,
+        #[serde(default)]
+        outline: Option<TextOutlineSpec>,
         #[serde(default = "default_opacity")]
         opacity: f32,
         #[serde(default)]
@@ -311,6 +362,8 @@ pub enum LayerKind {
         width: Option<f32>,
         height: Option<f32>,
         src: String,
+        #[serde(default)]
+        fit: FitSpec,
         #[serde(default = "default_opacity")]
         opacity: f32,
         #[serde(default)]
@@ -345,6 +398,8 @@ pub enum LayerKind {
         width: Option<f32>,
         height: Option<f32>,
         src: String,
+        #[serde(default)]
+        fit: FitSpec,
         #[serde(default)]
         trim_start_sec: f32,
         #[serde(default)]
@@ -502,12 +557,32 @@ impl From<f32> for AnimValue {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct Keyframe {
+    pub time: f32,
+    pub value: AnimValue,
+    #[serde(default)]
+    pub easing: Easing,
+    #[serde(default)]
+    pub bezier: Option<[f32; 4]>,
+}
+
+fn default_anim_zero() -> AnimValue {
+    AnimValue::Number(0.0)
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct Animation {
     pub property: AnimProperty,
+    #[serde(default = "default_anim_zero")]
     pub from: AnimValue,
+    #[serde(default = "default_anim_zero")]
     pub to: AnimValue,
+    #[serde(default)]
     pub start_sec: f32,
+    #[serde(default)]
     pub end_sec: f32,
+    #[serde(default)]
+    pub keyframes: Vec<Keyframe>,
     #[serde(default)]
     pub easing: Easing,
     #[serde(default)]

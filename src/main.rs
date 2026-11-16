@@ -56,6 +56,9 @@ enum Commands {
     Validate {
         /// Path to the scene JSON file
         input: PathBuf,
+        /// Also flag non-deterministic patterns (remote URLs, missing bundled fonts, repeat=infinite)
+        #[arg(long, default_value_t = false)]
+        strict_determinism: bool,
     },
     /// Render one or more timestamp frames to PNG (or a contact sheet)
     Snapshot {
@@ -145,13 +148,19 @@ fn main() -> Result<()> {
             let reg = capabilities::CapabilityRegistry::current();
             println!("{}", serde_json::to_string_pretty(&reg)?);
         }
-        Commands::Validate { input } => {
+        Commands::Validate {
+            input,
+            strict_determinism,
+        } => {
             let raw = fs::read_to_string(&input)
                 .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
             lint::validate_no_unknown_fields(&raw)?;
             let scene: Scene = serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
             capabilities::validate_scene_capabilities(&scene)?;
-            let warnings = collect_lint_warnings(&scene);
+            let mut warnings = collect_lint_warnings(&scene);
+            if strict_determinism {
+                warnings.extend(lint::collect_determinism_warnings(&scene));
+            }
             for w in &warnings {
                 eprintln!("warning: {w}");
             }

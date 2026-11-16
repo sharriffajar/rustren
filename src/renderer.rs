@@ -8,7 +8,7 @@ use taffy::prelude::*;
 use tiny_skia::{
     BlendMode as SkiaBlendMode, Color, FillRule, FilterQuality, GradientStop, IntSize,
     LinearGradient, Mask, Paint, PathBuilder, Pixmap, PixmapPaint, Point, RadialGradient, Rect,
-    SpreadMode, Stroke, StrokeDash, Transform,
+    Shader, SpreadMode, Stroke, StrokeDash, Transform,
 };
 
 #[allow(clippy::too_many_arguments)]
@@ -25,6 +25,7 @@ fn draw_rgba_frame(
     opacity: f32,
     rotation: f32,
     scale: f32,
+    fit: FitSpec,
     src_w: u32,
     src_h: u32,
     raw_rgba: &[u8],
@@ -50,23 +51,60 @@ fn draw_rgba_frame(
     let src_pixmap = Pixmap::from_vec(raw_rgba.to_vec(), size)
         .ok_or_else(|| anyhow!("Failed to create Pixmap from media frame"))?;
 
-    let sx = (w / src_w as f32) * s;
-    let sy = (h / src_h as f32) * s;
-    let mut transform = Transform::from_scale(sx, sy).post_translate(x, y);
-    let pivot_xf = build_pivot_transform_with_skew(x, y, w, h, s, rot, sk_x, sk_y);
-    if (s - 1.0).abs() > 1e-6 {
-        transform = Transform::from_scale(w / src_w as f32, h / src_h as f32)
-            .post_translate(x, y)
-            .post_concat(pivot_xf);
-    } else if rot != 0.0 || sk_x != 0.0 || sk_y != 0.0 {
-        transform = transform.post_concat(pivot_xf);
-    }
     let paint = PixmapPaint {
         opacity: op.clamp(0.0, 1.0),
         quality: FilterQuality::Bilinear,
         ..PixmapPaint::default()
     };
-    pixmap.draw_pixmap(0, 0, src_pixmap.as_ref(), &paint, transform, None);
+    let pivot_xf = build_pivot_transform_with_skew(x, y, w, h, s, rot, sk_x, sk_y);
+
+    match fit {
+        FitSpec::Fill => {
+            let sx = w / src_w as f32;
+            let sy = h / src_h as f32;
+            let transform = Transform::from_scale(sx, sy)
+                .post_translate(x, y)
+                .post_concat(pivot_xf);
+            pixmap.draw_pixmap(0, 0, src_pixmap.as_ref(), &paint, transform, None);
+        }
+        FitSpec::Contain => {
+            let u = (w / src_w as f32).min(h / src_h as f32);
+            let draw_w = src_w as f32 * u;
+            let draw_h = src_h as f32 * u;
+            let ox = x + (w - draw_w) * 0.5;
+            let oy = y + (h - draw_h) * 0.5;
+            let transform = Transform::from_scale(u, u)
+                .post_translate(ox, oy)
+                .post_concat(pivot_xf);
+            pixmap.draw_pixmap(0, 0, src_pixmap.as_ref(), &paint, transform, None);
+        }
+        FitSpec::Cover => {
+            let pw = (w.ceil() as u32).max(1);
+            let ph = (h.ceil() as u32).max(1);
+            let mut box_pixmap = Pixmap::new(pw, ph)
+                .ok_or_else(|| anyhow!("Failed to allocate cover pixmap {}x{}", pw, ph))?;
+            let u = (w / src_w as f32).max(h / src_h as f32);
+            let draw_w = src_w as f32 * u;
+            let draw_h = src_h as f32 * u;
+            let ox = (w - draw_w) * 0.5;
+            let oy = (h - draw_h) * 0.5;
+            let inner_xf = Transform::from_scale(u, u).post_translate(ox, oy);
+            box_pixmap.draw_pixmap(
+                0,
+                0,
+                src_pixmap.as_ref(),
+                &PixmapPaint {
+                    opacity: 1.0,
+                    quality: FilterQuality::Bilinear,
+                    ..PixmapPaint::default()
+                },
+                inner_xf,
+                None,
+            );
+            let outer_xf = Transform::from_translate(x, y).post_concat(pivot_xf);
+            pixmap.draw_pixmap(0, 0, box_pixmap.as_ref(), &paint, outer_xf, None);
+        }
+    }
     Ok(())
 }
 
@@ -212,9 +250,9 @@ pub fn get_cache_stats() -> (u64, u64, u64, u64) {
 use crate::animation::{apply_easing, eval_color_property, eval_property};
 use crate::assets::AssetStore;
 use crate::schema::{
-    AlignSpec, AnchorSpec, AnimProperty, BlendModeSpec, DynamicTextSpec, FlexDirectionSpec,
-    FontWeightSpec, Layer, LayerKind, LayoutSpec, LinearGradientSpec, PositionSpec, Scene,
-    TextAlignSpec, TextSpan, TimelineMode,
+    AlignSpec, AnchorSpec, AnimProperty, BlendModeSpec, DynamicTextSpec, FitSpec,
+    FlexDirectionSpec, FontWeightSpec, GradientTypeSpec, Layer, LayerKind, LayoutSpec,
+    LinearGradientSpec, PositionSpec, Scene, TextAlignSpec, TextSpan, TimelineMode,
 };
 
 pub fn parse_hex_color(hex: &str, opacity_override: f32) -> Result<Color> {
@@ -1235,6 +1273,8 @@ fn render_layer_inner(
             font_weight,
             text_align,
             color,
+            gradient,
+            outline,
             opacity,
             max_width,
             scale,
@@ -1297,62 +1337,222 @@ fn render_layer_inner(
             )?;
 
             let ls = *letter_spacing * s;
-            let mut draw_pixel = |gx: i32, gy: i32, w: u32, h: u32, color: CosmicColor| {
-                if w == 0 || h == 0 {
-                    return;
-                }
-                let a = color.a() as f32 / 255.0;
-                if a <= 0.0 {
-                    return;
-                }
-                if let Some(rect) = Rect::from_xywh(gx as f32, gy as f32, w as f32, h as f32) {
-                    let mut paint = Paint::default();
-                    paint.set_color(
-                        Color::from_rgba(
-                            color.r() as f32 / 255.0,
-                            color.g() as f32 / 255.0,
-                            color.b() as f32 / 255.0,
-                            a,
-                        )
-                        .unwrap_or(Color::WHITE),
-                    );
-                    pixmap.fill_rect(rect, &paint, text_xform, None);
-                }
-            };
+            let use_fx_buffer = gradient.is_some()
+                || outline.as_ref().is_some_and(|o| o.width > 0.0);
 
-            if ls.abs() < 1e-4 {
-                buffer.draw(font_system, swash_cache, text_color, |px, py, w, h, col| {
-                    draw_pixel(x as i32 + px, y as i32 + py, w, h, col);
-                });
+            if !use_fx_buffer {
+                let mut draw_pixel = |gx: i32, gy: i32, w: u32, h: u32, color: CosmicColor| {
+                    if w == 0 || h == 0 {
+                        return;
+                    }
+                    let a = color.a() as f32 / 255.0;
+                    if a <= 0.0 {
+                        return;
+                    }
+                    if let Some(rect) = Rect::from_xywh(gx as f32, gy as f32, w as f32, h as f32) {
+                        let mut paint = Paint::default();
+                        paint.set_color(
+                            Color::from_rgba(
+                                color.r() as f32 / 255.0,
+                                color.g() as f32 / 255.0,
+                                color.b() as f32 / 255.0,
+                                a,
+                            )
+                            .unwrap_or(Color::WHITE),
+                        );
+                        pixmap.fill_rect(rect, &paint, text_xform, None);
+                    }
+                };
+
+                if ls.abs() < 1e-4 {
+                    buffer.draw(font_system, swash_cache, text_color, |px, py, w, h, col| {
+                        draw_pixel(x as i32 + px, y as i32 + py, w, h, col);
+                    });
+                } else {
+                    for run in buffer.layout_runs() {
+                        let glyph_count = run.glyphs.len();
+                        let extra_w = (glyph_count.saturating_sub(1) as f32) * ls;
+                        let align_shift = match text_align {
+                            TextAlignSpec::Left => 0.0,
+                            TextAlignSpec::Center => -extra_w * 0.5,
+                            TextAlignSpec::Right => -extra_w,
+                        };
+                        for (idx, glyph) in run.glyphs.iter().enumerate() {
+                            let physical_glyph = glyph.physical((0., 0.), 1.0);
+                            let glyph_color = glyph.color_opt.unwrap_or(text_color);
+                            let shift_x = (align_shift + (idx as f32) * ls).round() as i32;
+                            swash_cache.with_pixels(
+                                font_system,
+                                physical_glyph.cache_key,
+                                glyph_color,
+                                |px, py, col| {
+                                    draw_pixel(
+                                        x as i32 + physical_glyph.x + shift_x + px,
+                                        y as i32 + run.line_y as i32 + physical_glyph.y + py,
+                                        1,
+                                        1,
+                                        col,
+                                    );
+                                },
+                            );
+                        }
+                    }
+                }
             } else {
-                for run in buffer.layout_runs() {
-                    let glyph_count = run.glyphs.len();
-                    let extra_w = (glyph_count.saturating_sub(1) as f32) * ls;
-                    let align_shift = match text_align {
-                        TextAlignSpec::Left => 0.0,
-                        TextAlignSpec::Center => -extra_w * 0.5,
-                        TextAlignSpec::Right => -extra_w,
-                    };
-                    for (idx, glyph) in run.glyphs.iter().enumerate() {
-                        let physical_glyph = glyph.physical((0., 0.), 1.0);
-                        let glyph_color = glyph.color_opt.unwrap_or(text_color);
-                        let shift_x = (align_shift + (idx as f32) * ls).round() as i32;
-                        swash_cache.with_pixels(
-                            font_system,
-                            physical_glyph.cache_key,
-                            glyph_color,
-                            |px, py, col| {
-                                draw_pixel(
-                                    x as i32 + physical_glyph.x + shift_x + px,
-                                    y as i32 + run.line_y as i32 + physical_glyph.y + py,
-                                    1,
-                                    1,
-                                    col,
-                                );
-                            },
+                let pad = outline
+                    .as_ref()
+                    .map(|o| o.width.ceil().max(0.0) as i32)
+                    .unwrap_or(0);
+                let tb_w = (bw.ceil() as i32 + pad * 2 + 4).max(1) as u32;
+                let tb_h = (mh.ceil() as i32 + pad * 2 + 4).max(1) as u32;
+                let mut fill_pm = Pixmap::new(tb_w, tb_h)
+                    .ok_or_else(|| anyhow!("Failed to allocate text fx pixmap {}x{}", tb_w, tb_h))?;
+
+                let mut plot_local = |lx: i32, ly: i32, w: u32, h: u32, col: CosmicColor| {
+                    if w == 0 || h == 0 || col.a() == 0 {
+                        return;
+                    }
+                    if let Some(rect) = Rect::from_xywh(
+                        (lx + pad) as f32,
+                        (ly + pad) as f32,
+                        w as f32,
+                        h as f32,
+                    ) {
+                        let mut p = Paint::default();
+                        p.set_color(
+                            Color::from_rgba(
+                                col.r() as f32 / 255.0,
+                                col.g() as f32 / 255.0,
+                                col.b() as f32 / 255.0,
+                                col.a() as f32 / 255.0,
+                            )
+                            .unwrap_or(Color::WHITE),
+                        );
+                        fill_pm.fill_rect(rect, &p, Transform::identity(), None);
+                    }
+                };
+
+                if ls.abs() < 1e-4 {
+                    buffer.draw(font_system, swash_cache, text_color, |px, py, w, h, col| {
+                        plot_local(px, py, w, h, col);
+                    });
+                } else {
+                    for run in buffer.layout_runs() {
+                        let glyph_count = run.glyphs.len();
+                        let extra_w = (glyph_count.saturating_sub(1) as f32) * ls;
+                        let align_shift = match text_align {
+                            TextAlignSpec::Left => 0.0,
+                            TextAlignSpec::Center => -extra_w * 0.5,
+                            TextAlignSpec::Right => -extra_w,
+                        };
+                        for (idx, glyph) in run.glyphs.iter().enumerate() {
+                            let physical_glyph = glyph.physical((0., 0.), 1.0);
+                            let glyph_color = glyph.color_opt.unwrap_or(text_color);
+                            let shift_x = (align_shift + (idx as f32) * ls).round() as i32;
+                            swash_cache.with_pixels(
+                                font_system,
+                                physical_glyph.cache_key,
+                                glyph_color,
+                                |px, py, col| {
+                                    plot_local(
+                                        physical_glyph.x + shift_x + px,
+                                        run.line_y as i32 + physical_glyph.y + py,
+                                        1,
+                                        1,
+                                        col,
+                                    );
+                                },
+                            );
+                        }
+                    }
+                }
+
+                if let Some(grad) = gradient {
+                    if let Some(shader) = build_gradient_shader(grad, pad as f32, pad as f32, bw, mh, op)? {
+                        let mut gp = Paint {
+                            shader,
+                            blend_mode: SkiaBlendMode::SourceIn,
+                            ..Paint::default()
+                        };
+                        gp.anti_alias = true;
+                        if let Some(r) = Rect::from_xywh(0.0, 0.0, tb_w as f32, tb_h as f32) {
+                            fill_pm.fill_rect(r, &gp, Transform::identity(), None);
+                        }
+                    }
+                }
+
+                let dst_xform = Transform::from_translate(x - pad as f32, y - pad as f32)
+                    .post_concat(text_xform);
+
+                if let Some(out_spec) = outline {
+                    if out_spec.width > 0.0 {
+                        let oc = parse_hex_color(&out_spec.color, op)?;
+                        let mut out_pm = Pixmap::new(tb_w, tb_h).ok_or_else(|| {
+                            anyhow!("Failed to allocate text outline pixmap {}x{}", tb_w, tb_h)
+                        })?;
+                        let r_px = out_spec.width.ceil() as i32;
+                        let r2 = (out_spec.width * out_spec.width) + 0.5;
+                        let src_d = fill_pm.data();
+                        let dst_d = out_pm.data_mut();
+                        let uw = tb_w as i32;
+                        let uh = tb_h as i32;
+                        for oy in 0..uh {
+                            for ox in 0..uw {
+                                let mut max_a = 0u8;
+                                for dy in -r_px..=r_px {
+                                    let sy = oy + dy;
+                                    if sy < 0 || sy >= uh {
+                                        continue;
+                                    }
+                                    for dx in -r_px..=r_px {
+                                        if (dx * dx + dy * dy) as f32 > r2 {
+                                            continue;
+                                        }
+                                        let sx = ox + dx;
+                                        if sx < 0 || sx >= uw {
+                                            continue;
+                                        }
+                                        let a = src_d[((sy * uw + sx) * 4 + 3) as usize];
+                                        if a > max_a {
+                                            max_a = a;
+                                            if max_a == 255 {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if max_a == 255 {
+                                        break;
+                                    }
+                                }
+                                if max_a > 0 {
+                                    let a_f = (max_a as f32 / 255.0) * oc.alpha();
+                                    let idx = ((oy * uw + ox) * 4) as usize;
+                                    dst_d[idx] = (oc.red() * a_f * 255.0).round().clamp(0.0, 255.0) as u8;
+                                    dst_d[idx + 1] = (oc.green() * a_f * 255.0).round().clamp(0.0, 255.0) as u8;
+                                    dst_d[idx + 2] = (oc.blue() * a_f * 255.0).round().clamp(0.0, 255.0) as u8;
+                                    dst_d[idx + 3] = (a_f * 255.0).round().clamp(0.0, 255.0) as u8;
+                                }
+                            }
+                        }
+                        pixmap.draw_pixmap(
+                            0,
+                            0,
+                            out_pm.as_ref(),
+                            &PixmapPaint::default(),
+                            dst_xform,
+                            None,
                         );
                     }
                 }
+
+                pixmap.draw_pixmap(
+                    0,
+                    0,
+                    fill_pm.as_ref(),
+                    &PixmapPaint::default(),
+                    dst_xform,
+                    None,
+                );
             }
         }
         LayerKind::Image {
@@ -1361,6 +1561,7 @@ fn render_layer_inner(
             width,
             height,
             src,
+            fit,
             opacity,
             rotation,
             scale,
@@ -1382,6 +1583,7 @@ fn render_layer_inner(
                 *opacity,
                 *rotation,
                 *scale,
+                *fit,
                 img.width(),
                 img.height(),
                 img.as_raw(),
@@ -1393,6 +1595,7 @@ fn render_layer_inner(
             width,
             height,
             src,
+            fit,
             trim_start_sec,
             trim_end_sec,
             playback_rate,
@@ -1425,6 +1628,7 @@ fn render_layer_inner(
                 *opacity,
                 *rotation,
                 *scale,
+                *fit,
                 video.width,
                 video.height,
                 &video.frames[frame_idx],
@@ -1894,6 +2098,11 @@ fn build_text_buffer(
                     FontWeightSpec::Normal => Weight::NORMAL,
                     FontWeightSpec::Bold => Weight::BOLD,
                 });
+            }
+            if let Some(fs) = sp.font_size {
+                let sfs = fs * scale;
+                let slh = line_height.unwrap_or(fs * 1.25) * scale;
+                a = a.metrics(Metrics::new(sfs, slh));
             }
             if let Some(col_hex) = sp.color.as_deref() {
                 let c = parse_hex_color(col_hex, opacity)?;
@@ -2419,6 +2628,56 @@ fn render_usvg_group_animated(
     }
 }
 
+fn build_gradient_shader(
+    grad: &LinearGradientSpec,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    opacity: f32,
+) -> Result<Option<Shader<'static>>> {
+    let stops = if !grad.stops.is_empty() {
+        let mut out = Vec::with_capacity(grad.stops.len());
+        for st in &grad.stops {
+            out.push(GradientStop::new(
+                st.offset.clamp(0.0, 1.0),
+                parse_hex_color(&st.color, opacity)?,
+            ));
+        }
+        out
+    } else {
+        let c_from = parse_hex_color(grad.from.as_deref().unwrap_or("#000000"), opacity)?;
+        let c_to = parse_hex_color(grad.to.as_deref().unwrap_or("#FFFFFF"), opacity)?;
+        vec![GradientStop::new(0.0, c_from), GradientStop::new(1.0, c_to)]
+    };
+
+    let cx = x + w * 0.5;
+    let cy = y + h * 0.5;
+    let shader = match grad.kind {
+        GradientTypeSpec::Linear => {
+            let rad = grad.angle.to_radians();
+            let dx = rad.cos() * w * 0.5;
+            let dy = rad.sin() * h * 0.5;
+            LinearGradient::new(
+                Point::from_xy(cx - dx, cy - dy),
+                Point::from_xy(cx + dx, cy + dy),
+                stops,
+                SpreadMode::Pad,
+                Transform::identity(),
+            )
+        }
+        GradientTypeSpec::Radial => RadialGradient::new(
+            Point::from_xy(cx, cy),
+            Point::from_xy(cx, cy),
+            w.max(h) * 0.5,
+            stops,
+            SpreadMode::Pad,
+            Transform::identity(),
+        ),
+    };
+    Ok(shader)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn draw_styled_path(
     pixmap: &mut Pixmap,
@@ -2436,23 +2695,7 @@ fn draw_styled_path(
     transform: Transform,
 ) -> Result<()> {
     if let Some(grad) = gradient {
-        let rad = grad.angle.to_radians();
-        let dx = rad.cos() * w * 0.5;
-        let dy = rad.sin() * h * 0.5;
-        let cx = x + w * 0.5;
-        let cy = y + h * 0.5;
-        let c_from = parse_hex_color(&grad.from, opacity)?;
-        let c_to = parse_hex_color(&grad.to, opacity)?;
-        if let Some(shader) = LinearGradient::new(
-            Point::from_xy(cx - dx, cy - dy),
-            Point::from_xy(cx + dx, cy + dy),
-            vec![
-                GradientStop::new(0.0, c_from),
-                GradientStop::new(1.0, c_to),
-            ],
-            SpreadMode::Pad,
-            Transform::identity(),
-        ) {
+        if let Some(shader) = build_gradient_shader(grad, x, y, w, h, opacity)? {
             let paint = Paint {
                 shader,
                 anti_alias: true,

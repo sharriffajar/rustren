@@ -116,8 +116,9 @@ rustren render hello.json -o hello.mp4
 # Inspect renderer capabilities (JSON)
 rustren capabilities
 
-# Validate and lint a scene JSON before rendering
+# Validate and lint a scene JSON before rendering (add --strict-determinism for CI)
 rustren validate scene.json
+rustren validate scene.json --strict-determinism
 
 # Render a single frame or contact sheet to PNG (no FFmpeg encode)
 rustren snapshot scene.json -t 1.5 -o frame.png
@@ -150,6 +151,15 @@ Endpoints:
 - `POST /jobs` — submit an async render job
 - `GET /jobs/:id` — poll job status
 - `GET /jobs/:id/video` — download rendered MP4
+
+### Security & Resource Limits (`rustren serve`)
+- **SSRF Protection** ([src/security.rs](src/security.rs)): Remote `http://`/`https://` URLs are DNS-resolved and validated before fetching, blocking loopback (`127.0.0.0/8`, `::1`), private (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`), and link-local/metadata (`169.254.0.0/16`, `fe80::/10`) IP ranges. Local filesystem `src` paths are **disabled by default** in `serve` mode (opt-in via `--allow-local-paths`).
+- **Job & Server Limits**: Enforceable via CLI flags on `rustren serve`: `--max-duration-secs` (default `60.0`), `--max-width` (`1920`), `--max-height` (`1920`), `--max-pixels` (`1080*1920`), `--max-fps` (`60`), `--rate-limit` (`30` req/min/IP), and `--ttl-secs` (`3600`).
+
+## SDK Types
+Type definitions matching `schema.json` are included for AI pipelines:
+- **TypeScript:** [sdk/typescript/rustren.d.ts](sdk/typescript/rustren.d.ts)
+- **Python:** [sdk/python/rustren_types.py](sdk/python/rustren_types.py)
 
 ## Examples
 Browse [examples/](examples) for full scenes you can validate or render directly, including:

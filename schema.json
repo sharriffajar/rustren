@@ -65,10 +65,22 @@
     "LinearGradient": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["from", "to"],
       "properties": {
+        "type": { "enum": ["linear", "radial"], "default": "linear" },
         "from": { "$ref": "#/$defs/HexColor" },
         "to": { "$ref": "#/$defs/HexColor" },
+        "stops": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["offset", "color"],
+            "properties": {
+              "offset": { "type": "number", "minimum": 0, "maximum": 1 },
+              "color": { "$ref": "#/$defs/HexColor" }
+            }
+          }
+        },
         "angle": { "type": "number", "default": 0.0, "description": "Clockwise degrees (0 = left to right)" }
       }
     },
@@ -108,7 +120,8 @@
         "text": { "type": "string" },
         "color": { "$ref": "#/$defs/HexColor" },
         "font_weight": { "enum": ["normal", "bold"] },
-        "font_family": { "type": "string" }
+        "font_family": { "type": "string" },
+        "font_size": { "type": "number", "exclusiveMinimum": 0 }
       }
     },
     "SpringConfig": {
@@ -123,7 +136,7 @@
     "Animation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["property", "from", "to", "start_sec", "end_sec"],
+      "required": ["property"],
       "properties": {
         "property": {
           "enum": [
@@ -140,6 +153,20 @@
         },
         "start_sec": { "type": "number", "minimum": 0, "description": "Global video time (seconds)" },
         "end_sec": { "type": "number", "minimum": 0, "description": "Global video time (seconds)" },
+        "keyframes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["time", "value"],
+            "properties": {
+              "time": { "type": "number", "minimum": 0 },
+              "value": { "oneOf": [{ "type": "number" }, { "$ref": "#/$defs/HexColor" }] },
+              "easing": { "type": "string" },
+              "bezier": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 }
+            }
+          }
+        },
         "easing": {
           "enum": [
             "linear", "ease_in", "ease_out", "ease_in_out",
@@ -316,6 +343,15 @@
         "font_weight": { "enum": ["normal", "bold"], "default": "normal" },
         "text_align": { "enum": ["left", "center", "right"], "default": "left" },
         "color": { "$ref": "#/$defs/HexColor", "default": "#FFFFFF" },
+        "gradient": { "$ref": "#/$defs/LinearGradient" },
+        "outline": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": { "$ref": "#/$defs/HexColor", "default": "#000000" },
+            "width": { "type": "number", "minimum": 0, "default": 2.0 }
+          }
+        },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
         "scale": { "type": "number", "default": 1.0, "description": "Scale factor for font_size and line_height" },
         "max_width": { "type": "number", "description": "Text wrapping max width (px); recommended inside containers" },
@@ -374,6 +410,7 @@
         "width": { "type": "number" },
         "height": { "type": "number" },
         "src": { "type": "string", "description": "Local path or image URL" },
+        "fit": { "enum": ["fill", "cover", "contain"], "default": "fill" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
         "rotation": { "type": "number", "default": 0.0 },
         "scale": { "type": "number", "default": 1.0, "description": "Image scale factor from center" },
@@ -402,6 +439,7 @@
         "width": { "type": "number", "minimum": 0, "description": "Video width (default: source video width)" },
         "height": { "type": "number", "minimum": 0, "description": "Video height (default: source video height)" },
         "src": { "type": "string", "minLength": 1, "description": "Local path or video URL (MP4/MOV/WEBM)" },
+        "fit": { "enum": ["fill", "cover", "contain"], "default": "fill" },
         "trim_start_sec": { "type": "number", "minimum": 0, "default": 0.0, "description": "Video trim start point (seconds)" },
         "trim_end_sec": { "type": "number", "minimum": 0, "description": "Video trim end point (seconds, optional)" },
         "playback_rate": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "description": "Video and audio playback speed (1.0 = normal)" },
