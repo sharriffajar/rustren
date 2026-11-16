@@ -28,12 +28,45 @@ use crate::schema::*;
 
 pub struct HtmlCompiler;
 
+const MAX_INCLUDE_DEPTH: usize = 8;
+
+/// Substitutes `{{key}}` and `{{key|default}}` placeholders in a template string.
+pub fn substitute_variables(template: &str, vars: &HashMap<String, String>) -> String {
+    let mut result = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(start) = rest.find("{{") {
+        result.push_str(&rest[..start]);
+        let after_open = &rest[start + 2..];
+        if let Some(end) = after_open.find("}}") {
+            let expr = after_open[..end].trim();
+            if let Some((key, default_val)) = expr.split_once('|') {
+                let key = key.trim();
+                let val = vars.get(key).map(|s| s.as_str()).unwrap_or(default_val.trim());
+                result.push_str(val);
+            } else if let Some(val) = vars.get(expr) {
+                result.push_str(val);
+            } else {
+                // Keep unresolved placeholder as-is
+                result.push_str("{{");
+                result.push_str(&after_open[..end]);
+                result.push_str("}}");
+            }
+            rest = &after_open[end + 2..];
+        } else {
+            result.push_str("{{");
+            rest = after_open;
+        }
+    }
+    result.push_str(rest);
+    result
+}
+
 impl Compiler for HtmlCompiler {
     fn compile(&self, path: &Path) -> Result<CompiledScene> {
         let content = std::fs::read_to_string(path)
             .with_context(|| format!("Gagal membaca file HTML: {:?}", path))?;
 
-        let scene = parse_html_scene(&content)?;
+        let scene = parse_html_scene_with_base(&content, path.parent())?;
         Ok(CompiledScene::Static(scene))
     }
 
@@ -43,17 +76,37 @@ impl Compiler for HtmlCompiler {
 }
 
 pub fn parse_html_scene(html_content: &str) -> Result<Scene> {
-    let document = Html::parse_document(html_content);
+    parse_html_scene_with_base(html_content, None)
+}
 
-    // Cari tag <scene> utama, jika tidak ada, coba cari di <body> atau root
+pub fn parse_html_scene_with_base(html_content: &str, base_dir: Option<&Path>) -> Result<Scene> {
+    parse_html_scene_internal(html_content, base_dir, 0, &HashMap::new())
+}
+
+fn parse_html_scene_internal(
+    html_content: &str,
+    base_dir: Option<&Path>,
+    depth: usize,
+    vars: &HashMap<String, String>,
+) -> Result<Scene> {
+    let resolved_content = if vars.is_empty() {
+        html_content.to_string()
+    } else {
+        substitute_variables(html_content, vars)
+    };
+    let document = Html::parse_document(&resolved_content);
+
+    // Cari tag <scene> utama, jika tidak ada, coba cari di <component>, <body> atau root
     let scene_sel = Selector::parse("scene").unwrap();
+    let comp_sel = Selector::parse("component").unwrap();
     let body_sel = Selector::parse("body").unwrap();
 
     let root_elem = document
         .select(&scene_sel)
         .next()
+        .or_else(|| document.select(&comp_sel).next())
         .or_else(|| document.select(&body_sel).next())
-        .ok_or_else(|| anyhow::anyhow!("Tag <scene> atau <body> tidak ditemukan di dokumen HTML"))?;
+        .ok_or_else(|| anyhow::anyhow!("Tag <scene>, <component>, atau <body> tidak ditemukan di dokumen HTML"))?;
 
     // 1. Canvas
     let width = get_attr_f32(&root_elem, "width").unwrap_or(1280.0) as u32;
@@ -138,19 +191,8 @@ pub fn parse_html_scene(html_content: &str) -> Result<Scene> {
         }
     }
 
-    // 5. Layers
-    let mut layers = Vec::new();
-    for child in root_elem.children() {
-        if let Some(el) = ElementRef::wrap(child) {
-            let tag = el.value().name();
-            if tag == "profile" || tag == "profiles" || tag == "font" || tag == "fonts" || tag == "audio" || tag == "audio-tracks" || tag == "script" || tag == "style" {
-                continue;
-            }
-            if let Some(layer) = parse_layer_element(&el)? {
-                layers.push(layer);
-            }
-        }
-    }
+    // 5. Layers (with <include> support)
+    let layers = parse_children_layers(&root_elem, base_dir, depth, vars)?;
 
     Ok(Scene {
         schema_version,
@@ -162,7 +204,82 @@ pub fn parse_html_scene(html_content: &str) -> Result<Scene> {
     })
 }
 
-fn parse_layer_element(elem: &ElementRef) -> Result<Option<Layer>> {
+fn parse_children_layers(
+    parent: &ElementRef,
+    base_dir: Option<&Path>,
+    depth: usize,
+    parent_vars: &HashMap<String, String>,
+) -> Result<Vec<Layer>> {
+    let mut layers = Vec::new();
+    for child in parent.children() {
+        if let Some(el) = ElementRef::wrap(child) {
+            let tag = el.value().name();
+            if tag == "profile"
+                || tag == "profiles"
+                || tag == "font"
+                || tag == "fonts"
+                || tag == "audio"
+                || tag == "audio-tracks"
+                || tag == "script"
+                || tag == "style"
+                || tag == "animate"
+                || tag == "animation"
+            {
+                continue;
+            }
+            if tag == "include" {
+                let src = get_attr_str(&el, "src").ok_or_else(|| {
+                    anyhow::anyhow!("Tag <include> wajib memiliki atribut 'src'")
+                })?;
+                if depth >= MAX_INCLUDE_DEPTH {
+                    anyhow::bail!(
+                        "Max include depth ({}) exceeded while including '{}'",
+                        MAX_INCLUDE_DEPTH,
+                        src
+                    );
+                }
+                let inc_path = match base_dir {
+                    Some(dir) => dir.join(&src),
+                    None => Path::new(&src).to_path_buf(),
+                };
+                let inc_content = std::fs::read_to_string(&inc_path).with_context(|| {
+                    format!("Gagal membaca file <include src=\"{}\"> ({:?})", src, inc_path)
+                })?;
+
+                let mut child_vars = parent_vars.clone();
+                for (k, v) in el.value().attrs() {
+                    if k != "src" {
+                        child_vars.insert(k.to_string(), v.to_string());
+                    }
+                }
+
+                let inc_scene = parse_html_scene_internal(
+                    &inc_content,
+                    inc_path.parent(),
+                    depth + 1,
+                    &child_vars,
+                )?;
+                layers.extend(inc_scene.layers);
+                // In HTML5, custom tags like <include ... /> are not void elements,
+                // so following siblings may be nested inside `el`. Parse them too.
+                let nested_siblings = parse_children_layers(&el, base_dir, depth, parent_vars)?;
+                layers.extend(nested_siblings);
+                continue;
+            }
+            if let Some(layer) = parse_layer_element(&el, base_dir, depth, parent_vars)? {
+                layers.push(layer);
+            }
+        }
+    }
+    Ok(layers)
+}
+
+fn parse_layer_element(
+    elem: &ElementRef,
+    base_dir: Option<&Path>,
+    depth: usize,
+    vars: &HashMap<String, String>,
+) -> Result<Option<Layer>> {
     let tag = elem.value().name();
 
     let name = get_attr_str(elem, "name").or_else(|| get_attr_str(elem, "id"));
@@ -499,18 +616,8 @@ fn parse_layer_element(elem: &ElementRef) -> Result<Option<Layer>> {
                 padding,
             };
 
-            // Parse children
-            let mut children = Vec::new();
-            for c in elem.children() {
-                if let Some(c_el) = ElementRef::wrap(c) {
-                    if c_el.value().name() == "animate" || c_el.value().name() == "animation" {
-                        continue;
-                    }
-                    if let Some(child_layer) = parse_layer_element(&c_el)? {
-                        children.push(child_layer);
-                    }
-                }
-            }
+            // Parse children (supports <include> inside containers too)
+            let children = parse_children_layers(elem, base_dir, depth, vars)?;
 
             LayerKind::Container {
                 x,
@@ -736,5 +843,62 @@ mod tests {
             }
             _ => panic!("Expected Text layer"),
         }
+    }
+
+    #[test]
+    fn test_substitute_variables_and_defaults() {
+        let mut vars = HashMap::new();
+        vars.insert("title".to_string(), "Rustren".to_string());
+        let tpl = "Hello {{title}}! Color: {{color|#FF0000}}, Missing: {{other}}";
+        let out = substitute_variables(tpl, &vars);
+        assert_eq!(out, "Hello Rustren! Color: #FF0000, Missing: {{other}}");
+    }
+
+    #[test]
+    fn test_html_include_component_with_variables() {
+        let dir = std::env::temp_dir().join("rustren_test_include");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let card_html = r##"
+        <component>
+            <rect x="0" y="0" width="300" height="200" color="{{bg|#111111}}"></rect>
+            <text x="20" y="40" font-size="24" color="#FFFFFF">{{label|Default}}</text>
+        </component>
+        "##;
+        std::fs::write(dir.join("card.html"), card_html).unwrap();
+
+        let main_html = r##"
+        <scene width="1280" height="720" fps="30" duration="3.0">
+            <include src="card.html" bg="#238636" label="Card A" />
+            <include src="card.html" label="Card B" />
+        </scene>
+        "##;
+        let main_path = dir.join("main.html");
+        std::fs::write(&main_path, main_html).unwrap();
+
+        let compiler = HtmlCompiler;
+        let compiled = compiler.compile(&main_path).unwrap();
+        let scene = compiled.as_static();
+        assert_eq!(scene.layers.len(), 4);
+
+        match &scene.layers[0].kind {
+            LayerKind::Rect { color, .. } => assert_eq!(color, "#238636"),
+            _ => panic!("Expected Rect"),
+        }
+        match &scene.layers[1].kind {
+            LayerKind::Text { content, .. } => assert_eq!(content, "Card A"),
+            _ => panic!("Expected Text"),
+        }
+        match &scene.layers[2].kind {
+            LayerKind::Rect { color, .. } => assert_eq!(color, "#111111"), // default fallback
+            _ => panic!("Expected Rect"),
+        }
+        match &scene.layers[3].kind {
+            LayerKind::Text { content, .. } => assert_eq!(content, "Card B"),
+            _ => panic!("Expected Text"),
+        }
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
