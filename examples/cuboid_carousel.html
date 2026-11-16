@@ -20,10 +20,10 @@
     </profiles>
 
     <!-- Background Ambient Glow & Grid Accents -->
-    <circle name="Ambient Blue Glow" cx="960" cy="540" r="450" color="#4F6EF0" opacity="0.12">
-        <animate property="scale" from="0.6" to="1.4" start="0.0" end="3.5" easing="ease_out" />
+    <circle name="Ambient Blue Glow" cx="960" cy="540" r="450" color="{{glowColor}}" opacity="0.12">
+        <animate property="scale" from="0.6" to="{{glowIntensity}}" start="0.0" end="3.5" easing="ease_out" />
     </circle>
-    <circle name="Accent Coral Glow" cx="1500" cy="300" r="300" color="#FE552E" opacity="0.10">
+    <circle name="Accent Coral Glow" cx="1500" cy="300" r="300" color="{{accentColor}}" opacity="0.10">
         <animate property="scale" from="0.8" to="1.6" start="1.0" end="4.5" easing="ease_out" />
     </circle>
 
@@ -31,7 +31,7 @@
     <container name="Header Badge" x="160" y="80" layout="row" gap="16" opacity="0.9">
         <animate property="y" from="40" to="80" start="0.0" end="0.8" easing="ease_out" />
         <animate property="opacity" from="0.0" to="0.9" start="0.0" end="0.6" easing="ease_out" />
-        <rect width="180" height="36" radius="18" color="#1E293B" border-color="#38BDF8" border-width="1">
+        <rect width="180" height="36" radius="18" color="{{bodyColor}}" border-color="#38BDF8" border-width="1">
             <text x="24" y="8" font-size="16" color="#38BDF8" font-weight="bold">CUBOID CAROUSEL</text>
         </rect>
         <text font-size="18" color="#94A3B8" y="8">200 frames • 30 fps • Browserless 2D Engine</text>
@@ -39,15 +39,16 @@
 
     <!-- ================= CARD 1: Creative Requests (Hero Card 1) ================= -->
     <!-- Waktu tayang: 0.0s -> 2.3s -->
-    <container x="460" y="240" width="1000" height="560" radius="24" background="#1E293B" border-color="#FE552E" border-width="2" opacity="1.0" layout="column" padding="48" gap="24" start="0.0" duration="2.3">
+    <container x="460" y="240" width="1000" height="560" radius="24" background="{{bodyColor}}" border-color="{{accentColor}}" border-width="2" opacity="1.0" layout="column" padding="48" gap="24" start="0.0" duration="2.3">
         <animate property="y" from="320" to="240" start="0.0" end="0.7" easing="ease_out" />
         <animate property="opacity" from="0.0" to="1.0" start="0.0" end="0.5" easing="ease_out" />
         <!-- Exit transition -->
         <animate property="x" from="460" to="-600" start="1.8" end="2.3" easing="ease_in" />
         <animate property="opacity" from="1.0" to="0.0" start="1.9" end="2.3" easing="ease_in" />
 
-        <text font-size="28" color="#FE552E" font-weight="bold">
-            CREATIVE REQUESTS
+        <text font-size="28" color="{{accentColor}}" font-weight="bold">
+            CREATIVE REQUESTS (CARD {{heroCard}} OF {{cardCount}})
+        </text>
         </text>
 
         <text font-size="56" color="#FFFFFF" font-weight="bold">

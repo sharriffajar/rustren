@@ -979,9 +979,9 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
         variables: Option<serde_json::Map<String, serde_json::Value>>,
     }
 
-    let load_current_scene = |_vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
+    let load_current_scene = |vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
         if let Some(ref path) = input_path {
-            let content = std::fs::read_to_string(path)?;
+            let mut content = std::fs::read_to_string(path)?;
             let mut detected_vars = Vec::new();
             if let Ok(doc) = scraper::Html::parse_document(&content)
                 .select(&scraper::Selector::parse("html[data-composition-variables]").unwrap())
@@ -994,11 +994,26 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
                     detected_vars = dv;
                 }
             }
-            let compiler = compilers::detect(path)?;
-            let compiled = compiler.compile(path)?;
-            let scene = match compiled {
-                crate::ir::CompiledScene::Static(s) => s,
-                _ => anyhow::bail!("Dynamic scenes not yet supported in studio preview"),
+
+            // Apply dynamic variable overrides if provided
+            if let Some(v_map) = vars {
+                for (k, val) in v_map {
+                    let placeholder = format!("{{{{{}}}}}", k);
+                    let val_str = match val {
+                        serde_json::Value::String(s) => s.clone(),
+                        serde_json::Value::Number(n) => n.to_string(),
+                        serde_json::Value::Bool(b) => b.to_string(),
+                        other => other.to_string(),
+                    };
+                    content = content.replace(&placeholder, &val_str);
+                }
+            }
+
+            let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+            let scene = if ext == "html" || ext == "htm" {
+                compilers::html::parse_html_scene(&content)?
+            } else {
+                serde_json::from_str::<Scene>(&content)?
             };
             let scene_val = serde_json::json!({
                 "canvas": {
