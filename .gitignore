@@ -1,0 +1,20 @@
+# Rust build artifacts
+/target
+**/*.rs.bk
+
+# Rustren runtime cache & server job outputs
+.rustren_cache/
+.rustren_jobs/
+
+# Rendered video & temporary snapshot outputs
+*.mp4
+*.mov
+*.webm
+snapshot*.png
+frame_*.png
+
+# Environment & OS files
+.env
+.env.*
+.DS_Store
+Thumbs.db

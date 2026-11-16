@@ -1,0 +1,87 @@
+{
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration_secs": 3.0,
+    "background": "#070B14"
+  },
+  "fonts": [],
+  "audio": [
+    {
+      "src": "/tmp/beep.wav",
+      "start_sec": 0.0,
+      "volume": 0.3,
+      "trim_start_sec": 0.0,
+      "trim_end_sec": 2.0
+    }
+  ],
+  "layers": [
+    {
+      "name": "card_utama",
+      "type": "container",
+      "position": "relative",
+      "x": 60,
+      "y": 660,
+      "width": 960,
+      "height": 600,
+      "start_sec": 0.0,
+      "end_sec": 3.0,
+      "radius": 24,
+      "background": "#101726",
+      "gradient": { "from": "#101726", "to": "#0F2238", "angle": 135 },
+      "border_color": "#22D3EE",
+      "border_width": 2,
+      "opacity": 1.0,
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "center",
+        "gap": 24,
+        "padding": 40
+      },
+      "animations": [
+        {
+          "property": "opacity",
+          "from": 0.0,
+          "to": 1.0,
+          "start_sec": 0.0,
+          "end_sec": 0.5,
+          "easing": "spring"
+        }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "content": "Judul Video",
+          "font_size": 56,
+          "font_family": "Inter",
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#F8FAFC",
+          "max_width": 840
+        },
+        {
+          "type": "rect",
+          "width": 300,
+          "height": 12,
+          "radius": 6,
+          "color": "#22D3EE"
+        },
+        {
+          "type": "circle",
+          "cx": 0,
+          "cy": 0,
+          "r": 24,
+          "color": "#34D399"
+        },
+        {
+          "type": "svg",
+          "width": 120,
+          "height": 120,
+          "src": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='42' fill='#22D3EE'/><polygon points='42,32 70,50 42,68' fill='#070B14'/></svg>"
+        }
+      ]
+    }
+  ]
+}

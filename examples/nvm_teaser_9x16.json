@@ -1,0 +1,173 @@
+{
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration_secs": 12.0,
+    "background": "#090D16"
+  },
+  "audio": [
+    {
+      "src": "/tmp/beep.wav",
+      "start_sec": 0.2,
+      "volume": 0.2
+    }
+  ],
+  "layers": [
+    {
+      "name": "scene1_hook",
+      "type": "container",
+      "x": 80,
+      "y": 420,
+      "width": 920,
+      "height": 1080,
+      "start_sec": 0.0,
+      "end_sec": 4.0,
+      "background": "#111827",
+      "radius": 36,
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "center",
+        "gap": 36,
+        "padding": 60
+      },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 0.0, "end_sec": 0.4, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 3.6, "end_sec": 4.0, "easing": "ease_in" }
+      ],
+      "children": [
+        {
+          "type": "svg",
+          "width": 140,
+          "height": 140,
+          "src": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' rx='20' fill='#22C55E'/><path d='M35 50 L47 62 L68 38' stroke='#090D16' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>"
+        },
+        {
+          "type": "text",
+          "content": "Switch Node.js Versions Instantly",
+          "font_size": 68,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#F9FAFB",
+          "max_width": 800
+        },
+        {
+          "type": "rect",
+          "width": 360,
+          "height": 10,
+          "radius": 5,
+          "color": "#22C55E"
+        },
+        {
+          "type": "text",
+          "content": "Zero friction. One command. Pure speed.",
+          "font_size": 38,
+          "text_align": "center",
+          "color": "#9CA3AF",
+          "max_width": 780
+        }
+      ]
+    },
+    {
+      "name": "scene2_terminal",
+      "type": "container",
+      "x": 80,
+      "y": 520,
+      "width": 920,
+      "height": 880,
+      "start_sec": 4.0,
+      "end_sec": 8.0,
+      "background": "#0F172A",
+      "radius": 32,
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "start",
+        "gap": 28,
+        "padding": 64
+      },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 4.0, "end_sec": 4.4, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 7.6, "end_sec": 8.0, "easing": "ease_in" }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "content": "$ nvm install 22",
+          "font_size": 52,
+          "color": "#38BDF8",
+          "max_width": 780
+        },
+        {
+          "type": "text",
+          "content": "Downloading and installing node v22.0.0...",
+          "font_size": 36,
+          "color": "#94A3B8",
+          "max_width": 780
+        },
+        {
+          "type": "text",
+          "content": "$ nvm use 22",
+          "font_size": 52,
+          "color": "#22C55E",
+          "max_width": 780
+        },
+        {
+          "type": "text",
+          "content": "Now using node v22.0.0 (npm v10.5.1)",
+          "font_size": 36,
+          "color": "#E2E8F0",
+          "max_width": 780
+        }
+      ]
+    },
+    {
+      "name": "scene3_cta",
+      "type": "container",
+      "x": 100,
+      "y": 620,
+      "width": 880,
+      "height": 680,
+      "start_sec": 8.0,
+      "end_sec": 12.0,
+      "background": "#1E293B",
+      "radius": 40,
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "center",
+        "gap": 32,
+        "padding": 60
+      },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 8.0, "end_sec": 8.5, "easing": "ease_out" }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "content": "Ready to Ship Faster?",
+          "font_size": 64,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#FFFFFF",
+          "max_width": 760
+        },
+        {
+          "type": "rect",
+          "width": 460,
+          "height": 96,
+          "radius": 48,
+          "color": "#38BDF8"
+        },
+        {
+          "type": "text",
+          "content": "Rendered by Rustren (No Browser)",
+          "font_size": 34,
+          "color": "#94A3B8",
+          "max_width": 760
+        }
+      ]
+    }
+  ]
+}

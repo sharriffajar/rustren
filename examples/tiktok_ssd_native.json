@@ -1,0 +1,408 @@
+{
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration_secs": 15.0,
+    "background": "#070B14"
+  },
+  "fonts": [],
+  "audio": [],
+  "layers": [
+    {
+      "name": "bg_grid_and_glow",
+      "type": "svg",
+      "position": "absolute",
+      "x": 0,
+      "y": 0,
+      "width": 1080,
+      "height": 1920,
+      "start_sec": 0.0,
+      "end_sec": 15.0,
+      "opacity": 0.6,
+      "src": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1080 1920'><defs><pattern id='grid' width='72' height='72' patternUnits='userSpaceOnUse'><path d='M 72 0 L 0 0 0 72' fill='none' stroke='#172033' stroke-width='1.2'/></pattern><radialGradient id='glow' cx='50%' cy='12%' r='45%'><stop offset='0%' stop-color='#22D3EE' stop-opacity='0.28'/><stop offset='100%' stop-color='#22D3EE' stop-opacity='0'/></radialGradient></defs><rect width='1080' height='1920' fill='url(#grid)'/><rect width='1080' height='1920' fill='url(#glow)'/></svg>"
+    },
+    {
+      "name": "progress_bar_bottom",
+      "type": "rect",
+      "position": "absolute",
+      "x": 0,
+      "y": 1912,
+      "width": 1080,
+      "height": 8,
+      "radius": 0,
+      "start_sec": 0.0,
+      "end_sec": 15.0,
+      "color": "#22D3EE",
+      "gradient": { "from": "#22D3EE", "to": "#818CF8", "angle": 90 },
+      "animations": [
+        { "property": "width", "from": 0, "to": 1080, "start_sec": 0.0, "end_sec": 15.0, "easing": "linear" }
+      ]
+    },
+    {
+      "name": "scene_1_hook",
+      "type": "container",
+      "position": "absolute",
+      "x": 64,
+      "y": 520,
+      "width": 866,
+      "height": 620,
+      "start_sec": 0.0,
+      "end_sec": 2.6,
+      "opacity": 1.0,
+      "layout": { "direction": "column", "justify_content": "center", "align_items": "flex_start", "gap": 32, "padding": 0 },
+      "animations": [
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 2.2, "end_sec": 2.6, "easing": "ease_in_out" },
+        { "property": "y", "from": 520, "to": 480, "start_sec": 2.2, "end_sec": 2.6, "easing": "ease_in_out" }
+      ],
+      "children": [
+        {
+          "name": "s1_badge",
+          "type": "container",
+          "position": "relative",
+          "width": 440,
+          "height": 56,
+          "radius": 28,
+          "background": "#0E2233",
+          "border_color": "#22D3EE",
+          "border_width": 2,
+          "layout": { "direction": "row", "justify_content": "center", "align_items": "center", "gap": 12, "padding": 12 },
+          "animations": [
+            { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 0.0, "end_sec": 0.25, "easing": "spring" },
+            { "property": "y", "from": 30, "to": 0, "start_sec": 0.0, "end_sec": 0.35, "easing": "spring" }
+          ],
+          "children": [
+            { "type": "circle", "cx": 0, "cy": 0, "r": 6, "color": "#22D3EE" },
+            { "type": "text", "content": "TECH EXPLAINER • 15 DETIK", "font_size": 22, "font_family": "Inter", "font_weight": "bold", "text_align": "left", "color": "#22D3EE", "max_width": 380 }
+          ]
+        },
+        {
+          "name": "s1_headline",
+          "type": "text",
+          "content": "Kenapa SSD Jauh Lebih Cepat dari HDD?",
+          "font_size": 82,
+          "font_family": "Inter",
+          "font_weight": "bold",
+          "text_align": "left",
+          "color": "#F8FAFC",
+          "max_width": 866,
+          "animations": [
+            { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 0.15, "end_sec": 0.45, "easing": "spring" },
+            { "property": "y", "from": 50, "to": 0, "start_sec": 0.15, "end_sec": 0.55, "easing": "spring" }
+          ]
+        },
+        {
+          "name": "s1_metric_pill",
+          "type": "container",
+          "position": "relative",
+          "width": 620,
+          "height": 74,
+          "radius": 16,
+          "background": "#22D3EE",
+          "gradient": { "from": "#22D3EE", "to": "#34D399", "angle": 90 },
+          "layout": { "direction": "row", "justify_content": "center", "align_items": "center", "gap": 0, "padding": 16 },
+          "animations": [
+            { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 0.45, "end_sec": 0.75, "easing": "spring" },
+            { "property": "scale", "from": 0.85, "to": 1.0, "start_sec": 0.45, "end_sec": 0.85, "easing": "spring" }
+          ],
+          "children": [
+            { "type": "text", "content": "Hingga 45× lebih kencang baca data", "font_size": 30, "font_family": "Inter", "font_weight": "bold", "text_align": "center", "color": "#070B14", "max_width": 580 }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "scene_2_comparison",
+      "type": "container",
+      "position": "absolute",
+      "x": 64,
+      "y": 340,
+      "width": 866,
+      "height": 840,
+      "start_sec": 2.6,
+      "end_sec": 7.1,
+      "opacity": 1.0,
+      "layout": { "direction": "column", "justify_content": "center", "align_items": "stretch", "gap": 32, "padding": 0 },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 2.3, "end_sec": 2.6, "easing": "ease_in_out" },
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 6.75, "end_sec": 7.1, "easing": "ease_in_out" }
+      ],
+      "children": [
+        {
+          "name": "s2_title",
+          "type": "text",
+          "content": "Cara Baca Data:",
+          "font_size": 52,
+          "font_family": "Inter",
+          "font_weight": "bold",
+          "text_align": "left",
+          "color": "#F8FAFC",
+          "max_width": 866,
+          "animations": [{ "property": "y", "from": 24, "to": 0, "start_sec": 2.35, "end_sec": 2.75, "easing": "spring" }]
+        },
+        {
+          "name": "s2_card_hdd",
+          "type": "container",
+          "position": "relative",
+          "width": 866,
+          "height": 310,
+          "radius": 24,
+          "background": "#101726",
+          "border_color": "#26334D",
+          "border_width": 2,
+          "layout": { "direction": "column", "justify_content": "space_between", "align_items": "flex_start", "gap": 18, "padding": 36 },
+          "animations": [
+            { "property": "x", "from": -60, "to": 0, "start_sec": 2.5, "end_sec": 3.0, "easing": "spring" },
+            { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 2.5, "end_sec": 2.85, "easing": "ease_out" }
+          ],
+          "children": [
+            {
+              "name": "s2_hdd_header",
+              "type": "container",
+              "position": "relative",
+              "width": 794,
+              "height": 56,
+              "layout": { "direction": "row", "justify_content": "space_between", "align_items": "center", "gap": 12, "padding": 0 },
+              "children": [
+                { "type": "text", "content": "HDD • PIRINGAN MEKANIK", "font_size": 22, "font_family": "Inter", "font_weight": "bold", "text_align": "left", "color": "#FB7185", "max_width": 650 },
+                { "type": "svg", "width": 48, "height": 48, "src": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><circle cx='24' cy='24' r='20' fill='none' stroke='#FB7185' stroke-width='4' stroke-dasharray='14 8'/><circle cx='24' cy='24' r='6' fill='#FB7185'/></svg>" }
+              ]
+            },
+            { "type": "text", "content": "Jarum harus mencari posisi fisik di piringan berputar (~150 MB/s).", "font_size": 28, "font_family": "Inter", "font_weight": "normal", "text_align": "left", "color": "#94A3B8", "max_width": 794 },
+            {
+              "name": "s2_hdd_bar_track",
+              "type": "container",
+              "position": "relative",
+              "width": 794,
+              "height": 18,
+              "radius": 9,
+              "background": "#1E293B",
+              "layout": { "direction": "row", "justify_content": "flex_start", "align_items": "center", "gap": 0, "padding": 0 },
+              "children": [
+                {
+                  "name": "s2_hdd_bar_fill",
+                  "type": "rect",
+                  "width": 64,
+                  "height": 18,
+                  "radius": 9,
+                  "color": "#FB7185",
+                  "animations": [{ "property": "width", "from": 0, "to": 64, "start_sec": 3.0, "end_sec": 4.2, "easing": "ease_out" }]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "s2_card_ssd",
+          "type": "container",
+          "position": "relative",
+          "width": 866,
+          "height": 310,
+          "radius": 24,
+          "background": "#101726",
+          "gradient": { "from": "#101726", "to": "#0F2238", "angle": 135 },
+          "border_color": "#22D3EE",
+          "border_width": 2,
+          "layout": { "direction": "column", "justify_content": "space_between", "align_items": "flex_start", "gap": 18, "padding": 36 },
+          "animations": [
+            { "property": "x", "from": 60, "to": 0, "start_sec": 2.85, "end_sec": 3.35, "easing": "spring" },
+            { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 2.85, "end_sec": 3.2, "easing": "ease_out" }
+          ],
+          "children": [
+            {
+              "name": "s2_ssd_header",
+              "type": "container",
+              "position": "relative",
+              "width": 794,
+              "height": 56,
+              "layout": { "direction": "row", "justify_content": "space_between", "align_items": "center", "gap": 12, "padding": 0 },
+              "children": [
+                { "type": "text", "content": "SSD NVMe • CHIP FLASH NAND", "font_size": 22, "font_family": "Inter", "font_weight": "bold", "text_align": "left", "color": "#34D399", "max_width": 650 },
+                { "type": "svg", "width": 48, "height": 48, "src": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><rect x='10' y='10' width='28' height='28' rx='4' fill='none' stroke='#34D399' stroke-width='3'/><rect x='18' y='18' width='12' height='12' rx='2' fill='#22D3EE'/></svg>" }
+              ]
+            },
+            { "type": "text", "content": "Sinyal listrik langsung akses jutaan sel memori paralel (~7.000 MB/s).", "font_size": 28, "font_family": "Inter", "font_weight": "normal", "text_align": "left", "color": "#F8FAFC", "max_width": 794 },
+            {
+              "name": "s2_ssd_bar_track",
+              "type": "container",
+              "position": "relative",
+              "width": 794,
+              "height": 18,
+              "radius": 9,
+              "background": "#1E293B",
+              "layout": { "direction": "row", "justify_content": "flex_start", "align_items": "center", "gap": 0, "padding": 0 },
+              "children": [
+                {
+                  "name": "s2_ssd_bar_fill",
+                  "type": "rect",
+                  "width": 760,
+                  "height": 18,
+                  "radius": 9,
+                  "color": "#22D3EE",
+                  "gradient": { "from": "#22D3EE", "to": "#34D399", "angle": 90 },
+                  "animations": [{ "property": "width", "from": 0, "to": 760, "start_sec": 3.3, "end_sec": 4.6, "easing": "ease_out" }]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "scene_3_advantages",
+      "type": "container",
+      "position": "absolute",
+      "x": 64,
+      "y": 300,
+      "width": 866,
+      "height": 900,
+      "start_sec": 7.1,
+      "end_sec": 12.1,
+      "opacity": 1.0,
+      "layout": { "direction": "column", "justify_content": "center", "align_items": "center", "gap": 20, "padding": 0 },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 6.8, "end_sec": 7.1, "easing": "ease_in_out" },
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 11.75, "end_sec": 12.1, "easing": "ease_in_out" }
+      ],
+      "children": [
+        {
+          "name": "s3_header",
+          "type": "text",
+          "content": "3 Rahasia Kecepatannya:",
+          "font_size": 50,
+          "font_family": "Inter",
+          "font_weight": "bold",
+          "text_align": "left",
+          "color": "#F8FAFC",
+          "max_width": 866,
+          "animations": [{ "property": "y", "from": 24, "to": 0, "start_sec": 6.85, "end_sec": 7.25, "easing": "spring" }]
+        },
+        {
+          "name": "s3_step_1",
+          "type": "container",
+          "position": "relative",
+          "width": 866,
+          "height": 190,
+          "radius": 20,
+          "background": "#182235",
+          "border_color": "#22D3EE",
+          "border_width": 2,
+          "layout": { "direction": "column", "justify_content": "center", "align_items": "flex_start", "gap": 10, "padding": 32 },
+          "animations": [
+            { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 7.1, "end_sec": 7.4, "easing": "ease_out" },
+            { "property": "scale", "from": 0.9, "to": 1.0, "start_sec": 7.1, "end_sec": 7.55, "easing": "spring" }
+          ],
+          "children": [
+            { "type": "text", "content": "01 // TANPA KOMPONEN BERGERAK", "font_size": 20, "font_family": "Inter", "font_weight": "bold", "text_align": "left", "color": "#22D3EE", "max_width": 800 },
+            { "type": "text", "content": "Zero seek-time, tidak perlu menunggu piringan berputar.", "font_size": 28, "font_family": "Inter", "font_weight": "normal", "text_align": "left", "color": "#F8FAFC", "max_width": 800 }
+          ]
+        },
+        {
+          "name": "s3_arrow_1",
+          "type": "svg",
+          "width": 48,
+          "height": 42,
+          "src": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 42'><path d='M24 2 L24 36 M14 26 L24 36 L34 26' fill='none' stroke='#22D3EE' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/></svg>",
+          "animations": [{ "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 7.55, "end_sec": 7.85, "easing": "ease_out" }]
+        },
+        {
+          "name": "s3_step_2",
+          "type": "container",
+          "position": "relative",
+          "width": 866,
+          "height": 190,
+          "radius": 20,
+          "background": "#182235",
+          "border_color": "#818CF8",
+          "border_width": 2,
+          "layout": { "direction": "column", "justify_content": "center", "align_items": "flex_start", "gap": 10, "padding": 32 },
+          "animations": [
+            { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 7.9, "end_sec": 8.2, "easing": "ease_out" },
+            { "property": "scale", "from": 0.9, "to": 1.0, "start_sec": 7.9, "end_sec": 8.35, "easing": "spring" }
+          ],
+          "children": [
+            { "type": "text", "content": "02 // JALUR PARALEL NVMe", "font_size": 20, "font_family": "Inter", "font_weight": "bold", "text_align": "left", "color": "#818CF8", "max_width": 800 },
+            { "type": "text", "content": "Ribuan antrean perintah diproses bersamaan lewat PCIe.", "font_size": 28, "font_family": "Inter", "font_weight": "normal", "text_align": "left", "color": "#F8FAFC", "max_width": 800 }
+          ]
+        },
+        {
+          "name": "s3_arrow_2",
+          "type": "svg",
+          "width": 48,
+          "height": 42,
+          "src": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 42'><path d='M24 2 L24 36 M14 26 L24 36 L34 26' fill='none' stroke='#818CF8' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/></svg>",
+          "animations": [{ "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 8.35, "end_sec": 8.65, "easing": "ease_out" }]
+        },
+        {
+          "name": "s3_step_3",
+          "type": "container",
+          "position": "relative",
+          "width": 866,
+          "height": 190,
+          "radius": 20,
+          "background": "#182235",
+          "border_color": "#34D399",
+          "border_width": 2,
+          "layout": { "direction": "column", "justify_content": "center", "align_items": "flex_start", "gap": 10, "padding": 32 },
+          "animations": [
+            { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 8.7, "end_sec": 9.0, "easing": "ease_out" },
+            { "property": "scale", "from": 0.9, "to": 1.0, "start_sec": 8.7, "end_sec": 9.15, "easing": "spring" }
+          ],
+          "children": [
+            { "type": "text", "content": "03 // BOOTING HITUNGAN DETIK", "font_size": 20, "font_family": "Inter", "font_weight": "bold", "text_align": "left", "color": "#34D399", "max_width": 800 },
+            { "type": "text", "content": "Buka OS dan aplikasi berat langsung tanpa lag.", "font_size": 28, "font_family": "Inter", "font_weight": "normal", "text_align": "left", "color": "#F8FAFC", "max_width": 800 }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "scene_4_outro",
+      "type": "container",
+      "position": "absolute",
+      "x": 64,
+      "y": 540,
+      "width": 866,
+      "height": 420,
+      "start_sec": 12.1,
+      "end_sec": 15.0,
+      "opacity": 1.0,
+      "layout": { "direction": "column", "justify_content": "center", "align_items": "center", "gap": 32, "padding": 0 },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 11.8, "end_sec": 12.15, "easing": "ease_in_out" },
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 14.6, "end_sec": 15.0, "easing": "ease_in_out" }
+      ],
+      "children": [
+        {
+          "name": "s4_title",
+          "type": "text",
+          "content": "Mekanik vs Elektronik:\nElektronika Menang Telak.",
+          "font_size": 64,
+          "font_family": "Inter",
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#F8FAFC",
+          "max_width": 866,
+          "animations": [{ "property": "scale", "from": 0.9, "to": 1.0, "start_sec": 11.9, "end_sec": 12.35, "easing": "spring" }]
+        },
+        {
+          "name": "s4_cta_pill",
+          "type": "container",
+          "position": "relative",
+          "width": 640,
+          "height": 78,
+          "radius": 39,
+          "background": "#22D3EE",
+          "gradient": { "from": "#22D3EE", "to": "#818CF8", "angle": 90 },
+          "layout": { "direction": "row", "justify_content": "center", "align_items": "center", "gap": 0, "padding": 20 },
+          "animations": [
+            { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 12.15, "end_sec": 12.45, "easing": "ease_out" },
+            { "property": "y", "from": 24, "to": 0, "start_sec": 12.15, "end_sec": 12.55, "easing": "spring" }
+          ],
+          "children": [
+            { "type": "text", "content": "Save & Follow untuk Tech Explainer", "font_size": 28, "font_family": "Inter", "font_weight": "bold", "text_align": "center", "color": "#070B14", "max_width": 600 }
+          ]
+        }
+      ]
+    }
+  ]
+}

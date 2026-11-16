@@ -1,0 +1,1777 @@
+{
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration_secs": 31.5,
+    "background": "#070B14"
+  },
+  "fonts": [],
+  "audio": [],
+  "layers": [
+    {
+      "type": "svg",
+      "name": "bg",
+      "x": 0,
+      "y": 0,
+      "width": 1080,
+      "height": 1920,
+      "src": "<svg xmlns='http://www.w3.org/2000/svg' width='1080' height='1920' viewBox='0 0 1080 1920'><defs><pattern id='g' width='60' height='60' patternUnits='userSpaceOnUse'><path d='M60 0H0V60' fill='none' stroke='#FFFFFF' stroke-opacity='0.04' stroke-width='2'/></pattern><radialGradient id='a' cx='50%' cy='50%' r='50%'><stop offset='0' stop-color='#22D3EE' stop-opacity='0.20'/><stop offset='1' stop-color='#22D3EE' stop-opacity='0'/></radialGradient><radialGradient id='b' cx='50%' cy='50%' r='50%'><stop offset='0' stop-color='#EF4444' stop-opacity='0.16'/><stop offset='1' stop-color='#EF4444' stop-opacity='0'/></radialGradient></defs><rect width='1080' height='1920' fill='url(#g)'/><circle cx='540' cy='250' r='700' fill='url(#a)'/><circle cx='540' cy='1750' r='650' fill='url(#b)'/></svg>"
+    },
+    {
+      "type": "circle",
+      "cx": 540,
+      "cy": 760,
+      "r": 470,
+      "color": "#EF4444",
+      "start_sec": 0,
+      "end_sec": 4.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 0.05, "start_sec": 0.0, "end_sec": 0.6, "easing": "ease_out" },
+        { "property": "opacity", "from": 0.05, "to": 0, "start_sec": 4.05, "end_sec": 4.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "circle",
+      "cx": 540,
+      "cy": 760,
+      "r": 360,
+      "color": "#EF4444",
+      "start_sec": 0,
+      "end_sec": 4.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 0.08, "start_sec": 0.25, "end_sec": 0.85, "easing": "ease_out" },
+        { "property": "opacity", "from": 0.08, "to": 0, "start_sec": 4.05, "end_sec": 4.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "circle",
+      "cx": 540,
+      "cy": 760,
+      "r": 250,
+      "color": "#EF4444",
+      "start_sec": 0,
+      "end_sec": 4.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 0.12, "start_sec": 0.5, "end_sec": 1.1, "easing": "ease_out" },
+        { "property": "opacity", "from": 0.12, "to": 0, "start_sec": 4.05, "end_sec": 4.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 300,
+      "y": 600,
+      "width": 480,
+      "height": 160,
+      "color": "#EF4444",
+      "radius": 0,
+      "start_sec": 0,
+      "end_sec": 4.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 0.3, "end_sec": 0.6, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 480, "start_sec": 0.3, "end_sec": 1.1, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 4.05, "end_sec": 4.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 300,
+      "y": 760,
+      "width": 480,
+      "height": 160,
+      "color": "#FFFFFF",
+      "radius": 0,
+      "start_sec": 0,
+      "end_sec": 4.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 0.5, "end_sec": 0.8, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 480, "start_sec": 0.5, "end_sec": 1.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 4.05, "end_sec": 4.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "INDONESIA",
+      "x": 60,
+      "y": 1060,
+      "font_size": 128,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 0,
+      "end_sec": 4.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 0.9, "end_sec": 1.4, "easing": "ease_out" },
+        { "property": "y", "from": 1096, "to": 1060, "start_sec": 0.9, "end_sec": 1.4, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 4.05, "end_sec": 4.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "di Mata Dunia",
+      "x": 60,
+      "y": 1215,
+      "font_size": 76,
+      "color": "#22D3EE",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 0,
+      "end_sec": 4.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 1.3, "end_sec": 1.8, "easing": "ease_out" },
+        { "property": "y", "from": 1251, "to": 1215, "start_sec": 1.3, "end_sec": 1.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 4.05, "end_sec": 4.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Kondisi terkini · November 2026",
+      "x": 60,
+      "y": 1350,
+      "font_size": 40,
+      "color": "#94A3B8",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 0,
+      "end_sec": 4.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 1.7, "end_sec": 2.2, "easing": "ease_out" },
+        { "property": "y", "from": 1386, "to": 1350, "start_sec": 1.7, "end_sec": 2.2, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 4.05, "end_sec": 4.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "EKONOMI",
+      "x": 60,
+      "y": 290,
+      "font_size": 40,
+      "color": "#FBBF24",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 4.5, "end_sec": 5.0, "easing": "ease_out" },
+        { "property": "y", "from": 326, "to": 290, "start_sec": 4.5, "end_sec": 5.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "$1,55 T",
+      "x": 60,
+      "y": 360,
+      "font_size": 168,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 4.7, "end_sec": 5.2, "easing": "ease_out" },
+        { "property": "y", "from": 396, "to": 360, "start_sec": 4.7, "end_sec": 5.2, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "PDB nominal 2026 · peringkat #17 dunia",
+      "x": 60,
+      "y": 570,
+      "font_size": 44,
+      "color": "#94A3B8",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 5.0, "end_sec": 5.5, "easing": "ease_out" },
+        { "property": "y", "from": 606, "to": 570, "start_sec": 5.0, "end_sec": 5.5, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Korea Selatan",
+      "x": 60,
+      "y": 740,
+      "font_size": 40,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "left",
+      "max_width": 700,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 5.3, "end_sec": 5.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 798,
+      "width": 760,
+      "height": 56,
+      "color": "#334155",
+      "radius": 14,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 5.3, "end_sec": 5.6, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 760, "start_sec": 5.3, "end_sec": 6.1, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "1,94T",
+      "x": 840,
+      "y": 802,
+      "font_size": 40,
+      "color": "#94A3B8",
+      "font_weight": "bold",
+      "text_align": "left",
+      "max_width": 200,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 5.8, "end_sec": 6.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Turki",
+      "x": 60,
+      "y": 890,
+      "font_size": 40,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "left",
+      "max_width": 700,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 5.55, "end_sec": 6.05, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 948,
+      "width": 619,
+      "height": 56,
+      "color": "#334155",
+      "radius": 14,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 5.55, "end_sec": 5.85, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 619, "start_sec": 5.55, "end_sec": 6.35, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "1,58T",
+      "x": 840,
+      "y": 952,
+      "font_size": 40,
+      "color": "#94A3B8",
+      "font_weight": "bold",
+      "text_align": "left",
+      "max_width": 200,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 6.05, "end_sec": 6.55, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Indonesia",
+      "x": 60,
+      "y": 1040,
+      "font_size": 40,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "left",
+      "max_width": 700,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 5.8, "end_sec": 6.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 1098,
+      "width": 607,
+      "height": 56,
+      "color": "#EF4444",
+      "radius": 14,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 5.8, "end_sec": 6.1, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 607, "start_sec": 5.8, "end_sec": 6.6, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "1,55T",
+      "x": 840,
+      "y": 1102,
+      "font_size": 40,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "left",
+      "max_width": 200,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 6.3, "end_sec": 6.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Belanda",
+      "x": 60,
+      "y": 1190,
+      "font_size": 40,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "left",
+      "max_width": 700,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 6.05, "end_sec": 6.55, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 1248,
+      "width": 552,
+      "height": 56,
+      "color": "#334155",
+      "radius": 14,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 6.05, "end_sec": 6.35, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 552, "start_sec": 6.05, "end_sec": 6.85, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "1,41T",
+      "x": 840,
+      "y": 1252,
+      "font_size": 40,
+      "color": "#94A3B8",
+      "font_weight": "bold",
+      "text_align": "left",
+      "max_width": 200,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 6.55, "end_sec": 7.05, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Arab Saudi",
+      "x": 60,
+      "y": 1340,
+      "font_size": 40,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "left",
+      "max_width": 700,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 6.3, "end_sec": 6.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 1398,
+      "width": 517,
+      "height": 56,
+      "color": "#334155",
+      "radius": 14,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 6.3, "end_sec": 6.6, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 517, "start_sec": 6.3, "end_sec": 7.1, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "1,32T",
+      "x": 840,
+      "y": 1402,
+      "font_size": 40,
+      "color": "#94A3B8",
+      "font_weight": "bold",
+      "text_align": "left",
+      "max_width": 200,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 6.8, "end_sec": 7.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 1510,
+      "width": 470,
+      "height": 190,
+      "color": "#111A2E",
+      "radius": 24,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 6.9, "end_sec": 7.2, "easing": "ease_out" },
+        { "property": "y", "from": 1540, "to": 1510, "start_sec": 6.9, "end_sec": 7.4, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "#7",
+      "x": 60,
+      "y": 1520,
+      "font_size": 84,
+      "color": "#22D3EE",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 470,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 7.0, "end_sec": 7.5, "easing": "ease_out" },
+        { "property": "y", "from": 1556, "to": 1520, "start_sec": 7.0, "end_sec": 7.5, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "PDB berdasarkan PPP",
+      "x": 75,
+      "y": 1625,
+      "font_size": 30,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 440,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 7.1, "end_sec": 7.6, "easing": "ease_out" },
+        { "property": "y", "from": 1661, "to": 1625, "start_sec": 7.1, "end_sec": 7.6, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 550,
+      "y": 1510,
+      "width": 470,
+      "height": 190,
+      "color": "#111A2E",
+      "radius": 24,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 6.9, "end_sec": 7.2, "easing": "ease_out" },
+        { "property": "y", "from": 1540, "to": 1510, "start_sec": 6.9, "end_sec": 7.4, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "#1",
+      "x": 550,
+      "y": 1520,
+      "font_size": 84,
+      "color": "#818CF8",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 470,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 7.0, "end_sec": 7.5, "easing": "ease_out" },
+        { "property": "y", "from": 1556, "to": 1520, "start_sec": 7.0, "end_sec": 7.5, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Ekonomi terbesar ASEAN",
+      "x": 565,
+      "y": 1625,
+      "font_size": 30,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 440,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 7.1, "end_sec": 7.6, "easing": "ease_out" },
+        { "property": "y", "from": 1661, "to": 1625, "start_sec": 7.1, "end_sec": 7.6, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Sumber: IMF World Economic Outlook, Apr 2026",
+      "x": 60,
+      "y": 1725,
+      "font_size": 26,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 4.5,
+      "end_sec": 10.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 7.3, "end_sec": 7.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 10.05, "end_sec": 10.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "SUMBER DAYA",
+      "x": 60,
+      "y": 290,
+      "font_size": 40,
+      "color": "#FBBF24",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 10.5, "end_sec": 11.0, "easing": "ease_out" },
+        { "property": "y", "from": 326, "to": 290, "start_sec": 10.5, "end_sec": 11.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Raja Nikel Dunia",
+      "x": 60,
+      "y": 360,
+      "font_size": 92,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 10.7, "end_sec": 11.2, "easing": "ease_out" },
+        { "property": "y", "from": 396, "to": 360, "start_sec": 10.7, "end_sec": 11.2, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Nikel hasil tambang",
+      "x": 60,
+      "y": 620,
+      "font_size": 40,
+      "color": "#FFFFFF",
+      "font_weight": "normal",
+      "text_align": "left",
+      "max_width": 560,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 11.2, "end_sec": 11.7, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "≈ ⅔",
+      "x": 520,
+      "y": 614,
+      "font_size": 56,
+      "color": "#22D3EE",
+      "font_weight": "bold",
+      "text_align": "right",
+      "max_width": 500,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 11.4, "end_sec": 11.9, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 700,
+      "width": 960,
+      "height": 64,
+      "color": "#1E293B",
+      "radius": 32,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 11.2, "end_sec": 11.5, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 700,
+      "width": 634,
+      "height": 64,
+      "color": "#22D3EE",
+      "radius": 32,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 11.5, "end_sec": 11.8, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 634, "start_sec": 11.5, "end_sec": 12.6, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Nikel olahan (refined)",
+      "x": 60,
+      "y": 810,
+      "font_size": 40,
+      "color": "#FFFFFF",
+      "font_weight": "normal",
+      "text_align": "left",
+      "max_width": 560,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 11.7, "end_sec": 12.2, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "hampir ½",
+      "x": 520,
+      "y": 804,
+      "font_size": 56,
+      "color": "#818CF8",
+      "font_weight": "bold",
+      "text_align": "right",
+      "max_width": 500,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 11.9, "end_sec": 12.4, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 890,
+      "width": 960,
+      "height": 64,
+      "color": "#1E293B",
+      "radius": 32,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 11.7, "end_sec": 12.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 890,
+      "width": 461,
+      "height": 64,
+      "color": "#818CF8",
+      "radius": 32,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 12.0, "end_sec": 12.3, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 461, "start_sec": 12.0, "end_sec": 13.1, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "dari pasokan dunia",
+      "x": 60,
+      "y": 1010,
+      "font_size": 36,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 12.1, "end_sec": 12.6, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 1150,
+      "width": 260,
+      "height": 130,
+      "color": "#111A2E",
+      "radius": 24,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 12.5, "end_sec": 12.8, "easing": "ease_out" },
+        { "property": "y", "from": 1174, "to": 1150, "start_sec": 12.5, "end_sec": 13.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Tambang",
+      "x": 60,
+      "y": 1190,
+      "font_size": 40,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 260,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 12.6, "end_sec": 13.1, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 330,
+      "y": 1210,
+      "width": 70,
+      "height": 10,
+      "color": "#FBBF24",
+      "radius": 5,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 12.9, "end_sec": 13.2, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 70, "start_sec": 12.9, "end_sec": 13.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 410,
+      "y": 1150,
+      "width": 260,
+      "height": 130,
+      "color": "#111A2E",
+      "radius": 24,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 13.0, "end_sec": 13.3, "easing": "ease_out" },
+        { "property": "y", "from": 1174, "to": 1150, "start_sec": 13.0, "end_sec": 13.5, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Smelter",
+      "x": 410,
+      "y": 1190,
+      "font_size": 40,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 260,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 13.1, "end_sec": 13.6, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 680,
+      "y": 1210,
+      "width": 70,
+      "height": 10,
+      "color": "#FBBF24",
+      "radius": 5,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 13.4, "end_sec": 13.7, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 70, "start_sec": 13.4, "end_sec": 13.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 760,
+      "y": 1150,
+      "width": 260,
+      "height": 130,
+      "color": "#111A2E",
+      "radius": 24,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 13.5, "end_sec": 13.8, "easing": "ease_out" },
+        { "property": "y", "from": 1174, "to": 1150, "start_sec": 13.5, "end_sec": 14.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Baterai EV",
+      "x": 760,
+      "y": 1190,
+      "font_size": 40,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 260,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 13.6, "end_sec": 14.1, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Cadangan nikel terbesar dunia, kunci rantai pasok baterai kendaraan listrik.",
+      "x": 60,
+      "y": 1340,
+      "font_size": 44,
+      "color": "#FFFFFF",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 13.7, "end_sec": 14.2, "easing": "ease_out" },
+        { "property": "y", "from": 1376, "to": 1340, "start_sec": 13.7, "end_sec": 14.2, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Sisi lain: smelter ditenagai PLTU batu bara, memicu kritik lingkungan.",
+      "x": 60,
+      "y": 1530,
+      "font_size": 40,
+      "color": "#FBBF24",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 14.3, "end_sec": 14.8, "easing": "ease_out" },
+        { "property": "y", "from": 1566, "to": 1530, "start_sec": 14.3, "end_sec": 14.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Sumber: The Economist via The Week (data 2025), The Guardian",
+      "x": 60,
+      "y": 1725,
+      "font_size": 26,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 10.5,
+      "end_sec": 15.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 14.5, "end_sec": 15.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 15.55, "end_sec": 15.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "DIPLOMASI",
+      "x": 60,
+      "y": 290,
+      "font_size": 40,
+      "color": "#FBBF24",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 16.0, "end_sec": 16.5, "easing": "ease_out" },
+        { "property": "y", "from": 326, "to": 290, "start_sec": 16.0, "end_sec": 16.5, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Suara Global South",
+      "x": 60,
+      "y": 360,
+      "font_size": 84,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 16.2, "end_sec": 16.7, "easing": "ease_out" },
+        { "property": "y", "from": 396, "to": 360, "start_sec": 16.2, "end_sec": 16.7, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "svg",
+      "x": 0,
+      "y": 0,
+      "width": 1080,
+      "height": 1920,
+      "src": "<svg xmlns='http://www.w3.org/2000/svg' width='1080' height='1920' viewBox='0 0 1080 1920'><line x1='540' y1='900' x2='540' y2='600' stroke='#334155' stroke-width='5'/><line x1='540' y1='900' x2='825' y2='807' stroke='#334155' stroke-width='5'/><line x1='540' y1='900' x2='716' y2='1143' stroke='#334155' stroke-width='5'/><line x1='540' y1='900' x2='364' y2='1143' stroke='#334155' stroke-width='5'/><line x1='540' y1='900' x2='255' y2='807' stroke='#334155' stroke-width='5'/></svg>",
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 16.5, "end_sec": 17.1, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "circle",
+      "cx": 540,
+      "cy": 900,
+      "r": 125,
+      "color": "#EF4444",
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 0.2, "start_sec": 16.4, "end_sec": 17.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 0.2, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "circle",
+      "cx": 540,
+      "cy": 900,
+      "r": 100,
+      "color": "#EF4444",
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 16.5, "end_sec": 17.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "RI",
+      "x": 440,
+      "y": 852,
+      "font_size": 84,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 200,
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 16.7, "end_sec": 17.2, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "circle",
+      "cx": 540,
+      "cy": 600,
+      "r": 80,
+      "color": "#818CF8",
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 17.0, "end_sec": 17.4, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "BRICS",
+      "x": 460,
+      "y": 582,
+      "font_size": 32,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 160,
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 17.1, "end_sec": 17.6, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "circle",
+      "cx": 825,
+      "cy": 807,
+      "r": 80,
+      "color": "#1E3A5F",
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 17.35, "end_sec": 17.75, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "G20",
+      "x": 745,
+      "y": 789,
+      "font_size": 32,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 160,
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 17.45, "end_sec": 17.95, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "circle",
+      "cx": 716,
+      "cy": 1143,
+      "r": 80,
+      "color": "#1E3A5F",
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 17.7, "end_sec": 18.1, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "ASEAN",
+      "x": 636,
+      "y": 1125,
+      "font_size": 32,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 160,
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 17.8, "end_sec": 18.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "circle",
+      "cx": 364,
+      "cy": 1143,
+      "r": 80,
+      "color": "#1E3A5F",
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 18.05, "end_sec": 18.45, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "PBB",
+      "x": 284,
+      "y": 1125,
+      "font_size": 32,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 160,
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 18.15, "end_sec": 18.65, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "circle",
+      "cx": 255,
+      "cy": 807,
+      "r": 80,
+      "color": "#1E3A5F",
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 18.4, "end_sec": 18.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "OKI",
+      "x": 175,
+      "y": 789,
+      "font_size": 32,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 160,
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 18.5, "end_sec": 19.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Anggota penuh BRICS sejak Januari 2025, pertama dari Asia Tenggara.",
+      "x": 60,
+      "y": 1290,
+      "font_size": 44,
+      "color": "#FFFFFF",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 18.8, "end_sec": 19.3, "easing": "ease_out" },
+        { "property": "y", "from": 1326, "to": 1290, "start_sec": 18.8, "end_sec": 19.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "KTT BRICS ke-18 di New Delhi (12 Sep 2026): Prabowo dorong peran aktif, bukan sekadar hadir.",
+      "x": 60,
+      "y": 1470,
+      "font_size": 40,
+      "color": "#22D3EE",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 19.4, "end_sec": 19.9, "easing": "ease_out" },
+        { "property": "y", "from": 1506, "to": 1470, "start_sec": 19.4, "end_sec": 19.9, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Sumber: Antara News, SCMP, The Diplomat",
+      "x": 60,
+      "y": 1725,
+      "font_size": 26,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 16,
+      "end_sec": 21.4667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 19.8, "end_sec": 20.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 21.05, "end_sec": 21.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "TANTANGAN",
+      "x": 60,
+      "y": 290,
+      "font_size": 40,
+      "color": "#EF4444",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 21.5, "end_sec": 22.0, "easing": "ease_out" },
+        { "property": "y", "from": 326, "to": 290, "start_sec": 21.5, "end_sec": 22.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Investor Masih Waspada",
+      "x": 60,
+      "y": 360,
+      "font_size": 80,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 21.7, "end_sec": 22.2, "easing": "ease_out" },
+        { "property": "y", "from": 396, "to": 360, "start_sec": 21.7, "end_sec": 22.2, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 640,
+      "width": 960,
+      "height": 230,
+      "color": "#111A2E",
+      "radius": 24,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 22.3, "end_sec": 22.6, "easing": "ease_out" },
+        { "property": "y", "from": 670, "to": 640, "start_sec": 22.3, "end_sec": 22.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 640,
+      "width": 14,
+      "height": 230,
+      "color": "#EF4444",
+      "radius": 7,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 22.3, "end_sec": 22.6, "easing": "ease_out" },
+        { "property": "y", "from": 670, "to": 640, "start_sec": 22.3, "end_sec": 22.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Moody's",
+      "x": 105,
+      "y": 662,
+      "font_size": 48,
+      "color": "#EF4444",
+      "font_weight": "bold",
+      "text_align": "left",
+      "max_width": 880,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 22.4, "end_sec": 22.9, "easing": "ease_out" },
+        { "property": "y", "from": 698, "to": 662, "start_sec": 22.4, "end_sec": 22.9, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Outlook diturunkan ke negatif (Feb 2026), rating Baa2 tetap.",
+      "x": 105,
+      "y": 730,
+      "font_size": 40,
+      "color": "#FFFFFF",
+      "font_weight": "normal",
+      "text_align": "left",
+      "max_width": 880,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 22.5, "end_sec": 23.0, "easing": "ease_out" },
+        { "property": "y", "from": 766, "to": 730, "start_sec": 22.5, "end_sec": 23.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 900,
+      "width": 960,
+      "height": 230,
+      "color": "#111A2E",
+      "radius": 24,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 22.8, "end_sec": 23.1, "easing": "ease_out" },
+        { "property": "y", "from": 930, "to": 900, "start_sec": 22.8, "end_sec": 23.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 900,
+      "width": 14,
+      "height": 230,
+      "color": "#FBBF24",
+      "radius": 7,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 22.8, "end_sec": 23.1, "easing": "ease_out" },
+        { "property": "y", "from": 930, "to": 900, "start_sec": 22.8, "end_sec": 23.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Fitch",
+      "x": 105,
+      "y": 922,
+      "font_size": 48,
+      "color": "#FBBF24",
+      "font_weight": "bold",
+      "text_align": "left",
+      "max_width": 880,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 22.9, "end_sec": 23.4, "easing": "ease_out" },
+        { "property": "y", "from": 958, "to": 922, "start_sec": 22.9, "end_sec": 23.4, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Outlook ikut negatif (Mar 2026) karena tekanan fiskal.",
+      "x": 105,
+      "y": 990,
+      "font_size": 40,
+      "color": "#FFFFFF",
+      "font_weight": "normal",
+      "text_align": "left",
+      "max_width": 880,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 23.0, "end_sec": 23.5, "easing": "ease_out" },
+        { "property": "y", "from": 1026, "to": 990, "start_sec": 23.0, "end_sec": 23.5, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 1160,
+      "width": 960,
+      "height": 230,
+      "color": "#111A2E",
+      "radius": 24,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 23.3, "end_sec": 23.6, "easing": "ease_out" },
+        { "property": "y", "from": 1190, "to": 1160, "start_sec": 23.3, "end_sec": 23.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 1160,
+      "width": 14,
+      "height": 230,
+      "color": "#818CF8",
+      "radius": 7,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 23.3, "end_sec": 23.6, "easing": "ease_out" },
+        { "property": "y", "from": 1190, "to": 1160, "start_sec": 23.3, "end_sec": 23.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Rupiah",
+      "x": 105,
+      "y": 1182,
+      "font_size": 48,
+      "color": "#818CF8",
+      "font_weight": "bold",
+      "text_align": "left",
+      "max_width": 880,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 23.4, "end_sec": 23.9, "easing": "ease_out" },
+        { "property": "y", "from": 1218, "to": 1182, "start_sec": 23.4, "end_sec": 23.9, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Sempat mendekati Rp17.000 per dolar AS awal 2026.",
+      "x": 105,
+      "y": 1250,
+      "font_size": 40,
+      "color": "#FFFFFF",
+      "font_weight": "normal",
+      "text_align": "left",
+      "max_width": 880,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 23.5, "end_sec": 24.0, "easing": "ease_out" },
+        { "property": "y", "from": 1286, "to": 1250, "start_sec": 23.5, "end_sec": 24.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Namun S&P tetap stabil, dan IMF memproyeksikan pertumbuhan sekitar 5%.",
+      "x": 60,
+      "y": 1450,
+      "font_size": 44,
+      "color": "#34D399",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 24.1, "end_sec": 24.6, "easing": "ease_out" },
+        { "property": "y", "from": 1486, "to": 1450, "start_sec": 24.1, "end_sec": 24.6, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Sumber: Bloomberg, Reuters, Jakarta Globe, IMF",
+      "x": 60,
+      "y": 1725,
+      "font_size": 26,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 21.5,
+      "end_sec": 26.9667,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 24.5, "end_sec": 25.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 26.55, "end_sec": 26.9, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Peluang besar,",
+      "x": 60,
+      "y": 430,
+      "font_size": 92,
+      "color": "#22D3EE",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 27.0, "end_sec": 27.5, "easing": "ease_out" },
+        { "property": "y", "from": 466, "to": 430, "start_sec": 27.0, "end_sec": 27.5, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "ujian kredibilitas.",
+      "x": 60,
+      "y": 560,
+      "font_size": 92,
+      "color": "#FBBF24",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 27.4, "end_sec": 27.9, "easing": "ease_out" },
+        { "property": "y", "from": 596, "to": 560, "start_sec": 27.4, "end_sec": 27.9, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 390,
+      "y": 720,
+      "width": 300,
+      "height": 8,
+      "color": "#EF4444",
+      "radius": 4,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 27.8, "end_sec": 28.1, "easing": "ease_out" },
+        { "property": "x", "from": 540, "to": 390, "start_sec": 27.8, "end_sec": 28.5, "easing": "ease_out" },
+        { "property": "width", "from": 0, "to": 300, "start_sec": 27.8, "end_sec": 28.5, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 60,
+      "y": 820,
+      "width": 280,
+      "height": 200,
+      "color": "#111A2E",
+      "radius": 24,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 28.2, "end_sec": 28.5, "easing": "ease_out" },
+        { "property": "y", "from": 850, "to": 820, "start_sec": 28.2, "end_sec": 28.7, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "5%",
+      "x": 60,
+      "y": 845,
+      "font_size": 76,
+      "color": "#22D3EE",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 280,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 28.3, "end_sec": 28.8, "easing": "ease_out" },
+        { "property": "y", "from": 881, "to": 845, "start_sec": 28.3, "end_sec": 28.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Pertumbuhan 2026",
+      "x": 60,
+      "y": 950,
+      "font_size": 30,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 280,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 28.4, "end_sec": 28.9, "easing": "ease_out" },
+        { "property": "y", "from": 986, "to": 950, "start_sec": 28.4, "end_sec": 28.9, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 400,
+      "y": 820,
+      "width": 280,
+      "height": 200,
+      "color": "#111A2E",
+      "radius": 24,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 28.5, "end_sec": 28.8, "easing": "ease_out" },
+        { "property": "y", "from": 850, "to": 820, "start_sec": 28.5, "end_sec": 29.0, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "#17",
+      "x": 400,
+      "y": 845,
+      "font_size": 76,
+      "color": "#FFFFFF",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 280,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 28.6, "end_sec": 29.1, "easing": "ease_out" },
+        { "property": "y", "from": 881, "to": 845, "start_sec": 28.6, "end_sec": 29.1, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "PDB nominal",
+      "x": 400,
+      "y": 950,
+      "font_size": 30,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 280,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 28.7, "end_sec": 29.2, "easing": "ease_out" },
+        { "property": "y", "from": 986, "to": 950, "start_sec": 28.7, "end_sec": 29.2, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "x": 740,
+      "y": 820,
+      "width": 280,
+      "height": 200,
+      "color": "#111A2E",
+      "radius": 24,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 28.8, "end_sec": 29.1, "easing": "ease_out" },
+        { "property": "y", "from": 850, "to": 820, "start_sec": 28.8, "end_sec": 29.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "#7",
+      "x": 740,
+      "y": 845,
+      "font_size": 76,
+      "color": "#818CF8",
+      "font_weight": "bold",
+      "text_align": "center",
+      "max_width": 280,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 28.9, "end_sec": 29.4, "easing": "ease_out" },
+        { "property": "y", "from": 881, "to": 845, "start_sec": 28.9, "end_sec": 29.4, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "PDB PPP",
+      "x": 740,
+      "y": 950,
+      "font_size": 30,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 280,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 29.0, "end_sec": 29.5, "easing": "ease_out" },
+        { "property": "y", "from": 986, "to": 950, "start_sec": 29.0, "end_sec": 29.5, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Dunia melihat potensi besar, sambil menunggu konsistensi kebijakan.",
+      "x": 60,
+      "y": 1150,
+      "font_size": 48,
+      "color": "#FFFFFF",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 29.3, "end_sec": 29.8, "easing": "ease_out" },
+        { "property": "y", "from": 1186, "to": 1150, "start_sec": 29.3, "end_sec": 29.8, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "text",
+      "content": "Sumber: IMF WEO Apr 2026, Reuters, Bloomberg, The Economist, Antara, Jakarta Globe",
+      "x": 60,
+      "y": 1560,
+      "font_size": 26,
+      "color": "#94A3B8",
+      "font_weight": "normal",
+      "text_align": "center",
+      "max_width": 960,
+      "start_sec": 27,
+      "end_sec": 31.5,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1.0, "start_sec": 29.8, "end_sec": 30.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0, "start_sec": 31.05, "end_sec": 31.4, "easing": "ease_in" }
+      ]
+    },
+    {
+      "type": "rect",
+      "name": "track",
+      "x": 60,
+      "y": 1790,
+      "width": 960,
+      "height": 8,
+      "color": "#1E293B",
+      "radius": 4
+    },
+    {
+      "type": "rect",
+      "name": "progress",
+      "x": 60,
+      "y": 1790,
+      "width": 960,
+      "height": 8,
+      "color": "#22D3EE",
+      "radius": 4,
+      "animations": [
+        { "property": "width", "from": 0, "to": 960, "start_sec": 0, "end_sec": 31.5, "easing": "linear" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,287 @@
+{
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration_secs": 15.0,
+    "background": "#070B14"
+  },
+  "fonts": [],
+  "audio": [],
+  "layers": [
+    {
+      "type": "svg",
+      "name": "bg_grid_and_glow",
+      "position": "absolute",
+      "x": 0,
+      "y": 0,
+      "width": 1080,
+      "height": 1920,
+      "src": "<svg xmlns='http://www.w3.org/2000/svg' width='1080' height='1920' viewBox='0 0 1080 1920'><defs><pattern id='grid' width='60' height='60' patternUnits='userSpaceOnUse'><path d='M 60 0 L 0 0 0 60' fill='none' stroke='#1E293B' stroke-width='1.5' opacity='0.55'/></pattern><radialGradient id='glowTop' cx='50%' cy='22%' r='55%'><stop offset='0%' stop-color='#22D3EE' stop-opacity='0.22'/><stop offset='100%' stop-color='#070B14' stop-opacity='0'/></radialGradient><radialGradient id='glowBottom' cx='50%' cy='82%' r='50%'><stop offset='0%' stop-color='#818CF8' stop-opacity='0.18'/><stop offset='100%' stop-color='#070B14' stop-opacity='0'/></radialGradient></defs><rect width='1080' height='1920' fill='url(#grid)'/><rect width='1080' height='1920' fill='url(#glowTop)'/><rect width='1080' height='1920' fill='url(#glowBottom)'/></svg>"
+    },
+    {
+      "type": "circle",
+      "name": "deco_orb_top",
+      "position": "absolute",
+      "cx": 900,
+      "cy": 280,
+      "r": 120,
+      "color": "#22D3EE",
+      "opacity": 0.1,
+      "scale": 1.0,
+      "animations": [
+        { "property": "scale", "from": 0.85, "to": 1.15, "start_sec": 0.0, "end_sec": 7.5, "easing": "ease_in_out" },
+        { "property": "scale", "from": 1.15, "to": 0.9, "start_sec": 7.5, "end_sec": 15.0, "easing": "ease_in_out" }
+      ]
+    },
+    {
+      "type": "circle",
+      "name": "deco_orb_bottom",
+      "position": "absolute",
+      "cx": 160,
+      "cy": 1580,
+      "r": 150,
+      "color": "#818CF8",
+      "opacity": 0.09,
+      "scale": 1.0,
+      "animations": [
+        { "property": "scale", "from": 1.1, "to": 0.85, "start_sec": 0.0, "end_sec": 7.5, "easing": "ease_in_out" },
+        { "property": "scale", "from": 0.85, "to": 1.1, "start_sec": 7.5, "end_sec": 15.0, "easing": "ease_in_out" }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "scene_1_hook",
+      "position": "absolute",
+      "x": 60,
+      "y": 320,
+      "width": 960,
+      "start_sec": 0.0,
+      "end_sec": 4.9667,
+      "opacity": 0.0,
+      "cascade_opacity": true,
+      "layout": { "direction": "column", "align_items": "start", "gap": 32, "padding": 0 },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 0.0, "end_sec": 0.45, "easing": "ease_out" },
+        { "property": "y", "from": 380.0, "to": 320.0, "start_sec": 0.0, "end_sec": 0.6, "easing": "spring" },
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 4.5, "end_sec": 4.9333, "easing": "ease_in" }
+      ],
+      "children": [
+        {
+          "type": "container",
+          "name": "s1_badge",
+          "background": "#0F2942",
+          "border_color": "#22D3EE",
+          "border_width": 2,
+          "radius": 999,
+          "cascade_opacity": true,
+          "layout": { "direction": "row", "align_items": "center", "gap": 14, "padding": 20 },
+          "children": [
+            { "type": "circle", "r": 10, "color": "#22D3EE" },
+            { "type": "text", "content": "RENDER ENGINE BENCHMARK", "font_size": 28, "font_weight": "bold", "color": "#22D3EE", "max_width": 800 }
+          ]
+        },
+        {
+          "type": "text",
+          "name": "s1_title",
+          "content": "Rustren vs\nRemotion",
+          "font_size": 92,
+          "line_height": 106,
+          "font_weight": "bold",
+          "color": "#F8FAFC",
+          "max_width": 960
+        },
+        {
+          "type": "rect",
+          "name": "s1_accent_line",
+          "width": 220,
+          "height": 10,
+          "radius": 5,
+          "color": "#22D3EE",
+          "gradient": { "from": "#22D3EE", "to": "#818CF8", "angle": 0 }
+        },
+        {
+          "type": "container",
+          "name": "s1_subcard",
+          "width": 960,
+          "background": "#111A2E",
+          "border_color": "#1E293B",
+          "border_width": 2,
+          "radius": 28,
+          "cascade_opacity": true,
+          "layout": { "direction": "column", "gap": 20, "padding": 40 },
+          "children": [
+            { "type": "text", "content": "Uji Head-to-Head 1080x1920 @ 30fps", "font_size": 46, "font_weight": "bold", "color": "#38BDF8", "max_width": 880 },
+            { "type": "text", "content": "Membandingkan ketajaman tipografi, kehalusan animasi spring, kecepatan render, dan ukuran output MP4 dengan layout identik.", "font_size": 40, "line_height": 56, "color": "#CBD5E1", "max_width": 880 }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "scene_2_comparison",
+      "position": "absolute",
+      "x": 60,
+      "y": 240,
+      "width": 960,
+      "start_sec": 5.0,
+      "end_sec": 9.9667,
+      "opacity": 0.0,
+      "cascade_opacity": true,
+      "layout": { "direction": "column", "gap": 28, "padding": 0 },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 5.0, "end_sec": 5.45, "easing": "ease_out" },
+        { "property": "y", "from": 300.0, "to": 240.0, "start_sec": 5.0, "end_sec": 5.6, "easing": "spring" },
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 9.5, "end_sec": 9.9333, "easing": "ease_in" }
+      ],
+      "children": [
+        { "type": "text", "name": "s2_heading", "content": "Arsitektur Berbeda", "font_size": 68, "font_weight": "bold", "color": "#F8FAFC", "max_width": 960 },
+        { "type": "text", "name": "s2_subheading", "content": "Satu skema visual, dua pipeline render yang kontras", "font_size": 40, "color": "#94A3B8", "max_width": 960 },
+        {
+          "type": "container",
+          "name": "s2_cards_row",
+          "width": 960,
+          "cascade_opacity": true,
+          "layout": { "direction": "row", "gap": 24, "padding": 0 },
+          "children": [
+            {
+              "type": "container",
+              "name": "card_rustren",
+              "flex_grow": 1,
+              "background": "#0F1B33",
+              "border_color": "#22D3EE",
+              "border_width": 2,
+              "radius": 28,
+              "cascade_opacity": true,
+              "layout": { "direction": "column", "gap": 18, "padding": 34 },
+              "children": [
+                { "type": "text", "content": "RUSTREN", "font_size": 30, "font_weight": "bold", "color": "#22D3EE", "max_width": 400 },
+                { "type": "text", "content": "Native Rust", "font_size": 48, "font_weight": "bold", "color": "#F8FAFC", "max_width": 400 },
+                { "type": "text", "content": "• Deklaratif 1 JSON\n• Taffy Flexbox\n• Zero Browser\n• Ringan di VPS", "font_size": 38, "line_height": 54, "color": "#CBD5E1", "max_width": 400 }
+              ]
+            },
+            {
+              "type": "container",
+              "name": "card_remotion",
+              "flex_grow": 1,
+              "background": "#161433",
+              "border_color": "#818CF8",
+              "border_width": 2,
+              "radius": 28,
+              "cascade_opacity": true,
+              "layout": { "direction": "column", "gap": 18, "padding": 34 },
+              "children": [
+                { "type": "text", "content": "REMOTION", "font_size": 30, "font_weight": "bold", "color": "#818CF8", "max_width": 400 },
+                { "type": "text", "content": "React + TSX", "font_size": 48, "font_weight": "bold", "color": "#F8FAFC", "max_width": 400 },
+                { "type": "text", "content": "• Komponen React\n• HTML + CSS Flex\n• Headless Chrome\n• Ekosistem Luas", "font_size": 38, "line_height": 54, "color": "#CBD5E1", "max_width": 400 }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "name": "s2_bottom_note",
+          "width": 960,
+          "background": "#111A2E",
+          "radius": 24,
+          "cascade_opacity": true,
+          "layout": { "direction": "column", "gap": 14, "padding": 36 },
+          "children": [
+            { "type": "text", "content": "PARAMETER UJI IDENTIK", "font_size": 28, "font_weight": "bold", "color": "#38BDF8", "max_width": 888 },
+            { "type": "text", "content": "450 total frame • SVG grid + radial glow • Gradien linear • Spring & easing curve", "font_size": 40, "line_height": 54, "color": "#E2E8F0", "max_width": 888 }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "scene_3_checklist",
+      "position": "absolute",
+      "x": 60,
+      "y": 280,
+      "width": 960,
+      "start_sec": 10.0,
+      "end_sec": 15.0,
+      "opacity": 0.0,
+      "cascade_opacity": true,
+      "layout": { "direction": "column", "gap": 28, "padding": 0 },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 10.0, "end_sec": 10.45, "easing": "ease_out" },
+        { "property": "y", "from": 340.0, "to": 280.0, "start_sec": 10.0, "end_sec": 10.6, "easing": "spring" },
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 14.55, "end_sec": 15.0, "easing": "ease_in" }
+      ],
+      "children": [
+        { "type": "text", "name": "s3_title", "content": "Metrik Evaluasi", "font_size": 72, "font_weight": "bold", "color": "#F8FAFC", "max_width": 960 },
+        {
+          "type": "container",
+          "name": "s3_gradient_card",
+          "width": 960,
+          "gradient": { "from": "#0F2942", "to": "#1E1B4B", "angle": 135 },
+          "border_color": "#38BDF8",
+          "border_width": 2,
+          "radius": 28,
+          "cascade_opacity": true,
+          "layout": { "direction": "column", "gap": 24, "padding": 40 },
+          "children": [
+            { "type": "text", "content": "1. Kualitas Visual", "font_size": 46, "font_weight": "bold", "color": "#22D3EE", "max_width": 880 },
+            { "type": "text", "content": "Cek anti-aliasing teks, ketajaman border radius, dan akurasi warna gradien.", "font_size": 40, "line_height": 54, "color": "#E2E8F0", "max_width": 880 },
+            { "type": "text", "content": "2. Performa & Resource", "font_size": 46, "font_weight": "bold", "color": "#818CF8", "max_width": 880 },
+            { "type": "text", "content": "Catat waktu render total, puncak penggunaan RAM/CPU, dan bitrate file MP4.", "font_size": 40, "line_height": 54, "color": "#E2E8F0", "max_width": 880 }
+          ]
+        },
+        {
+          "type": "container",
+          "name": "s3_cta_pill",
+          "width": 960,
+          "background": "#111A2E",
+          "border_color": "#22D3EE",
+          "border_width": 2,
+          "radius": 24,
+          "cascade_opacity": true,
+          "layout": { "direction": "row", "justify_content": "center", "align_items": "center", "gap": 16, "padding": 32 },
+          "children": [
+            { "type": "circle", "r": 12, "color": "#34D399" },
+            { "type": "text", "content": "Siap Render & Bandingkan!", "font_size": 44, "font_weight": "bold", "color": "#34D399", "text_align": "center", "max_width": 820 }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "footer_bar",
+      "position": "absolute",
+      "x": 60,
+      "y": 1730,
+      "width": 960,
+      "layout": { "direction": "column", "gap": 16, "padding": 0 },
+      "children": [
+        { "type": "text", "content": "1080×1920 • 30 FPS • 15.0s", "font_size": 28, "font_weight": "bold", "color": "#64748B", "text_align": "right", "max_width": 960 },
+        {
+          "type": "container",
+          "name": "progress_track",
+          "width": 960,
+          "height": 10,
+          "background": "#1E293B",
+          "radius": 5,
+          "children": [
+            {
+              "type": "rect",
+              "name": "progress_fill",
+              "position": "absolute",
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 10,
+              "radius": 5,
+              "color": "#22D3EE",
+              "gradient": { "from": "#22D3EE", "to": "#818CF8", "angle": 0 },
+              "animations": [
+                { "property": "width", "from": 0.0, "to": 960.0, "start_sec": 0.0, "end_sec": 15.0, "easing": "linear" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

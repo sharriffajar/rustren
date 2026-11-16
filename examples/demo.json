@@ -1,0 +1,97 @@
+{
+  "canvas": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "duration_secs": 3.0,
+    "background": "#0F172A"
+  },
+  "layers": [
+    {
+      "name": "accent_circle",
+      "type": "circle",
+      "cx": 640,
+      "cy": 360,
+      "r": 120,
+      "color": "#38BDF8",
+      "opacity": 0.25,
+      "animations": [
+        {
+          "property": "scale",
+          "from": 0.2,
+          "to": 2.2,
+          "start_sec": 0.0,
+          "end_sec": 1.5,
+          "easing": "ease_out"
+        }
+      ]
+    },
+    {
+      "name": "card",
+      "type": "rect",
+      "x": 240,
+      "y": 240,
+      "width": 800,
+      "height": 240,
+      "radius": 24,
+      "color": "#1E293B",
+      "opacity": 0.95,
+      "animations": [
+        {
+          "property": "y",
+          "from": 340,
+          "to": 240,
+          "start_sec": 0.0,
+          "end_sec": 0.8,
+          "easing": "ease_out"
+        },
+        {
+          "property": "opacity",
+          "from": 0.0,
+          "to": 0.95,
+          "start_sec": 0.0,
+          "end_sec": 0.6,
+          "easing": "ease_in_out"
+        }
+      ]
+    },
+    {
+      "name": "title",
+      "type": "text",
+      "x": 310,
+      "y": 310,
+      "content": "rustren — Browserless 2D Video Engine",
+      "font_size": 42,
+      "color": "#F8FAFC",
+      "animations": [
+        {
+          "property": "opacity",
+          "from": 0.0,
+          "to": 1.0,
+          "start_sec": 0.3,
+          "end_sec": 1.0,
+          "easing": "ease_out"
+        }
+      ]
+    },
+    {
+      "name": "subtitle",
+      "type": "text",
+      "x": 310,
+      "y": 385,
+      "content": "Zero Chromium • Parallel Rust • Zero-Disk FFmpeg Pipe",
+      "font_size": 24,
+      "color": "#94A3B8",
+      "animations": [
+        {
+          "property": "opacity",
+          "from": 0.0,
+          "to": 1.0,
+          "start_sec": 0.6,
+          "end_sec": 1.3,
+          "easing": "ease_out"
+        }
+      ]
+    }
+  ]
+}

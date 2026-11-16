@@ -1,0 +1,70 @@
+{
+  "canvas": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "duration_secs": 3.0,
+    "background": "#0F172A"
+  },
+  "audio": [
+    {
+      "src": "/tmp/beep.wav",
+      "start_sec": 0.2,
+      "volume": 0.25
+    }
+  ],
+  "layers": [
+    {
+      "name": "main_card",
+      "type": "container",
+      "x": 140,
+      "y": 110,
+      "width": 1000,
+      "height": 500,
+      "background": "#1E293B",
+      "radius": 24,
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "center",
+        "gap": 24,
+        "padding": 40
+      },
+      "animations": [
+        {
+          "property": "opacity",
+          "from": 0.0,
+          "to": 1.0,
+          "start_sec": 0.0,
+          "end_sec": 0.6,
+          "easing": "ease_out"
+        }
+      ],
+      "children": [
+        {
+          "name": "logo_svg",
+          "type": "svg",
+          "width": 120,
+          "height": 120,
+          "src": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='#38BDF8'/><polygon points='40,30 72,50 40,70' fill='#0F172A'/></svg>"
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "content": "Rustren Phase 2: Taffy + resvg + Audio",
+          "font_size": 44,
+          "color": "#F8FAFC",
+          "max_width": 880
+        },
+        {
+          "name": "accent_bar",
+          "type": "rect",
+          "width": 320,
+          "height": 10,
+          "radius": 5,
+          "color": "#38BDF8"
+        }
+      ]
+    }
+  ]
+}

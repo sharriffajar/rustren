@@ -1,0 +1,22 @@
+[package]
+name = "rustren"
+version = "0.1.0"
+edition = "2024"
+description = "Browserless 2D Video Render Engine in Rust"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+cosmic-text = "0.12"
+image = "0.25"
+rayon = "1.10"
+resvg = "0.44"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+taffy = "0.7"
+tiny-skia = "0.11"
+ureq = "2.10"
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1", features = ["v4"] }

@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RustrenScene",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["canvas", "layers"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "default": "1.0",
+      "description": "Versi schema scene (didukung: 1.0 - 1.1)"
+    },
+    "min_renderer_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "Versi minimum renderer yang dibutuhkan untuk menjalankan scene ini"
+    },
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "fps", "duration_secs"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1, "description": "Lebar kanvas dalam px" },
+        "height": { "type": "integer", "minimum": 1, "description": "Tinggi kanvas dalam px" },
+        "fps": { "type": "integer", "minimum": 1, "description": "Frame per second" },
+        "duration_secs": { "type": "number", "exclusiveMinimum": 0, "description": "Total durasi video dalam detik" },
+        "background": { "$ref": "#/$defs/HexColor", "default": "#000000" }
+      }
+    },
+    "fonts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Path file font (.ttf/.otf). Kosong = fallback ke sans-serif sistem."
+    },
+    "audio": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["src"],
+        "properties": {
+          "src": { "type": "string", "description": "Path lokal atau URL audio" },
+          "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+          "volume": { "type": "number", "minimum": 0, "default": 1.0 },
+          "trim_start_sec": { "type": "number", "minimum": 0 },
+          "trim_end_sec": { "type": "number", "minimum": 0 },
+          "playback_rate": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "description": "Kecepatan pemutaran audio (1.0 = normal)" }
+        }
+      }
+    },
+    "layers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Layer" },
+      "description": "Urutan z-order dari belakang ke depan; root selalu absolut ke kanvas."
+    }
+  },
+  "$defs": {
+    "HexColor": {
+      "type": "string",
+      "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+    },
+    "LinearGradient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "$ref": "#/$defs/HexColor" },
+        "to": { "$ref": "#/$defs/HexColor" },
+        "angle": { "type": "number", "default": 0.0, "description": "Derajat searah jarum jam (0 = kiri ke kanan)" }
+      }
+    },
+    "Layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "direction": { "enum": ["row", "column"], "default": "row" },
+        "justify_content": { "enum": ["start", "center", "end", "space_between", "space_around", "stretch", "flex_start", "flex_end"] },
+        "align_items": { "enum": ["start", "center", "end", "space_between", "space_around", "stretch", "flex_start", "flex_end"] },
+        "gap": { "type": "number", "default": 0.0 },
+        "padding": { "type": "number", "default": 0.0 }
+      }
+    },
+    "BlendMode": {
+      "enum": [
+        "normal", "multiply", "screen", "overlay", "darken", "lighten",
+        "color_dodge", "color_burn", "hard_light", "soft_light", "difference", "exclusion"
+      ],
+      "default": "normal"
+    },
+    "Shadow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": { "$ref": "#/$defs/HexColor", "default": "#00000080" },
+        "offset_x": { "type": "number", "default": 0.0 },
+        "offset_y": { "type": "number", "default": 0.0 },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0 }
+      }
+    },
+    "TextSpan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string" },
+        "color": { "$ref": "#/$defs/HexColor" },
+        "font_weight": { "enum": ["normal", "bold"] },
+        "font_family": { "type": "string" }
+      }
+    },
+    "SpringConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stiffness": { "type": "number", "exclusiveMinimum": 0, "default": 120.0 },
+        "damping": { "type": "number", "minimum": 0, "default": 14.0 },
+        "mass": { "type": "number", "exclusiveMinimum": 0, "default": 1.0 }
+      }
+    },
+    "Animation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["property", "from", "to", "start_sec", "end_sec"],
+      "properties": {
+        "property": {
+          "enum": [
+            "x", "y", "width", "height", "opacity", "scale", "rotation", "skew_x", "skew_y", "cx", "cy", "r", "radius",
+            "color", "background", "border_color", "path_progress", "stroke_dashoffset"
+          ],
+          "description": "Properti yang dapat dianimasikan pada layer."
+        },
+        "from": {
+          "oneOf": [{ "type": "number" }, { "$ref": "#/$defs/HexColor" }]
+        },
+        "to": {
+          "oneOf": [{ "type": "number" }, { "$ref": "#/$defs/HexColor" }]
+        },
+        "start_sec": { "type": "number", "minimum": 0, "description": "Waktu global video (detik)" },
+        "end_sec": { "type": "number", "minimum": 0, "description": "Waktu global video (detik)" },
+        "easing": {
+          "enum": [
+            "linear", "ease_in", "ease_out", "ease_in_out",
+            "ease_in_quad", "ease_out_quad", "ease_in_out_quad",
+            "ease_in_expo", "ease_out_expo", "ease_in_out_expo",
+            "ease_in_back", "ease_out_back", "ease_in_out_back",
+            "ease_out_bounce", "cubic_bezier", "spring"
+          ],
+          "default": "linear"
+        },
+        "bezier": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 4,
+          "maxItems": 4,
+          "description": "Titik kontrol [x1, y1, x2, y2] untuk easing 'cubic_bezier'"
+        },
+        "spring": { "$ref": "#/$defs/SpringConfig" },
+        "repeat": {
+          "oneOf": [{ "type": "integer", "minimum": 0 }, { "const": "infinite" }],
+          "description": "Jumlah pengulangan siklus animasi atau 'infinite'"
+        },
+        "yoyo": { "type": "boolean", "default": false, "description": "Jika true, siklus ganjil membalik arah (to -> from)" }
+      }
+    },
+    "Layer": {
+      "oneOf": [
+        { "$ref": "#/$defs/ContainerLayer" },
+        { "$ref": "#/$defs/RectLayer" },
+        { "$ref": "#/$defs/CircleLayer" },
+        { "$ref": "#/$defs/TextLayer" },
+        { "$ref": "#/$defs/SvgLayer" },
+        { "$ref": "#/$defs/ImageLayer" },
+        { "$ref": "#/$defs/VideoLayer" }
+      ]
+    },
+    "ContainerLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "const": "container" },
+        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "end_sec": { "type": "number", "minimum": 0 },
+        "duration_secs": { "type": "number", "minimum": 0, "description": "Durasi layer (alternatif end_sec = start_sec + duration_secs)" },
+        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Overlap mundur dalam mode container timeline: 'series'" },
+        "flex_grow": { "type": "number" },
+        "margin": { "type": "number" },
+        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
+        "shadow": { "$ref": "#/$defs/Shadow" },
+        "x": { "type": "number", "default": 0.0 },
+        "y": { "type": "number", "default": 0.0 },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "radius": { "type": "number", "default": 0.0 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "scale": { "type": "number", "exclusiveMinimum": 0, "default": 1.0 },
+        "rotation": { "type": "number", "default": 0.0, "description": "Rotasi searah jarum jam dalam derajat" },
+        "anchor": { "enum": ["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"], "default": "top_left" },
+        "skew_x": { "type": "number", "default": 0.0 },
+        "skew_y": { "type": "number", "default": 0.0 },
+        "clip": { "type": "boolean", "default": false, "description": "Jika true, children di-clip sesuai batas & radius container (overflow: hidden)" },
+        "cascade_opacity": { "type": "boolean", "default": false, "description": "Jika true, opacity container dikalikan ke children" },
+        "timeline": { "enum": ["global", "local", "series"], "default": "global", "description": "global = waktu kanvas; local = relatif ke start_sec container; series = children berurutan otomatis" },
+        "stagger_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Delay bertahap antar children dalam detik" },
+        "background": { "$ref": "#/$defs/HexColor" },
+        "gradient": { "$ref": "#/$defs/LinearGradient" },
+        "border_color": { "$ref": "#/$defs/HexColor" },
+        "border_width": { "type": "number", "default": 0.0 },
+        "layout": { "$ref": "#/$defs/Layout" },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/Layer" } },
+        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+      }
+    },
+    "RectLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "width", "height", "color"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "const": "rect" },
+        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "end_sec": { "type": "number", "minimum": 0 },
+        "duration_secs": { "type": "number", "minimum": 0, "description": "Durasi layer (alternatif end_sec = start_sec + duration_secs)" },
+        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Overlap mundur dalam mode container timeline: 'series'" },
+        "flex_grow": { "type": "number" },
+        "margin": { "type": "number" },
+        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
+        "shadow": { "$ref": "#/$defs/Shadow" },
+        "x": { "type": "number", "default": 0.0 },
+        "y": { "type": "number", "default": 0.0 },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "radius": { "type": "number", "default": 0.0 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "scale": { "type": "number", "exclusiveMinimum": 0, "default": 1.0 },
+        "rotation": { "type": "number", "default": 0.0, "description": "Rotasi searah jarum jam dalam derajat" },
+        "color": { "$ref": "#/$defs/HexColor" },
+        "gradient": { "$ref": "#/$defs/LinearGradient" },
+        "border_color": { "$ref": "#/$defs/HexColor" },
+        "border_width": { "type": "number", "default": 0.0 },
+        "path_progress": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0, "description": "Progres animasi stroke border (0.0 - 1.0)" },
+        "stroke_dashoffset": { "type": "number", "description": "Offset dash stroke (px)" },
+        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+      }
+    },
+    "CircleLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "r", "color"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "const": "circle" },
+        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "end_sec": { "type": "number", "minimum": 0 },
+        "duration_secs": { "type": "number", "minimum": 0, "description": "Durasi layer (alternatif end_sec = start_sec + duration_secs)" },
+        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Overlap mundur dalam mode container timeline: 'series'" },
+        "flex_grow": { "type": "number" },
+        "margin": { "type": "number" },
+        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
+        "shadow": { "$ref": "#/$defs/Shadow" },
+        "cx": { "type": "number", "default": 0.0 },
+        "cy": { "type": "number", "default": 0.0 },
+        "r": { "type": "number", "exclusiveMinimum": 0 },
+        "color": { "$ref": "#/$defs/HexColor" },
+        "border_color": { "$ref": "#/$defs/HexColor" },
+        "border_width": { "type": "number", "default": 0.0 },
+        "path_progress": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0, "description": "Progres animasi stroke border (0.0 - 1.0)" },
+        "stroke_dashoffset": { "type": "number", "description": "Offset dash stroke (px)" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "scale": { "type": "number", "default": 1.0, "description": "Faktor skala radius lingkaran (berpivot di cx, cy)" },
+        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+      }
+    },
+    "TextLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "const": "text" },
+        "position": { "enum": ["relative", "absolute"], "default": "relative", "description": "absolute = posisi bebas; di dalam container relatif ke container" },
+        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "end_sec": { "type": "number", "minimum": 0, "description": "Waktu akhir inklusif (detik); kosong = akhir video" },
+        "duration_secs": { "type": "number", "minimum": 0, "description": "Durasi layer (alternatif end_sec = start_sec + duration_secs)" },
+        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Overlap mundur dalam mode container timeline: 'series'" },
+        "flex_grow": { "type": "number" },
+        "margin": { "type": "number" },
+        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
+        "shadow": { "$ref": "#/$defs/Shadow" },
+        "x": { "type": "number", "default": 0.0, "description": "Posisi horizontal pojok kiri-atas dalam px" },
+        "y": { "type": "number", "default": 0.0, "description": "Posisi vertikal sisi atas kotak teks dalam px" },
+        "content": { "type": "string" },
+        "dynamic": {
+          "type": "object",
+          "description": "Teks dinamis deklaratif: mode 'typewriter', 'counter', atau 'timecode'"
+        },
+        "anchor": { "enum": ["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"], "default": "top_left" },
+        "skew_x": { "type": "number", "default": 0.0 },
+        "skew_y": { "type": "number", "default": 0.0 },
+        "spans": { "type": "array", "items": { "$ref": "#/$defs/TextSpan" }, "description": "Rich text spans (menggantikan content jika diisi)" },
+        "font_size": { "type": "number", "exclusiveMinimum": 0, "default": 48.0 },
+        "line_height": { "type": "number", "exclusiveMinimum": 0 },
+        "letter_spacing": { "type": "number", "default": 0.0, "description": "Jarak ekstra antar huruf dalam px" },
+        "font_family": { "type": "string" },
+        "font_weight": { "enum": ["normal", "bold"], "default": "normal" },
+        "text_align": { "enum": ["left", "center", "right"], "default": "left" },
+        "color": { "$ref": "#/$defs/HexColor", "default": "#FFFFFF" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "scale": { "type": "number", "default": 1.0, "description": "Faktor skala font_size dan line_height" },
+        "max_width": { "type": "number", "description": "Lebar batas wrapping teks (px); wajib diisi jika di dalam container" },
+        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+      }
+    },
+    "SvgLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "src"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "const": "svg" },
+        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "end_sec": { "type": "number", "minimum": 0 },
+        "duration_secs": { "type": "number", "minimum": 0, "description": "Durasi layer (alternatif end_sec = start_sec + duration_secs)" },
+        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Overlap mundur dalam mode container timeline: 'series'" },
+        "flex_grow": { "type": "number" },
+        "margin": { "type": "number" },
+        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
+        "shadow": { "$ref": "#/$defs/Shadow" },
+        "x": { "type": "number", "default": 0.0 },
+        "y": { "type": "number", "default": 0.0 },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "src": { "type": "string", "description": "Path lokal, URL, atau inline <svg>...</svg>" },
+        "path_progress": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0, "description": "Progres gambar path/stroke SVG (0.0 - 1.0)" },
+        "stroke_dashoffset": { "type": "number", "description": "Offset dash stroke SVG (px)" },
+        "stroke_dasharray": { "type": "array", "items": { "type": "number", "minimum": 0 }, "description": "Pola dash stroke SVG kustom" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "rotation": { "type": "number", "default": 0.0 },
+        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+      }
+    },
+    "ImageLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "src"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "const": "image" },
+        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "end_sec": { "type": "number", "minimum": 0 },
+        "duration_secs": { "type": "number", "minimum": 0, "description": "Durasi layer (alternatif end_sec = start_sec + duration_secs)" },
+        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Overlap mundur dalam mode container timeline: 'series'" },
+        "flex_grow": { "type": "number" },
+        "margin": { "type": "number" },
+        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
+        "shadow": { "$ref": "#/$defs/Shadow" },
+        "x": { "type": "number", "default": 0.0 },
+        "y": { "type": "number", "default": 0.0 },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "src": { "type": "string", "description": "Path lokal atau URL gambar" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "rotation": { "type": "number", "default": 0.0 },
+        "scale": { "type": "number", "default": 1.0, "description": "Faktor skala gambar dari titik tengah" },
+        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+      }
+    },
+    "VideoLayer": {
+      "type": "object",
+      "required": ["type", "src"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "const": "video" },
+        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "end_sec": { "type": "number", "minimum": 0 },
+        "flex_grow": { "type": "number" },
+        "margin": { "type": "number" },
+        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0, "description": "Radius Gaussian blur dalam piksel" },
+        "shadow": { "$ref": "#/$defs/Shadow" },
+        "duration_secs": { "type": "number", "minimum": 0, "description": "Durasi aktif elemen untuk series/sequence" },
+        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Overlap dengan elemen sebelumnya di dalam series (detik)" },
+        "x": { "type": "number", "description": "Posisi X absolut (opsional jika di dalam layout flexbox)" },
+        "y": { "type": "number", "description": "Posisi Y absolut (opsional jika di dalam layout flexbox)" },
+        "width": { "type": "number", "minimum": 0, "description": "Lebar video (default: lebar asli video)" },
+        "height": { "type": "number", "minimum": 0, "description": "Tinggi video (default: tinggi asli video)" },
+        "src": { "type": "string", "minLength": 1, "description": "Path lokal atau URL video (MP4/MOV/WEBM)" },
+        "trim_start_sec": { "type": "number", "minimum": 0, "default": 0.0, "description": "Titik awal pemotongan video (detik)" },
+        "trim_end_sec": { "type": "number", "minimum": 0, "description": "Titik akhir pemotongan video (detik, opsional)" },
+        "playback_rate": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "description": "Kecepatan pemutaran video dan audio (1.0 = normal)" },
+        "volume": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0, "description": "Volume audio dari klip video (0.0 - 1.0)" },
+        "muted": { "type": "boolean", "default": false, "description": "Bisukan audio dari klip video" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "rotation": { "type": "number", "default": 0.0, "description": "Sudut rotasi dalam derajat" },
+        "scale": { "type": "number", "default": 1.0, "description": "Faktor skala video dari titik tengah" },
+        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+      }
+    }
+  }
+}

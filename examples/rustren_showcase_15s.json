@@ -1,0 +1,824 @@
+{
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration_secs": 15.0,
+    "background": "#070B14"
+  },
+  "fonts": [],
+  "audio": [],
+  "layers": [
+    {
+      "type": "svg",
+      "name": "Background Grid and Radial Glow",
+      "position": "absolute",
+      "start_sec": 0.0,
+      "end_sec": 15.0,
+      "x": 0,
+      "y": 0,
+      "width": 1080,
+      "height": 1920,
+      "src": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1080\" height=\"1920\"><defs><pattern id=\"grid\" width=\"48\" height=\"48\" patternUnits=\"userSpaceOnUse\"><path d=\"M48 0H0V48\" fill=\"none\" stroke=\"#334155\" stroke-width=\"1\" opacity=\".22\"/></pattern><radialGradient id=\"glow\"><stop offset=\"0%\" stop-color=\"#164E8A\" stop-opacity=\".35\"/><stop offset=\"100%\" stop-color=\"#070B14\" stop-opacity=\"0\"/></radialGradient></defs><rect width=\"1080\" height=\"1920\" fill=\"#070B14\"/><rect width=\"1080\" height=\"1920\" fill=\"url(#grid)\"/><ellipse cx=\"540\" cy=\"650\" rx=\"650\" ry=\"650\" fill=\"url(#glow)\"/></svg>",
+      "opacity": 1.0
+    },
+    {
+      "type": "rect",
+      "name": "Progress Track",
+      "position": "absolute",
+      "start_sec": 0.0,
+      "end_sec": 15.0,
+      "x": 60,
+      "y": 1810,
+      "width": 960,
+      "height": 12,
+      "radius": 6,
+      "color": "#1E293B"
+    },
+    {
+      "type": "rect",
+      "name": "Global Progress",
+      "position": "absolute",
+      "start_sec": 0.0,
+      "end_sec": 15.0,
+      "x": 60,
+      "y": 1810,
+      "width": 960,
+      "height": 12,
+      "radius": 6,
+      "color": "#22D3EE",
+      "animations": [
+        {
+          "property": "width",
+          "from": 0,
+          "to": 960,
+          "start_sec": 0.0,
+          "end_sec": 15.0,
+          "easing": "linear"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "Footer",
+      "position": "absolute",
+      "start_sec": 0.0,
+      "end_sec": 15.0,
+      "x": 60,
+      "y": 1835,
+      "content": "RUSTREN  /  NATIVE VIDEO RENDERING",
+      "font_size": 24,
+      "line_height": 32,
+      "font_weight": "bold",
+      "text_align": "left",
+      "color": "#64748B",
+      "max_width": 850
+    },
+    {
+      "type": "circle",
+      "name": "Outer Pulse",
+      "position": "absolute",
+      "start_sec": 0.0,
+      "end_sec": 4.9667,
+      "cx": 540,
+      "cy": 560,
+      "r": 180,
+      "color": "#164E63",
+      "opacity": 0.35,
+      "animations": [
+        { "property": "r", "from": 140, "to": 225, "start_sec": 0.0, "end_sec": 1.5, "easing": "ease_in_out" },
+        { "property": "r", "from": 225, "to": 140, "start_sec": 1.5, "end_sec": 3.0, "easing": "ease_in_out" },
+        { "property": "r", "from": 140, "to": 180, "start_sec": 3.0, "end_sec": 4.9667, "easing": "ease_in_out" }
+      ]
+    },
+    {
+      "type": "circle",
+      "name": "Inner Pulse",
+      "position": "absolute",
+      "start_sec": 0.0,
+      "end_sec": 4.9667,
+      "cx": 540,
+      "cy": 560,
+      "r": 100,
+      "color": "#22D3EE",
+      "opacity": 0.2,
+      "animations": [
+        { "property": "scale", "from": 0.75, "to": 1.25, "start_sec": 0.0, "end_sec": 1.2, "easing": "spring" },
+        { "property": "scale", "from": 1.25, "to": 0.85, "start_sec": 1.2, "end_sec": 2.4, "easing": "ease_in_out" },
+        { "property": "scale", "from": 0.85, "to": 1.0, "start_sec": 2.4, "end_sec": 4.9667, "easing": "spring" }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "Scene 1 Hook",
+      "position": "absolute",
+      "start_sec": 0.0,
+      "end_sec": 4.9667,
+      "x": 60,
+      "y": 300,
+      "width": 960,
+      "height": 900,
+      "opacity": 1.0,
+      "cascade_opacity": true,
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "center",
+        "gap": 34,
+        "padding": 40
+      },
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1, "start_sec": 0.0, "end_sec": 0.55, "easing": "ease_out" }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 0.0,
+          "end_sec": 4.9667,
+          "x": 0,
+          "y": 0,
+          "content": "✦  BROWSERLESS 2D ENGINE",
+          "font_size": 30,
+          "line_height": 42,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#67E8F9",
+          "max_width": 850,
+          "animations": [
+            { "property": "opacity", "from": 0, "to": 1, "start_sec": 0.15, "end_sec": 0.7, "easing": "ease_out" }
+          ]
+        },
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 0.0,
+          "end_sec": 4.9667,
+          "x": 0,
+          "y": 0,
+          "content": "RENDER VIDEO\n1080p TANPA\nCHROMIUM",
+          "font_size": 78,
+          "line_height": 96,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#FFFFFF",
+          "max_width": 870,
+          "animations": [
+            { "property": "opacity", "from": 0, "to": 1, "start_sec": 0.45, "end_sec": 1.15, "easing": "ease_out" },
+            { "property": "scale", "from": 0.55, "to": 1, "start_sec": 0.45, "end_sec": 1.3, "easing": "spring" }
+          ]
+        },
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 0.0,
+          "end_sec": 4.9667,
+          "x": 0,
+          "y": 0,
+          "content": "Hemat RAM. Deterministik.\nSatu Binary Rust.",
+          "font_size": 42,
+          "line_height": 62,
+          "font_weight": "normal",
+          "text_align": "center",
+          "color": "#CBD5E1",
+          "max_width": 850,
+          "animations": [
+            { "property": "opacity", "from": 0, "to": 1, "start_sec": 1.0, "end_sec": 1.8, "easing": "ease_out" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "Scene 2 Header",
+      "position": "absolute",
+      "start_sec": 5.0,
+      "end_sec": 9.9667,
+      "x": 60,
+      "y": 200,
+      "width": 960,
+      "height": 190,
+      "opacity": 1.0,
+      "cascade_opacity": true,
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "center",
+        "gap": 18,
+        "padding": 20
+      },
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1, "start_sec": 5.0, "end_sec": 5.45, "easing": "ease_out" }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "content": "PERBANDINGAN PERFORMA VPS",
+          "font_size": 52,
+          "line_height": 68,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#FFFFFF",
+          "max_width": 900
+        },
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "content": "2 vCPU  •  SAME VPS  •  DIFFERENT ENGINE",
+          "font_size": 28,
+          "line_height": 40,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#22D3EE",
+          "max_width": 900
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "Chromium Card",
+      "position": "absolute",
+      "start_sec": 5.0,
+      "end_sec": 9.9667,
+      "x": 60,
+      "y": 450,
+      "width": 960,
+      "height": 450,
+      "radius": 28,
+      "background": "#111A2E",
+      "border_color": "#EF4444",
+      "border_width": 2,
+      "opacity": 1.0,
+      "cascade_opacity": true,
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "start",
+        "gap": 28,
+        "padding": 40
+      },
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1, "start_sec": 5.3, "end_sec": 5.9, "easing": "ease_out" },
+        { "property": "scale", "from": 0.88, "to": 1, "start_sec": 5.3, "end_sec": 6.0, "easing": "spring" }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "content": "01 / HEADLESS CHROMIUM",
+          "font_size": 34,
+          "line_height": 46,
+          "font_weight": "bold",
+          "text_align": "left",
+          "color": "#FCA5A5",
+          "max_width": 870
+        },
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "content": "Remotion / Puppeteer",
+          "font_size": 38,
+          "line_height": 50,
+          "font_weight": "bold",
+          "text_align": "left",
+          "color": "#FFFFFF",
+          "max_width": 870
+        },
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "content": "450 MB RAM  •  2 FPS",
+          "font_size": 42,
+          "line_height": 56,
+          "font_weight": "bold",
+          "text_align": "left",
+          "color": "#F87171",
+          "max_width": 870
+        },
+        {
+          "type": "rect",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "width": 850,
+          "height": 28,
+          "radius": 14,
+          "color": "#263449"
+        },
+        {
+          "type": "rect",
+          "position": "absolute",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 95,
+          "y": 760,
+          "width": 850,
+          "height": 28,
+          "radius": 14,
+          "color": "#EF4444",
+          "animations": [
+            { "property": "width", "from": 0, "to": 850, "start_sec": 5.8, "end_sec": 6.7, "easing": "ease_out" }
+          ]
+        },
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "content": "HIGH MEMORY  /  LOW THROUGHPUT",
+          "font_size": 26,
+          "line_height": 38,
+          "font_weight": "bold",
+          "text_align": "left",
+          "color": "#94A3B8",
+          "max_width": 870
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "Rustren Card",
+      "position": "absolute",
+      "start_sec": 5.0,
+      "end_sec": 9.9667,
+      "x": 60,
+      "y": 970,
+      "width": 960,
+      "height": 510,
+      "radius": 28,
+      "gradient": { "from": "#0891B2", "to": "#7C3AED", "angle": 90 },
+      "border_color": "#22D3EE",
+      "border_width": 3,
+      "opacity": 1.0,
+      "cascade_opacity": true,
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "start",
+        "gap": 26,
+        "padding": 40
+      },
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1, "start_sec": 6.1, "end_sec": 6.7, "easing": "ease_out" },
+        { "property": "scale", "from": 0.85, "to": 1, "start_sec": 6.1, "end_sec": 6.9, "easing": "spring" }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "content": "02 / RUSTREN NATIVE ENGINE",
+          "font_size": 34,
+          "line_height": 48,
+          "font_weight": "bold",
+          "text_align": "left",
+          "color": "#A5F3FC",
+          "max_width": 870
+        },
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "content": "28 MB RAM",
+          "font_size": 68,
+          "line_height": 82,
+          "font_weight": "bold",
+          "text_align": "left",
+          "color": "#FFFFFF",
+          "max_width": 870
+        },
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "content": "16 FPS  •  8x LEBIH CEPAT",
+          "font_size": 40,
+          "line_height": 54,
+          "font_weight": "bold",
+          "text_align": "left",
+          "color": "#67E8F9",
+          "max_width": 870
+        },
+        {
+          "type": "rect",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "width": 850,
+          "height": 28,
+          "radius": 14,
+          "color": "#263449"
+        },
+        {
+          "type": "rect",
+          "position": "absolute",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 95,
+          "y": 1280,
+          "width": 53,
+          "height": 28,
+          "radius": 14,
+          "color": "#22D3EE",
+          "animations": [
+            { "property": "width", "from": 0, "to": 53, "start_sec": 6.7, "end_sec": 7.5, "easing": "ease_out" }
+          ]
+        },
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 5.0,
+          "end_sec": 9.9667,
+          "x": 0,
+          "y": 0,
+          "content": "HEMAT 93% RAM",
+          "font_size": 34,
+          "line_height": 48,
+          "font_weight": "bold",
+          "text_align": "left",
+          "color": "#FFFFFF",
+          "max_width": 870,
+          "animations": [
+            { "property": "scale", "from": 0.7, "to": 1, "start_sec": 7.3, "end_sec": 8.0, "easing": "spring" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "Scene 3 Header",
+      "position": "absolute",
+      "start_sec": 10.0,
+      "end_sec": 15.0,
+      "x": 60,
+      "y": 170,
+      "width": 960,
+      "height": 190,
+      "opacity": 1.0,
+      "cascade_opacity": true,
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "center",
+        "gap": 14,
+        "padding": 20
+      },
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1, "start_sec": 10.0, "end_sec": 10.5, "easing": "ease_out" }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 10.0,
+          "end_sec": 15.0,
+          "x": 0,
+          "y": 0,
+          "content": "ZERO-DISK PIPELINE",
+          "font_size": 62,
+          "line_height": 78,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#FFFFFF",
+          "max_width": 900
+        },
+        {
+          "type": "text",
+          "position": "relative",
+          "start_sec": 10.0,
+          "end_sec": 15.0,
+          "x": 0,
+          "y": 0,
+          "content": "DARI JSON HINGGA VIDEO FINAL",
+          "font_size": 28,
+          "line_height": 40,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#22D3EE",
+          "max_width": 900
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "Feature 1 JSON Schema Card",
+      "position": "absolute",
+      "start_sec": 10.0,
+      "end_sec": 15.0,
+      "x": 60,
+      "y": 400,
+      "width": 960,
+      "height": 340,
+      "radius": 24,
+      "background": "#111A2E",
+      "border_color": "#67E8F9",
+      "border_width": 2,
+      "opacity": 1.0,
+      "cascade_opacity": true,
+      "layout": {
+        "direction": "row",
+        "justify_content": "start",
+        "align_items": "center",
+        "gap": 30,
+        "padding": 35
+      },
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1, "start_sec": 10.25, "end_sec": 10.75, "easing": "ease_out" },
+        { "property": "scale", "from": 0.85, "to": 1, "start_sec": 10.25, "end_sec": 10.9, "easing": "spring" }
+      ],
+      "children": [
+        {
+          "type": "svg",
+          "position": "relative",
+          "start_sec": 10.0,
+          "end_sec": 15.0,
+          "x": 0,
+          "y": 0,
+          "width": 110,
+          "height": 110,
+          "src": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"110\" height=\"110\" viewBox=\"0 0 110 110\"><rect x=\"9\" y=\"9\" width=\"92\" height=\"92\" rx=\"17\" fill=\"#0E3548\" stroke=\"#22D3EE\" stroke-width=\"3\"/><path d=\"M35 35L20 55L35 75M75 35L90 55L75 75M63 27L47 83\" fill=\"none\" stroke=\"#67E8F9\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>"
+        },
+        {
+          "type": "container",
+          "position": "relative",
+          "start_sec": 10.0,
+          "end_sec": 15.0,
+          "width": 710,
+          "height": 250,
+          "layout": {
+            "direction": "column",
+            "justify_content": "center",
+            "align_items": "start",
+            "gap": 20,
+            "padding": 5
+          },
+          "children": [
+            {
+              "type": "text",
+              "position": "relative",
+              "start_sec": 10.0,
+              "end_sec": 15.0,
+              "x": 0,
+              "y": 0,
+              "content": "1. DEKLARATIF JSON SCHEMA",
+              "font_size": 34,
+              "line_height": 46,
+              "font_weight": "bold",
+              "text_align": "left",
+              "color": "#67E8F9",
+              "max_width": 680
+            },
+            {
+              "type": "text",
+              "position": "relative",
+              "start_sec": 10.0,
+              "end_sec": 15.0,
+              "x": 0,
+              "y": 0,
+              "content": "Layout otomatis dengan Taffy.\nWord-wrapping akurat, struktur scene\ndidefinisikan langsung melalui JSON.",
+              "font_size": 28,
+              "line_height": 40,
+              "font_weight": "normal",
+              "text_align": "left",
+              "color": "#CBD5E1",
+              "max_width": 680
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "Feature 2 Parallel CPU Rasterizer Card",
+      "position": "absolute",
+      "start_sec": 10.0,
+      "end_sec": 15.0,
+      "x": 60,
+      "y": 780,
+      "width": 960,
+      "height": 340,
+      "radius": 24,
+      "background": "#111A2E",
+      "border_color": "#C4B5FD",
+      "border_width": 2,
+      "opacity": 1.0,
+      "cascade_opacity": true,
+      "layout": {
+        "direction": "row",
+        "justify_content": "start",
+        "align_items": "center",
+        "gap": 30,
+        "padding": 35
+      },
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1, "start_sec": 10.75, "end_sec": 11.25, "easing": "ease_out" },
+        { "property": "scale", "from": 0.85, "to": 1, "start_sec": 10.75, "end_sec": 11.4, "easing": "spring" }
+      ],
+      "children": [
+        {
+          "type": "svg",
+          "position": "relative",
+          "start_sec": 10.0,
+          "end_sec": 15.0,
+          "x": 0,
+          "y": 0,
+          "width": 110,
+          "height": 110,
+          "src": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"110\" height=\"110\" viewBox=\"0 0 110 110\"><rect x=\"9\" y=\"9\" width=\"92\" height=\"92\" rx=\"17\" fill=\"#241B48\" stroke=\"#A78BFA\" stroke-width=\"3\"/><path d=\"M62 17L33 59H52L45 91L79 47H59Z\" fill=\"#A78BFA\" stroke=\"#C4B5FD\" stroke-width=\"2\" stroke-linejoin=\"round\"/></svg>"
+        },
+        {
+          "type": "container",
+          "position": "relative",
+          "start_sec": 10.0,
+          "end_sec": 15.0,
+          "width": 710,
+          "height": 250,
+          "layout": {
+            "direction": "column",
+            "justify_content": "center",
+            "align_items": "start",
+            "gap": 20,
+            "padding": 5
+          },
+          "children": [
+            {
+              "type": "text",
+              "position": "relative",
+              "start_sec": 10.0,
+              "end_sec": 15.0,
+              "x": 0,
+              "y": 0,
+              "content": "2. RASTERIZER CPU PARALEL",
+              "font_size": 34,
+              "line_height": 46,
+              "font_weight": "bold",
+              "text_align": "left",
+              "color": "#C4B5FD",
+              "max_width": 680
+            },
+            {
+              "type": "text",
+              "position": "relative",
+              "start_sec": 10.0,
+              "end_sec": 15.0,
+              "x": 0,
+              "y": 0,
+              "content": "tiny-skia + resvg untuk rasterisasi.\nRayon membagi pekerjaan ke banyak\ncore CPU secara paralel.",
+              "font_size": 28,
+              "line_height": 40,
+              "font_weight": "normal",
+              "text_align": "left",
+              "color": "#CBD5E1",
+              "max_width": 680
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "name": "Feature 3 Direct FFmpeg Pipe Card",
+      "position": "absolute",
+      "start_sec": 10.0,
+      "end_sec": 15.0,
+      "x": 60,
+      "y": 1160,
+      "width": 960,
+      "height": 340,
+      "radius": 24,
+      "background": "#111A2E",
+      "border_color": "#67E8F9",
+      "border_width": 2,
+      "opacity": 1.0,
+      "cascade_opacity": true,
+      "layout": {
+        "direction": "row",
+        "justify_content": "start",
+        "align_items": "center",
+        "gap": 30,
+        "padding": 35
+      },
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1, "start_sec": 11.3, "end_sec": 11.8, "easing": "ease_out" },
+        { "property": "scale", "from": 0.85, "to": 1, "start_sec": 11.3, "end_sec": 11.950000000000001, "easing": "spring" }
+      ],
+      "children": [
+        {
+          "type": "svg",
+          "position": "relative",
+          "start_sec": 10.0,
+          "end_sec": 15.0,
+          "x": 0,
+          "y": 0,
+          "width": 110,
+          "height": 110,
+          "src": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"110\" height=\"110\" viewBox=\"0 0 110 110\"><rect x=\"9\" y=\"9\" width=\"92\" height=\"92\" rx=\"17\" fill=\"#103548\" stroke=\"#22D3EE\" stroke-width=\"3\"/><rect x=\"22\" y=\"28\" width=\"66\" height=\"50\" rx=\"8\" fill=\"none\" stroke=\"#67E8F9\" stroke-width=\"4\"/><path d=\"M47 39L68 53L47 67Z\" fill=\"#22D3EE\"/><path d=\"M32 88H78\" stroke=\"#A78BFA\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>"
+        },
+        {
+          "type": "container",
+          "position": "relative",
+          "start_sec": 10.0,
+          "end_sec": 15.0,
+          "width": 710,
+          "height": 250,
+          "layout": {
+            "direction": "column",
+            "justify_content": "center",
+            "align_items": "start",
+            "gap": 20,
+            "padding": 5
+          },
+          "children": [
+            {
+              "type": "text",
+              "position": "relative",
+              "start_sec": 10.0,
+              "end_sec": 15.0,
+              "x": 0,
+              "y": 0,
+              "content": "3. DIRECT FFMPEG PIPE",
+              "font_size": 34,
+              "line_height": 46,
+              "font_weight": "bold",
+              "text_align": "left",
+              "color": "#67E8F9",
+              "max_width": 680
+            },
+            {
+              "type": "text",
+              "position": "relative",
+              "start_sec": 10.0,
+              "end_sec": 15.0,
+              "x": 0,
+              "y": 0,
+              "content": "Streaming raw RGBA langsung ke FFmpeg.\nTanpa file PNG sementara.\nMinim I/O, pipeline lebih efisien.",
+              "font_size": 28,
+              "line_height": 40,
+              "font_weight": "normal",
+              "text_align": "left",
+              "color": "#CBD5E1",
+              "max_width": 680
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "Closing Statement",
+      "position": "absolute",
+      "start_sec": 10.0,
+      "end_sec": 15.0,
+      "x": 60,
+      "y": 1540,
+      "content": "NO BROWSER. NO DISK OVERHEAD.\nJUST NATIVE RENDERING.",
+      "font_size": 34,
+      "line_height": 48,
+      "font_weight": "bold",
+      "text_align": "center",
+      "color": "#67E8F9",
+      "max_width": 960,
+      "opacity": 1.0,
+      "animations": [
+        { "property": "opacity", "from": 0, "to": 1, "start_sec": 12.2, "end_sec": 13.0, "easing": "ease_out" },
+        { "property": "scale", "from": 0.9, "to": 1, "start_sec": 12.2, "end_sec": 13.0, "easing": "spring" }
+      ]
+    }
+  ]
+}

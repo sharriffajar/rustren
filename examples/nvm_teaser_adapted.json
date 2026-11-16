@@ -1,0 +1,195 @@
+{
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration_secs": 12.0,
+    "background": "#000000"
+  },
+  "layers": [
+    {
+      "name": "accent_bar_top",
+      "type": "rect",
+      "x": 0,
+      "y": 0,
+      "width": 1080,
+      "height": 8,
+      "color": "#da5c2c",
+      "animations": [
+        { "property": "width", "from": 0, "to": 1080, "start_sec": 0.0, "end_sec": 12.0, "easing": "linear" }
+      ]
+    },
+    {
+      "name": "scene1_hook",
+      "type": "container",
+      "x": 60,
+      "y": 660,
+      "width": 960,
+      "height": 600,
+      "start_sec": 0.0,
+      "end_sec": 2.88,
+      "background": "#0A0A0A",
+      "radius": 0,
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "center",
+        "gap": 32,
+        "padding": 48
+      },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 0.0, "end_sec": 0.3, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 2.55, "end_sec": 2.88, "easing": "ease_in" }
+      ],
+      "children": [
+        {
+          "type": "rect",
+          "width": 180,
+          "height": 4,
+          "color": "#da5c2c"
+        },
+        {
+          "type": "text",
+          "content": "A MIND THAT REFUSES TO GO QUIET.",
+          "font_size": 64,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#eeeeee",
+          "max_width": 840
+        },
+        {
+          "type": "rect",
+          "width": 180,
+          "height": 4,
+          "color": "#da5c2c"
+        }
+      ]
+    },
+    {
+      "name": "scene2_curiosity",
+      "type": "container",
+      "x": 60,
+      "y": 620,
+      "width": 960,
+      "height": 680,
+      "start_sec": 2.88,
+      "end_sec": 6.24,
+      "background": "#000000",
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "center",
+        "gap": 36,
+        "padding": 48
+      },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 2.88, "end_sec": 3.2, "easing": "ease_out" },
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 5.9, "end_sec": 6.24, "easing": "ease_in" }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "content": "CURIOSITY WITHOUT PERMISSION.",
+          "font_size": 66,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#eeeeee",
+          "max_width": 860
+        },
+        {
+          "type": "rect",
+          "width": 420,
+          "height": 4,
+          "color": "#ffb829"
+        },
+        {
+          "type": "text",
+          "content": "EDGE_SYSTEMS // AI // LIVING_NOTES",
+          "font_size": 32,
+          "text_align": "center",
+          "color": "#da5c2c",
+          "max_width": 860
+        }
+      ]
+    },
+    {
+      "name": "scene3_spark",
+      "type": "container",
+      "x": 60,
+      "y": 560,
+      "width": 960,
+      "height": 800,
+      "start_sec": 6.24,
+      "end_sec": 9.36,
+      "background": "#000000",
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "center",
+        "gap": 40,
+        "padding": 48
+      },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 6.24, "end_sec": 6.6, "easing": "spring" },
+        { "property": "opacity", "from": 1.0, "to": 0.0, "start_sec": 9.0, "end_sec": 9.36, "easing": "ease_in" }
+      ],
+      "children": [
+        {
+          "type": "svg",
+          "width": 160,
+          "height": 160,
+          "src": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 4 Q54 46 96 50 Q54 54 50 96 Q46 54 4 50 Q46 46 50 4 Z' fill='#da5c2c'/></svg>"
+        },
+        {
+          "type": "text",
+          "content": "NEVERMIND",
+          "font_size": 76,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#eeeeee",
+          "max_width": 860
+        }
+      ]
+    },
+    {
+      "name": "scene4_outro",
+      "type": "container",
+      "x": 60,
+      "y": 660,
+      "width": 960,
+      "height": 600,
+      "start_sec": 9.36,
+      "end_sec": 12.0,
+      "background": "#111111",
+      "layout": {
+        "direction": "column",
+        "justify_content": "center",
+        "align_items": "center",
+        "gap": 28,
+        "padding": 48
+      },
+      "animations": [
+        { "property": "opacity", "from": 0.0, "to": 1.0, "start_sec": 9.36, "end_sec": 9.75, "easing": "spring" }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "content": "AXIOM // 2026",
+          "font_size": 58,
+          "font_weight": "bold",
+          "text_align": "center",
+          "color": "#ffb829",
+          "max_width": 860
+        },
+        {
+          "type": "text",
+          "content": "EDGE_SYSTEMS // AI // LIVING_NOTES",
+          "font_size": 30,
+          "text_align": "center",
+          "color": "#7e7e7e",
+          "max_width": 860
+        }
+      ]
+    }
+  ]
+}
