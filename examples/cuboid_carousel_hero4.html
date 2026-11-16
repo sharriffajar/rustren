@@ -1,0 +1,152 @@
+<!--
+  rustren Dynamic Adaptation: Cuboid Carousel with Variable Overrides
+  Hero Card: 4 ("Draft Project Timeline", #1F9D57)
+  Camera/Timing: cameraSettleFrame 70 (~2.33s), Duration 6.67s @ 30fps
+  Dimensions: 1920x1080 | Backdrop: #0b0d13 | Body: #242424
+-->
+<scene width="1920" height="1080" fps="30" duration="6.67" background="#0B0D13">
+    <!-- Profile Komposisi Responsif -->
+    <profiles>
+        <profile name="portrait" width="1080" height="1920" />
+        <profile name="square" width="1080" height="1080" />
+    </profiles>
+
+    <!-- Ambient / Key Light Glow Background Stand-in -->
+    <circle cx="960" cy="540" r="480" color="#1F9D57" opacity="0.10">
+        <animate property="scale" from="0.7" to="1.5" start="0.0" end="3.5" easing="ease_out" />
+    </circle>
+    <circle cx="1450" cy="320" r="320" color="#4F6EF0" opacity="0.08">
+        <animate property="scale" from="0.8" to="1.4" start="1.0" end="4.0" easing="ease_out" />
+    </circle>
+
+    <!-- Header Badge -->
+    <container x="160" y="80" layout="row" gap="16" opacity="0.9">
+        <animate property="y" from="50" to="80" start="0.0" end="0.8" easing="ease_out" />
+        <animate property="opacity" from="0.0" to="0.9" start="0.0" end="0.6" easing="ease_out" />
+        <rect width="190" height="36" radius="18" color="#242424" border-color="#1F9D57" border-width="1.5">
+            <text x="20" y="8" font-size="15" color="#1F9D57" font-weight="bold">HERO CARD 4 OF 8</text>
+        </rect>
+        <text font-size="18" color="#94A3B8" y="8">Cuboid Carousel • Settle Frame 70 • Zero-Chromium Engine</text>
+    </container>
+
+    <!-- ================= CARD 3 (Lead-in before Hero): Product Development ================= -->
+    <!-- Waktu: 0.0s -> 2.1s (Frame 0 -> 63) -->
+    <container x="460" y="240" width="1000" height="560" radius="24" background="#242424" border-color="#4F6EF0" border-width="2" opacity="1.0" layout="column" padding="48" gap="24" start="0.0" duration="2.1">
+        <animate property="y" from="340" to="240" start="0.0" end="0.7" easing="ease_out" />
+        <animate property="opacity" from="0.0" to="1.0" start="0.0" end="0.5" easing="ease_out" />
+        <!-- Breakaway & exit -->
+        <animate property="x" from="460" to="-600" start="1.6" end="2.1" easing="ease_in" />
+        <animate property="opacity" from="1.0" to="0.0" start="1.7" end="2.1" easing="ease_in" />
+
+        <text font-size="28" color="#4F6EF0" font-weight="bold">
+            PRODUCT DEVELOPMENT
+        </text>
+
+        <text font-size="56" color="#FFFFFF" font-weight="bold">
+            Create Design Prototypes
+        </text>
+
+        <text font-size="24" color="#94A3B8">
+            High-fidelity interactive flow, vector assets, and design system tokens.
+        </text>
+
+        <container layout="row" gap="16">
+            <rect width="160" height="44" radius="22" color="#181818" border-color="#4F6EF0" border-width="1.5">
+                <text x="28" y="10" font-size="18" color="#4F6EF0" font-weight="bold">In progress</text>
+            </rect>
+            <rect width="160" height="44" radius="22" color="#181818" border-color="#4F6EF0" border-width="1.5">
+                <text x="32" y="10" font-size="18" color="#4F6EF0">Aug 02, 2026</text>
+            </rect>
+        </container>
+
+        <rect width="904" height="6" color="#4F6EF0" radius="3">
+            <animate property="scale" from="0.0" to="1.0" start="0.3" end="1.7" easing="ease_out" />
+        </rect>
+    </container>
+
+    <!-- ================= HERO CARD 4: Project Management (Focused at Settle Frame 70 / 2.33s) ================= -->
+    <!-- Waktu: 1.9s -> 4.8s (Frame 57 -> 144) -->
+    <container x="460" y="240" width="1000" height="560" radius="24" background="#242424" border-color="#1F9D57" border-width="3" opacity="1.0" layout="column" padding="48" gap="24" start="1.9" duration="2.9">
+        <!-- Arrival & Settle at Frame 70 (~2.33s) -->
+        <animate property="x" from="1500" to="460" start="1.9" end="2.35" easing="ease_out" />
+        <animate property="opacity" from="0.0" to="1.0" start="1.9" end="2.2" easing="ease_out" />
+        <!-- Soft hero scale & spotlight fill (heroScale=1, heroFillIntensity=0.55) -->
+        <animate property="scale" from="0.95" to="1.03" start="2.33" end="3.2" easing="ease_out" />
+        <!-- Hero Exit (Exit X/Y/Z motion) -->
+        <animate property="x" from="460" to="-650" start="4.3" end="4.8" easing="ease_in" />
+        <animate property="opacity" from="1.0" to="0.0" start="4.4" end="4.8" easing="ease_in" />
+
+        <text font-size="28" color="#1F9D57" font-weight="bold">
+            PROJECT MANAGEMENT • HERO CARD
+        </text>
+
+        <text font-size="56" color="#FFFFFF" font-weight="bold">
+            Draft Project Timeline
+        </text>
+
+        <text font-size="24" color="#94A3B8">
+            Sprint milestones, team capacity review, and delivery target dates.
+        </text>
+
+        <!-- Status Pills -->
+        <container layout="row" gap="16">
+            <rect width="160" height="44" radius="22" color="#181818" border-color="#1F9D57" border-width="1.5">
+                <text x="40" y="10" font-size="18" color="#1F9D57" font-weight="bold">Planned</text>
+            </rect>
+            <rect width="160" height="44" radius="22" color="#181818" border-color="#1F9D57" border-width="1.5">
+                <text x="32" y="10" font-size="18" color="#1F9D57">Aug 09, 2026</text>
+            </rect>
+        </container>
+
+        <!-- Progress Indicator with Active Glow -->
+        <rect width="904" height="6" color="#1F9D57" radius="3">
+            <animate property="scale" from="0.0" to="1.0" start="2.33" end="4.0" easing="ease_out" />
+        </rect>
+    </container>
+
+    <!-- ================= CARD 5: Research (Following Hero Card 4) ================= -->
+    <!-- Waktu: 4.6s -> 6.67s (Frame 138 -> 200) -->
+    <container x="460" y="240" width="1000" height="560" radius="24" background="#242424" border-color="#C026D3" border-width="2" opacity="1.0" layout="column" padding="48" gap="24" start="4.6" duration="2.07">
+        <!-- Enter from Right -->
+        <animate property="x" from="1500" to="460" start="4.6" end="5.1" easing="ease_out" />
+        <animate property="opacity" from="0.0" to="1.0" start="4.6" end="4.9" easing="ease_out" />
+
+        <text font-size="28" color="#C026D3" font-weight="bold">
+            RESEARCH
+        </text>
+
+        <text font-size="56" color="#FFFFFF" font-weight="bold">
+            Run user interviews
+        </text>
+
+        <text font-size="24" color="#94A3B8">
+            Collect customer feedback on key friction points and usability tests.
+        </text>
+
+        <container layout="row" gap="16">
+            <rect width="160" height="44" radius="22" color="#181818" border-color="#C026D3" border-width="1.5">
+                <text x="40" y="10" font-size="18" color="#C026D3" font-weight="bold">Planned</text>
+            </rect>
+            <rect width="160" height="44" radius="22" color="#181818" border-color="#C026D3" border-width="1.5">
+                <text x="32" y="10" font-size="18" color="#C026D3">Aug 15, 2026</text>
+            </rect>
+        </container>
+
+        <rect width="904" height="6" color="#C026D3" radius="3">
+            <animate property="scale" from="0.0" to="1.0" start="4.9" end="6.4" easing="ease_out" />
+        </rect>
+    </container>
+
+    <!-- Bottom Carousel Indicators (8 Cards Total, Hero #4 Active) -->
+    <container x="780" y="840" layout="row" gap="14">
+        <circle cx="8" cy="8" r="6" color="#64748B" opacity="0.4" />
+        <circle cx="8" cy="8" r="6" color="#64748B" opacity="0.4" />
+        <circle cx="8" cy="8" r="7" color="#4F6EF0" opacity="0.7" />
+        <!-- Hero Card #4 Active Pill -->
+        <rect width="32" height="14" radius="7" color="#1F9D57" opacity="1.0" />
+        <circle cx="8" cy="8" r="7" color="#C026D3" opacity="0.7" />
+        <circle cx="8" cy="8" r="6" color="#64748B" opacity="0.4" />
+        <circle cx="8" cy="8" r="6" color="#64748B" opacity="0.4" />
+        <circle cx="8" cy="8" r="6" color="#64748B" opacity="0.4" />
+    </container>
+</scene>
