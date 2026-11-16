@@ -223,6 +223,14 @@ enum Commands {
         /// Path to the scene JSON file to inspect/edit
         input: PathBuf,
     },
+    /// Detect audio beat timestamps (in seconds) from an audio or video file
+    Beats {
+        /// Path to the audio/video file
+        input: PathBuf,
+        /// Peak sensitivity multiplier (default: 1.5, higher = fewer beats)
+        #[arg(long, default_value_t = 1.5)]
+        sensitivity: f32,
+    },
 }
 
 fn main() -> Result<()> {
@@ -431,6 +439,10 @@ fn main() -> Result<()> {
         }
         Commands::Mcp { input } => {
             mcp::run_mcp_server(&input)?;
+        }
+        Commands::Beats { input, sensitivity } => {
+            let beats = encoder::detect_audio_beats(&input, sensitivity)?;
+            println!("{}", serde_json::to_string_pretty(&beats)?);
         }
     }
 
