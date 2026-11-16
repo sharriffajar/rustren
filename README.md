@@ -1,8 +1,12 @@
 # rustren
 
-Browserless 2D video render engine in Rust driven by an AI-friendly declarative JSON schema.
+Browserless 2D video render engine in Rust — built to be **fast** and **predictable for AI-generated video**.
 
-`rustren` compiles a single JSON scene description into an MP4 video or PNG frame snapshots without spawning a headless browser, DOM, or CSS engine.
+```
+AI generates → Schema validates → Capability checks → Snapshot/Layout previews → Renderer executes → Regression tests verify
+```
+
+`rustren` compiles a single declarative JSON scene into an MP4 video or PNG frame snapshots without spawning a headless browser, DOM, or CSS engine. Every stage of the pipeline is explicit, inspectable, and deterministic.
 
 ## Zero-Encode Preview (`snapshot` & `layout`) — AI One-Shot Loop
 Unlike traditional video pipelines that force you to encode a full MP4 just to check alignment, `rustren` lets AI agents and developers inspect any timestamp in milliseconds:
