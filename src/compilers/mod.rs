@@ -8,8 +8,8 @@ use std::path::Path;
 
 use crate::ir::CompiledScene;
 
+pub mod html;
 pub mod json;
-// pub mod html;  // Sprint 6
 // pub mod tsx;   // Sprint 7
 
 /// Trait untuk semua format compiler.
@@ -32,7 +32,7 @@ pub fn detect(path: &Path) -> Result<Box<dyn Compiler>> {
 
     match ext.to_lowercase().as_str() {
         "json" => Ok(Box::new(json::JsonCompiler)),
-        // "html" | "htm" => Ok(Box::new(html::HtmlCompiler)),  // Sprint 6
+        "html" | "htm" => Ok(Box::new(html::HtmlCompiler)),
         // "tsx" | "jsx" => Ok(Box::new(tsx::TsxCompiler::new()?)),  // Sprint 7
         other => Err(anyhow::anyhow!(
             "Format tidak didukung: .{}\nSupported: .json (Sprint 5), .html (Sprint 6), .tsx (Sprint 7)",
@@ -62,6 +62,13 @@ mod tests {
         let path = std::path::Path::new("examples/showreel.json");
         let compiler = detect(path).unwrap();
         assert_eq!(compiler.format_name(), "json");
+    }
+
+    #[test]
+    fn test_detect_returns_html_compiler() {
+        let path = std::path::Path::new("examples/showreel.html");
+        let compiler = detect(path).unwrap();
+        assert_eq!(compiler.format_name(), "html");
     }
 
     #[test]

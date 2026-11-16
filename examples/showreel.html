@@ -1,0 +1,36 @@
+<!--
+  rustren HTML Showreel Example (Sprint 6)
+  Format HTML deklaratif yang dikompilasi menjadi CompiledScene
+-->
+<scene width="1280" height="720" fps="30" duration="5.0" background="#0F172A">
+    <!-- Profile Komposisi Tambahan -->
+    <profiles>
+        <profile name="portrait" width="1080" height="1920" />
+        <profile name="square" width="720" height="720" />
+    </profiles>
+
+    <!-- Background Accent Circle -->
+    <circle cx="640" cy="360" r="160" color="#38BDF8" opacity="0.25">
+        <animate property="scale" from="0.5" to="1.8" start="0" end="2.5" easing="ease_out" />
+    </circle>
+
+    <!-- Main Container Card -->
+    <container x="180" y="200" width="920" height="320" radius="20" background="#1E293B" opacity="0.95" layout="column" padding="30" gap="16">
+        <animate property="y" from="280" to="200" start="0" end="0.8" easing="ease_out" />
+        <animate property="opacity" from="0.0" to="0.95" start="0" end="0.6" easing="ease_in_out" />
+
+        <text font-size="44" color="#F8FAFC" font-weight="bold">
+            rustren HTML Compiler (Sprint 6)
+            <animate property="opacity" from="0" to="1" start="0.3" end="1.0" easing="ease_out" />
+        </text>
+
+        <text font-size="22" color="#94A3B8">
+            Browserless 2D Video Engine • Native HTML/CSS Input • Zero-Disk FFmpeg Pipe
+            <animate property="opacity" from="0" to="1" start="0.6" end="1.2" easing="ease_out" />
+        </text>
+
+        <rect width="860" height="4" color="#38BDF8" radius="2">
+            <animate property="scale" from="0.0" to="1.0" start="0.8" end="1.6" easing="ease_out" />
+        </rect>
+    </container>
+</scene>
