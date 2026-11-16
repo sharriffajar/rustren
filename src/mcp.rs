@@ -99,6 +99,18 @@ pub fn handle_mcp_request(req: &Value, scene_path: &Path) -> Option<Value> {
                         },
                         "required": ["animation"]
                     }
+                },
+                {
+                    "name": "detect_beats",
+                    "description": "Detect audio beat timestamps (in seconds) from an audio or video file for beat-sync automation.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "audio_path": { "type": "string" },
+                            "sensitivity": { "type": "number" }
+                        },
+                        "required": ["audio_path"]
+                    }
                 }
             ]
         })),
@@ -106,10 +118,20 @@ pub fn handle_mcp_request(req: &Value, scene_path: &Path) -> Option<Value> {
             let params = req.get("params").cloned().unwrap_or(json!({}));
             let tool_name = params.get("name").and_then(|n| n.as_str()).unwrap_or("");
             let mut args = params.get("arguments").cloned().unwrap_or(json!({}));
-            if let Some(obj) = args.as_object_mut() {
-                obj.insert("action".to_string(), Value::String(tool_name.to_string()));
+            if tool_name == "detect_beats" {
+                let audio_path = args.get("audio_path").and_then(|s| s.as_str()).unwrap_or("");
+                let sensitivity = args.get("sensitivity").and_then(|v| v.as_f64()).unwrap_or(1.5) as f32;
+                crate::encoder::detect_audio_beats(Path::new(audio_path), sensitivity).map(|beats| {
+                    json!({
+                        "content": [{ "type": "text", "text": serde_json::to_string_pretty(&beats).unwrap_or_default() }]
+                    })
+                })
+            } else {
+                if let Some(obj) = args.as_object_mut() {
+                    obj.insert("action".to_string(), Value::String(tool_name.to_string()));
+                }
+                call_scene_action(scene_path, args)
             }
-            call_scene_action(scene_path, args)
         }
         other => Err(anyhow::anyhow!("Method not found: {}", other)),
     };
@@ -149,6 +171,6 @@ mod tests {
         let list_req = json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" });
         let list_resp = handle_mcp_request(&list_req, dummy).unwrap();
         let tools = list_resp["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 4);
+        assert_eq!(tools.len(), 5);
     }
 }
