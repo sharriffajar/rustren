@@ -1278,6 +1278,14 @@
               "start_sec": 8.5,
               "end_sec": 9.6,
               "easing": "linear"
+            },
+            {
+              "property": "opacity",
+              "from": 1,
+              "to": 0,
+              "start_sec": 9.05,
+              "end_sec": 9.5,
+              "easing": "ease_out"
             }
           ],
           "skew_y": -6.0
@@ -1334,6 +1342,14 @@
               "start_sec": 7.9,
               "end_sec": 8.8,
               "easing": "ease_in_out_expo"
+            },
+            {
+              "property": "radius",
+              "from": 151.2,
+              "to": 35.0,
+              "start_sec": 7.9,
+              "end_sec": 8.8,
+              "easing": "ease_in_out_expo"
             }
           ]
         },
@@ -1365,6 +1381,14 @@
               "start_sec": 8.5,
               "end_sec": 9.6,
               "easing": "linear"
+            },
+            {
+              "property": "opacity",
+              "from": 1,
+              "to": 0,
+              "start_sec": 9.05,
+              "end_sec": 9.5,
+              "easing": "ease_out"
             }
           ],
           "skew_y": 6.0
