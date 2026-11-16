@@ -1,3 +1,4 @@
+mod actions;
 mod animation;
 mod assets;
 mod capabilities;
