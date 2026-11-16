@@ -3,6 +3,15 @@
   Original Content: Creative Requests & Product Cards
   Duration: 6.67s @ 30fps (200 frames) | 1920x1080
 -->
+<html data-composition-variables='[
+  {"id":"heroCard","type":"number","label":"Content - Hero Card","default":1,"min":1,"max":8,"step":1},
+  {"id":"cardCount","type":"number","label":"Content - Total Cards","default":8,"min":1,"max":12,"step":1},
+  {"id":"bodyColor","type":"color","label":"Cuboid - Body Colour","default":"#1E293B"},
+  {"id":"accentColor","type":"color","label":"Card - Accent Highlight","default":"#FE552E"},
+  {"id":"glowColor","type":"color","label":"Scene - Ambient Glow","default":"#4F6EF0"},
+  {"id":"glowIntensity","type":"number","label":"Lights - Ambient Scale","default":1.0,"min":0.2,"max":2.5,"step":0.1}
+]'>
+<body>
 <scene width="1920" height="1080" fps="30" duration="6.67" background="#0B0D13">
     <!-- Profile Komposisi Responsif -->
     <profiles>
@@ -11,15 +20,15 @@
     </profiles>
 
     <!-- Background Ambient Glow & Grid Accents -->
-    <circle cx="960" cy="540" r="450" color="#4F6EF0" opacity="0.12">
+    <circle name="Ambient Blue Glow" cx="960" cy="540" r="450" color="#4F6EF0" opacity="0.12">
         <animate property="scale" from="0.6" to="1.4" start="0.0" end="3.5" easing="ease_out" />
     </circle>
-    <circle cx="1500" cy="300" r="300" color="#FE552E" opacity="0.10">
+    <circle name="Accent Coral Glow" cx="1500" cy="300" r="300" color="#FE552E" opacity="0.10">
         <animate property="scale" from="0.8" to="1.6" start="1.0" end="4.5" easing="ease_out" />
     </circle>
 
     <!-- Top Navigation / Header Badge -->
-    <container x="160" y="80" layout="row" gap="16" opacity="0.9">
+    <container name="Header Badge" x="160" y="80" layout="row" gap="16" opacity="0.9">
         <animate property="y" from="40" to="80" start="0.0" end="0.8" easing="ease_out" />
         <animate property="opacity" from="0.0" to="0.9" start="0.0" end="0.6" easing="ease_out" />
         <rect width="180" height="36" radius="18" color="#1E293B" border-color="#38BDF8" border-width="1">
@@ -139,9 +148,11 @@
     </container>
 
     <!-- Bottom Carousel Dots / Pager Indicator -->
-    <container x="900" y="840" layout="row" gap="16">
+    <container name="Pager Dots" x="900" y="840" layout="row" gap="16">
         <circle cx="10" cy="10" r="8" color="#FE552E" opacity="0.9" />
         <circle cx="10" cy="10" r="8" color="#4F6EF0" opacity="0.9" />
         <circle cx="10" cy="10" r="8" color="#1F9D57" opacity="0.9" />
     </container>
 </scene>
+</body>
+</html>
