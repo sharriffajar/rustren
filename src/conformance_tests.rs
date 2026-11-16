@@ -986,3 +986,30 @@ fn test_p2_expression_rtl_and_composition_profile() {
     let v_minmax = crate::animation::eval_math_expression("max(min(10, 20), 5)", 0.0, 0.0).unwrap();
     assert!((v_minmax - 10.0).abs() < 1e-4);
 }
+
+#[test]
+fn test_studio_cuboid_carousel_defaults_and_render() {
+    let mut content = std::fs::read_to_string("examples/cuboid_carousel.html").unwrap();
+    let doc = scraper::Html::parse_document(&content);
+    let sel = scraper::Selector::parse("html[data-composition-variables]").unwrap();
+    let vars_attr = doc.select(&sel).next().unwrap().value().attr("data-composition-variables").unwrap();
+    let detected_vars: Vec<serde_json::Value> = serde_json::from_str(vars_attr).unwrap();
+    for dv in &detected_vars {
+        let id = dv.get("id").and_then(|v| v.as_str()).unwrap();
+        let def = dv.get("default").unwrap();
+        let val_str = match def {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Number(n) => n.to_string(),
+            serde_json::Value::Bool(b) => b.to_string(),
+            other => other.to_string(),
+        };
+        content = content.replace(&format!("{{{{{}}}}}", id), &val_str);
+    }
+    assert!(!content.contains("{{"), "Unresolved template placeholders remain");
+    let scene = crate::compilers::html::parse_html_scene(&content).unwrap();
+    crate::capabilities::validate_scene_capabilities(&scene).unwrap();
+    let assets = AssetStore::load_for_scene(&scene, std::path::Path::new(".rustren_cache")).unwrap();
+    let rgba = crate::renderer::render_frame_at_time(&scene, &assets, 0.5).unwrap();
+    assert_eq!(rgba.len(), (scene.canvas.width * scene.canvas.height * 4) as usize);
+    assert!(!include_str!("studio.html").contains("bg_color"));
+}
