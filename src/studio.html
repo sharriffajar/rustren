@@ -611,6 +611,9 @@
         return;
       }
       variables.forEach((v) => {
+        if (v.id && v.default !== undefined && activeVariables[v.id] === undefined) {
+          activeVariables[v.id] = v.default;
+        }
         const group = document.createElement("div");
         group.className = "var-group";
         const label = document.createElement("div");

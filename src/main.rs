@@ -1048,6 +1048,19 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
             }
         }
 
+        for dv in &detected_vars {
+            if let (Some(id), Some(def)) = (dv.get("id").and_then(|v| v.as_str()), dv.get("default")) {
+                let placeholder = format!("{{{{{}}}}}", id);
+                let override_val = vars.and_then(|m| m.get(id)).unwrap_or(def);
+                let val_str = match override_val {
+                    serde_json::Value::String(s) => s.clone(),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    serde_json::Value::Bool(b) => b.to_string(),
+                    other => other.to_string(),
+                };
+                content = content.replace(&placeholder, &val_str);
+            }
+        }
         if let Some(v_map) = vars {
             for (k, val) in v_map {
                 let placeholder = format!("{{{{{}}}}}", k);
