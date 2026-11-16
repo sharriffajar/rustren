@@ -12,9 +12,17 @@ AI generates → Schema validates → Capability checks → Snapshot/Layout prev
 **100% Rust, no browser. `JSON in → MP4 out.`**
 
 - **Source JSON:** [examples/showreel.json](examples/showreel.json) (`44` root layers, `65 KB`)
-- **Output MP4:** [assets/showreel.mp4](assets/showreel.mp4) (`359 KB`, `--crf 18 --preset medium`)
-- **Resolution & Timing:** `1280×720 @ 30fps`, `17.0s` (`510` frames) — rendered in **`7.00s`** (`~73 fps` effective throughput)
+- **Output MP4:** [assets/showreel.mp4](assets/showreel.mp4) (`1280×720 @ 30fps`, `17.0s` / `510` frames, `--crf 18 --preset medium`)
 - **Hardware:** `4 vCPU` Intel Xeon E5-2630 v4 @ 2.20GHz, `15 GiB` RAM (CPU-only, no GPU)
+
+| Metric | Measured (`examples/showreel.json`) |
+| :--- | :--- |
+| **Render Time (Wall Clock)** | `6.50s` |
+| **Average Speed** | `78.5 fps` (`2.62×` real-time) |
+| **Peak RAM (Max RSS)** | `305.6 MB` (`312,916 KB`) |
+| **MP4 File Size** | `358.8 KB` (`367,401 bytes`) |
+| **Total Bitrate** | `172.9 kbps` |
+| **Duration / Frame** | `12.7 ms / frame` |
 
 <video src="assets/showreel.mp4" controls muted playsinline width="720"></video>
 
