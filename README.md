@@ -11,6 +11,8 @@ AI generates → Schema validates → Capability checks → Snapshot/Layout prev
 ## Zero-Encode Preview (`snapshot` & `layout`) — AI One-Shot Loop
 Unlike traditional video pipelines that force you to encode a full MP4 just to check alignment, `rustren` lets AI agents and developers inspect any timestamp in milliseconds:
 
+![Rustren contact sheet preview](assets/showreel_sheet.png)
+
 ```bash
 # Render 6 keyframes across a 17s showreel into one 3x2 contact sheet (~0.20s, no FFmpeg)
 rustren snapshot scene.json -t 1.5,3.2,5.6,7.0,11.0,14.5 --sheet --cols 3 -o assets/showreel_sheet.png
@@ -18,8 +20,6 @@ rustren snapshot scene.json -t 1.5,3.2,5.6,7.0,11.0,14.5 --sheet --cols 3 -o ass
 # Or inspect exact computed bounding boxes & measured text widths as JSON
 rustren layout scene.json -t 14.5
 ```
-
-![Rustren contact sheet preview](assets/showreel_sheet.png)
 
 ## Architecture & Why Browserless?
 - **Pure-Rust Raster Pipeline**: Combines `tiny-skia` (2D vector/compositing), `cosmic-text` (text shaping & rich spans), `resvg` (SVG rendering), `taffy` (Flexbox layout), and `rayon` (parallel frame rendering), piped directly to `ffmpeg` for H.264 MP4 output.
