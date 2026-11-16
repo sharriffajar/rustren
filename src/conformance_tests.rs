@@ -1013,3 +1013,49 @@ fn test_studio_cuboid_carousel_defaults_and_render() {
     assert_eq!(rgba.len(), (scene.canvas.width * scene.canvas.height * 4) as usize);
     assert!(!include_str!("studio.html").contains("bg_color"));
 }
+
+#[test]
+fn test_all_examples_compile_and_validate() {
+    for entry in std::fs::read_dir("examples").unwrap() {
+        let path = entry.unwrap().path();
+        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+        if ext != "html" && ext != "json" {
+            continue;
+        }
+        let mut content = std::fs::read_to_string(&path).unwrap();
+        if ext == "html" {
+            let doc = scraper::Html::parse_document(&content);
+            let sel = scraper::Selector::parse("html[data-composition-variables]").unwrap();
+            if let Some(el) = doc.select(&sel).next() {
+                if let Some(vars_attr) = el.value().attr("data-composition-variables") {
+                    let detected_vars: Vec<serde_json::Value> = serde_json::from_str(vars_attr).unwrap();
+                    for dv in &detected_vars {
+                        if let (Some(id), Some(def)) = (dv.get("id").and_then(|v| v.as_str()), dv.get("default")) {
+                            let val_str = match def {
+                                serde_json::Value::String(s) => s.clone(),
+                                serde_json::Value::Number(n) => n.to_string(),
+                                serde_json::Value::Bool(b) => b.to_string(),
+                                other => other.to_string(),
+                            };
+                            content = content.replace(&format!("{{{{{}}}}}", id), &val_str);
+                        }
+                    }
+                }
+            }
+            let scene = crate::compilers::html::parse_html_scene(&content)
+                .unwrap_or_else(|e| panic!("Failed to parse {:?}: {}", path, e));
+            crate::capabilities::validate_scene_capabilities(&scene)
+                .unwrap_or_else(|e| panic!("Capabilities failed for {:?}: {}", path, e));
+        } else {
+            let val: serde_json::Value = serde_json::from_str(&content)
+                .unwrap_or_else(|e| panic!("Invalid JSON in {:?}: {}", path, e));
+            if val.get("canvas").is_none() {
+                continue; // component or non-scene JSON
+            }
+            let scene: crate::schema::Scene = serde_json::from_value(val)
+                .unwrap_or_else(|e| panic!("Failed to parse {:?}: {}", path, e));
+            crate::capabilities::validate_scene_capabilities(&scene)
+                .unwrap_or_else(|e| panic!("Capabilities failed for {:?}: {}", path, e));
+        }
+    }
+}
