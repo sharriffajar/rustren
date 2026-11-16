@@ -892,6 +892,29 @@ fn render_layer(
     layout_override: Option<LayoutBox>,
     parent_opacity: f32,
 ) -> Result<()> {
+    if let Some(echo) = layer.echo {
+        if echo.count > 0 {
+            let mut echo_layer = layer.clone();
+            echo_layer.echo = None;
+            for i in (1..=echo.count).rev() {
+                let echo_t = (time_sec - (i as f32 * echo.step_sec)).max(0.0);
+                let echo_opacity = parent_opacity * echo.decay.powi(i as i32);
+                render_layer_scoped(
+                    &echo_layer,
+                    scene_duration,
+                    echo_t,
+                    assets,
+                    font_system,
+                    swash_cache,
+                    pixmap,
+                    layout_override,
+                    echo_opacity,
+                    false,
+                )?;
+            }
+        }
+    }
+
     if layer.track_matte != TrackMatteMode::None {
         if let Some(ref matte) = layer.matte_layer {
             let w = pixmap.width();
@@ -2113,7 +2136,30 @@ fn render_layer_inner(
                         parent_x: 0.0,
                         parent_y: 0.0,
                     };
-                    if layer.track_matte != TrackMatteMode::None {
+                    if let Some(echo) = layer.echo {
+        if echo.count > 0 {
+            let mut echo_layer = layer.clone();
+            echo_layer.echo = None;
+            for i in (1..=echo.count).rev() {
+                let echo_t = (time_sec - (i as f32 * echo.step_sec)).max(0.0);
+                let echo_opacity = parent_opacity * echo.decay.powi(i as i32);
+                render_layer_scoped(
+                    &echo_layer,
+                    scene_duration,
+                    echo_t,
+                    assets,
+                    font_system,
+                    swash_cache,
+                    pixmap,
+                    layout_override,
+                    echo_opacity,
+                    false,
+                )?;
+            }
+        }
+    }
+
+    if layer.track_matte != TrackMatteMode::None {
         if let Some(ref matte) = layer.matte_layer {
             let w = pixmap.width();
             let h = pixmap.height();
@@ -2224,7 +2270,30 @@ fn render_layer_inner(
                         parent_x: cx,
                         parent_y: cy,
                     };
-                    if layer.track_matte != TrackMatteMode::None {
+                    if let Some(echo) = layer.echo {
+        if echo.count > 0 {
+            let mut echo_layer = layer.clone();
+            echo_layer.echo = None;
+            for i in (1..=echo.count).rev() {
+                let echo_t = (time_sec - (i as f32 * echo.step_sec)).max(0.0);
+                let echo_opacity = parent_opacity * echo.decay.powi(i as i32);
+                render_layer_scoped(
+                    &echo_layer,
+                    scene_duration,
+                    echo_t,
+                    assets,
+                    font_system,
+                    swash_cache,
+                    pixmap,
+                    layout_override,
+                    echo_opacity,
+                    false,
+                )?;
+            }
+        }
+    }
+
+    if layer.track_matte != TrackMatteMode::None {
         if let Some(ref matte) = layer.matte_layer {
             let w = pixmap.width();
             let h = pixmap.height();
@@ -3680,5 +3749,35 @@ mod tests {
         let idx_in = (30 * 100 + 30) * 4;
         assert_eq!(frame[idx_in], 255);
         assert_eq!(frame[idx_in + 1], 0);
+    }
+
+    #[test]
+    fn test_echo_smear_renders_trail() {
+        let json = r##"{
+            "canvas": { "width": 200, "height": 100, "fps": 30, "duration_secs": 1.0, "background": "#000000" },
+            "layers": [
+                {
+                    "type": "rect",
+                    "x": 0, "y": 25, "width": 20, "height": 50,
+                    "color": "#FFFFFF",
+                    "echo": { "count": 4, "step_sec": 0.1, "decay": 0.5 },
+                    "animations": [
+                        { "property": "x", "from": 0, "to": 150, "start_sec": 0.0, "end_sec": 1.0, "easing": "linear" }
+                    ]
+                }
+            ]
+        }"##;
+        let scene: Scene = serde_json::from_str(json).unwrap();
+        let assets = AssetStore {
+            fonts: vec![],
+            images: HashMap::new(),
+            videos: HashMap::new(),
+            svgs: HashMap::new(),
+            audio_paths: vec![],
+        };
+        // At frame 15 (t = 0.5s), main rect is at x = 75..95, echo 1 (t=0.4s) is at x = 60..80
+        let frame = render_frame(&scene, &assets, 15).unwrap();
+        let idx_trail = (50 * 200 + 65) * 4;
+        assert!(frame[idx_trail] > 0, "Expected echo trail pixels at x=65");
     }
 }

@@ -123,6 +123,8 @@ pub struct Layer {
     pub track_matte: TrackMatteMode,
     #[serde(default)]
     pub matte_layer: Option<Box<Layer>>,
+    #[serde(default)]
+    pub echo: Option<EchoSpec>,
     #[serde(flatten)]
     pub kind: LayerKind,
     #[serde(default)]
@@ -138,6 +140,26 @@ pub enum TrackMatteMode {
     AlphaInverted,
     Luma,
     LumaInverted,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct EchoSpec {
+    #[serde(default = "default_echo_count")]
+    pub count: u32,
+    #[serde(default = "default_echo_step")]
+    pub step_sec: f32,
+    #[serde(default = "default_echo_decay")]
+    pub decay: f32,
+}
+
+fn default_echo_count() -> u32 {
+    5
+}
+fn default_echo_step() -> f32 {
+    0.03
+}
+fn default_echo_decay() -> f32 {
+    0.65
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]

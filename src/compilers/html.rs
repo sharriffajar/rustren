@@ -327,6 +327,17 @@ fn parse_layer_element(
 
     let anchor = parse_anchor(get_attr_str(elem, "anchor").as_deref());
     let skew_x = get_attr_f32(elem, "skew-x").or_else(|| get_attr_f32(elem, "skew_x")).unwrap_or(0.0);
+    let echo = get_attr_f32(elem, "echo-count")
+        .or_else(|| get_attr_f32(elem, "echo_count"))
+        .map(|cnt| EchoSpec {
+            count: cnt.max(0.0) as u32,
+            step_sec: get_attr_f32(elem, "echo-step")
+                .or_else(|| get_attr_f32(elem, "echo_step"))
+                .unwrap_or(0.03),
+            decay: get_attr_f32(elem, "echo-decay")
+                .or_else(|| get_attr_f32(elem, "echo_decay"))
+                .unwrap_or(0.65),
+        });
     let track_matte = match get_attr_str(elem, "track-matte")
         .or_else(|| get_attr_str(elem, "track_matte"))
         .as_deref()
@@ -684,6 +695,7 @@ fn parse_layer_element(
         skew_y,
         track_matte,
         matte_layer,
+        echo,
         kind,
         animations,
     }))
