@@ -482,6 +482,9 @@
               initScene(data.scene, data.path, data.variables);
             } else if (data.type === "stats") {
               renderStats.innerHTML = `<span class="status-pill"></span>${data.width}x${data.height} | ${data.ms.toFixed(1)}ms`;
+            } else if (data.type === "export_done") {
+              renderStats.innerHTML = `<span class="status-pill"></span>Exported: ${data.path}`;
+              alert(`✅ Render MP4 selesai!\nFile tersimpan di: ${data.path}`);
             } else if (data.error) {
               renderStats.innerHTML = `<span class="status-pill error"></span>${data.error}`;
             }

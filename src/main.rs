@@ -1142,6 +1142,58 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
             continue;
         }
 
+        if req.action.as_deref() == Some("export_mp4") {
+            match load_current_scene(dropped_file.as_ref(), req.variables.as_ref()) {
+                Ok((scene, _, _, _)) => {
+                    let out_path = PathBuf::from("rustren_studio_export.mp4");
+                    let cache_clone = cache_dir.clone();
+                    let out_clone = out_path.clone();
+                    let res = tokio::task::spawn_blocking(move || {
+                        render_scene_to_file(&scene, &out_clone, &cache_clone)
+                    })
+                    .await;
+                    match res {
+                        Ok(Ok(_)) => {
+                            let _ = socket
+                                .send(Message::Text(
+                                    serde_json::json!({
+                                        "type": "export_done",
+                                        "path": out_path.display().to_string()
+                                    })
+                                    .to_string(),
+                                ))
+                                .await;
+                        }
+                        Ok(Err(e)) => {
+                            let _ = socket
+                                .send(Message::Text(
+                                    serde_json::json!({ "error": format!("Export failed: {:#}", e) })
+                                        .to_string(),
+                                ))
+                                .await;
+                        }
+                        Err(e) => {
+                            let _ = socket
+                                .send(Message::Text(
+                                    serde_json::json!({ "error": format!("Export task panicked: {}", e) })
+                                        .to_string(),
+                                ))
+                                .await;
+                        }
+                    }
+                }
+                Err(e) => {
+                    let _ = socket
+                        .send(Message::Text(
+                            serde_json::json!({ "error": format!("Export failed: {:#}", e) })
+                                .to_string(),
+                        ))
+                        .await;
+                }
+            }
+            continue;
+        }
+
         if req.action.as_deref() == Some("get_scene") {
             match load_current_scene(dropped_file.as_ref(), None) {
                 Ok((_scene, path_str, vars, scene_val)) => {
