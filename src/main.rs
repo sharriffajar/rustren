@@ -1022,10 +1022,16 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
         dx: Option<f32>,
         #[serde(default)]
         dy: Option<f32>,
+        #[serde(default)]
+        ds: Option<f32>,
+        #[serde(default)]
+        drot: Option<f32>,
     }
 
     let mut dropped_file: Option<(String, String)> = None;
     let mut layer_offsets: std::collections::HashMap<usize, (f32, f32)> = std::collections::HashMap::new();
+    let mut layer_scales: std::collections::HashMap<usize, f32> = std::collections::HashMap::new();
+    let mut layer_rots: std::collections::HashMap<usize, f32> = std::collections::HashMap::new();
 
     let parse_scene_from_str = |raw_content: &str, name_or_path: &str, vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
         let mut content = raw_content.to_string();
@@ -1130,6 +1136,24 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
                 continue;
             }
         };
+
+        if req.action.as_deref() == Some("transform_layer") {
+            let idx = req.layer_index.unwrap_or(0);
+            if let Some(ds) = req.ds {
+                let s = layer_scales.entry(idx).or_insert(1.0);
+                *s = (*s + ds).clamp(0.05, 10.0);
+            }
+            if let Some(drot) = req.drot {
+                let r = layer_rots.entry(idx).or_insert(0.0);
+                *r += drot;
+            }
+            let _ = socket
+                .send(Message::Text(
+                    serde_json::json!({ "type": "layer_transformed", "layer_index": idx }).to_string(),
+                ))
+                .await;
+            continue;
+        }
 
         if req.action.as_deref() == Some("move_layer") {
             let idx = req.layer_index.unwrap_or(0);
@@ -1272,6 +1296,38 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
                             *cx += ox;
                             *cy += oy;
                         }
+                    }
+                }
+            }
+
+            for (&idx, &smul) in &layer_scales {
+                if let Some(layer) = scene.layers.get_mut(idx) {
+                    match &mut layer.kind {
+                        schema::LayerKind::Rect { scale, .. }
+                        | schema::LayerKind::Circle { scale, .. }
+                        | schema::LayerKind::Text { scale, .. }
+                        | schema::LayerKind::Image { scale, .. }
+                        | schema::LayerKind::Video { scale, .. }
+                        | schema::LayerKind::Waveform { scale, .. }
+                        | schema::LayerKind::Lottie { scale, .. }
+                        | schema::LayerKind::Container { scale, .. } => {
+                            *scale *= smul;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            for (&idx, &drot) in &layer_rots {
+                if let Some(layer) = scene.layers.get_mut(idx) {
+                    match &mut layer.kind {
+                        schema::LayerKind::Rect { rotation, .. }
+                        | schema::LayerKind::Image { rotation, .. }
+                        | schema::LayerKind::Svg { rotation, .. }
+                        | schema::LayerKind::Video { rotation, .. }
+                        | schema::LayerKind::Container { rotation, .. } => {
+                            *rotation += drot;
+                        }
+                        _ => {}
                     }
                 }
             }

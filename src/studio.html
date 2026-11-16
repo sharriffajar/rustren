@@ -780,15 +780,35 @@
       dragStartX = e.clientX;
       dragStartY = e.clientY;
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          action: "move_layer",
-          layer_index: selectedLayerIdx,
-          dx: dx,
-          dy: dy
-        }));
+        if (e.shiftKey) {
+          ws.send(JSON.stringify({
+            action: "transform_layer",
+            layer_index: selectedLayerIdx,
+            drot: (e.clientX - dragStartX) * 0.5
+          }));
+        } else {
+          ws.send(JSON.stringify({
+            action: "move_layer",
+            layer_index: selectedLayerIdx,
+            dx: dx,
+            dy: dy
+          }));
+        }
         renderFrame();
       }
     });
+    previewImg.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const ds = e.deltaY < 0 ? 0.05 : -0.05;
+        ws.send(JSON.stringify({
+          action: "transform_layer",
+          layer_index: selectedLayerIdx,
+          ds: ds
+        }));
+        renderFrame();
+      }
+    }, { passive: false });
     window.addEventListener("mouseup", () => {
       if (isDraggingCanvas) {
         isDraggingCanvas = false;
