@@ -37,6 +37,12 @@ rustren snapshot examples/showreel.json -t 1.5,3.2,5.6,7.0,11.0,14.5 --sheet --c
 
 # Or inspect exact computed bounding boxes & measured text widths as JSON
 rustren layout examples/showreel.json -t 14.5
+
+# Watch mode: re-validate and re-render the active frame on every save (~12ms/frame)
+rustren watch examples/showreel.json -t 1.5 -o preview.png
+
+# Visual regression test: compare two scenes at timestamp t and fail if MAE > threshold
+rustren diff baseline.json current.json -t 1.5 --threshold 0.01 --out diff.png
 ```
 
 ## Architecture & Why Browserless?

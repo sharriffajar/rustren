@@ -802,3 +802,43 @@ fn test_keyframes_fit_text_fx_radial_gradient_and_strict_determinism() {
 
     let _ = std::fs::remove_file(&tmp_img);
 }
+
+#[test]
+fn diff_command_identical_and_modified() {
+    let dir = std::env::temp_dir();
+    let base_path = dir.join("rustren_diff_base.json");
+    let same_path = dir.join("rustren_diff_same.json");
+    let mod_path = dir.join("rustren_diff_mod.json");
+    let out_png = dir.join("rustren_diff_out.png");
+    let cache_dir = dir.join("rustren_diff_cache");
+
+    let base_json = r##"{
+        "canvas": { "width": 64, "height": 64, "fps": 30, "duration_secs": 1.0, "bg_color": "#000000" },
+        "layers": [
+            { "type": "rect", "x": 8, "y": 8, "width": 48, "height": 48, "color": "#FF0000" }
+        ]
+    }"##;
+    let mod_json = r##"{
+        "canvas": { "width": 64, "height": 64, "fps": 30, "duration_secs": 1.0, "bg_color": "#000000" },
+        "layers": [
+            { "type": "rect", "x": 8, "y": 8, "width": 48, "height": 48, "color": "#00FF00" }
+        ]
+    }"##;
+
+    std::fs::write(&base_path, base_json).unwrap();
+    std::fs::write(&same_path, base_json).unwrap();
+    std::fs::write(&mod_path, mod_json).unwrap();
+
+    // Identical scenes pass with threshold 0.0
+    crate::run_diff(&base_path, &same_path, 0.5, 0.0, None, &cache_dir).unwrap();
+
+    // Modified scene fails threshold 0.01 and writes diff PNG
+    let err = crate::run_diff(&base_path, &mod_path, 0.5, 0.01, Some(&out_png), &cache_dir);
+    assert!(err.is_err(), "expected diff to fail on modified scene");
+    assert!(out_png.exists(), "expected diff PNG to be written");
+
+    let _ = std::fs::remove_file(&base_path);
+    let _ = std::fs::remove_file(&same_path);
+    let _ = std::fs::remove_file(&mod_path);
+    let _ = std::fs::remove_file(&out_png);
+}

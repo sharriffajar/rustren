@@ -138,6 +138,39 @@ enum Commands {
         #[arg(long, default_value_t = 60)]
         max_fps: u32,
     },
+    /// Watch a scene JSON file and re-render the active frame to PNG on every save
+    Watch {
+        /// Input scene JSON file
+        input: PathBuf,
+        /// Timestamp in seconds to render on each save
+        #[arg(short, long, default_value_t = 0.0)]
+        t: f32,
+        /// Output preview PNG path
+        #[arg(short, long, default_value = "preview.png")]
+        output: PathBuf,
+        /// Directory for caching downloaded assets
+        #[arg(long, default_value = ".rustren_cache")]
+        cache_dir: PathBuf,
+    },
+    /// Compare two scene JSON files visually at timestamp t (visual regression test)
+    Diff {
+        /// Baseline scene JSON file
+        baseline: PathBuf,
+        /// Current scene JSON file
+        current: PathBuf,
+        /// Timestamp in seconds to compare
+        #[arg(short, long, default_value_t = 0.0)]
+        t: f32,
+        /// Maximum allowed normalized pixel MAE (0.0 - 1.0)
+        #[arg(long, default_value_t = 0.01)]
+        threshold: f32,
+        /// Optional output path for highlighted diff PNG
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+        /// Directory for caching downloaded assets
+        #[arg(long, default_value = ".rustren_cache")]
+        cache_dir: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -289,6 +322,24 @@ fn main() -> Result<()> {
                     max_duration_secs,
                 },
             }))?;
+        }
+        Commands::Watch {
+            input,
+            t,
+            output,
+            cache_dir,
+        } => {
+            run_watch(&input, t, &output, &cache_dir)?;
+        }
+        Commands::Diff {
+            baseline,
+            current,
+            t,
+            threshold,
+            out,
+            cache_dir,
+        } => {
+            run_diff(&baseline, &current, t, threshold, out.as_deref(), &cache_dir)?;
         }
     }
 
@@ -602,5 +653,175 @@ fn render_snapshots(
         }
     }
     canvas.save(output)?;
+    Ok(())
+}
+
+fn render_preview_once(input: &Path, t: f32, output: &Path, cache_dir: &Path) -> Result<()> {
+    let start = std::time::Instant::now();
+    let raw = fs::read_to_string(input)
+        .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
+    lint::validate_no_unknown_fields(&raw)?;
+    let scene: Scene = serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+    capabilities::validate_scene_capabilities(&scene)?;
+    let assets = AssetStore::load_for_scene(&scene, cache_dir)?;
+    let rgba = renderer::render_frame_at_time(&scene, &assets, t)?;
+    let img = premul_to_rgba_image(scene.canvas.width, scene.canvas.height, rgba)?;
+    if let Some(parent) = output.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+    img.save(output)?;
+    let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+    println!(
+        "Rendered t={:.2}s -> {} ({}x{}) in {:.1}ms",
+        t,
+        output.display(),
+        scene.canvas.width,
+        scene.canvas.height,
+        elapsed_ms
+    );
+    Ok(())
+}
+
+fn run_watch(input: &Path, t: f32, output: &Path, cache_dir: &Path) -> Result<()> {
+    use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+    use std::sync::mpsc::channel;
+    use std::time::{Duration, Instant};
+
+    let abs_input = fs::canonicalize(input)
+        .with_context(|| format!("Failed to resolve path: {}", input.display()))?;
+    let watch_dir = abs_input
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    println!(
+        "Watching {} (t={:.2}s -> {}). Press Ctrl+C to stop.",
+        abs_input.display(),
+        t,
+        output.display()
+    );
+    if let Err(e) = render_preview_once(&abs_input, t, output, cache_dir) {
+        eprintln!("Initial render error: {:#}", e);
+    }
+
+    let (tx, rx) = channel();
+    let mut watcher = RecommendedWatcher::new(tx, Config::default())
+        .context("Failed to initialize file watcher")?;
+    watcher
+        .watch(&watch_dir, RecursiveMode::NonRecursive)
+        .with_context(|| format!("Failed to watch directory: {}", watch_dir.display()))?;
+
+    let mut last_render = Instant::now() - Duration::from_secs(1);
+    for res in rx {
+        match res {
+            Ok(event) => {
+                let touches_target = event.paths.iter().any(|p| p == &abs_input);
+                if touches_target && last_render.elapsed() >= Duration::from_millis(80) {
+                    last_render = Instant::now();
+                    if let Err(e) = render_preview_once(&abs_input, t, output, cache_dir) {
+                        eprintln!("Render error: {:#}", e);
+                    }
+                }
+            }
+            Err(e) => eprintln!("Watch error: {:?}", e),
+        }
+    }
+    Ok(())
+}
+
+fn run_diff(
+    baseline: &Path,
+    current: &Path,
+    t: f32,
+    threshold: f32,
+    out: Option<&Path>,
+    cache_dir: &Path,
+) -> Result<()> {
+    let raw_base = fs::read_to_string(baseline)
+        .with_context(|| format!("Failed to read baseline: {}", baseline.display()))?;
+    let scene_base: Scene =
+        serde_json::from_str(&raw_base).context("Failed to parse baseline JSON")?;
+    capabilities::validate_scene_capabilities(&scene_base)?;
+    let assets_base = AssetStore::load_for_scene(&scene_base, cache_dir)?;
+    let rgba_base = renderer::render_frame_at_time(&scene_base, &assets_base, t)?;
+
+    let raw_curr = fs::read_to_string(current)
+        .with_context(|| format!("Failed to read current: {}", current.display()))?;
+    let scene_curr: Scene =
+        serde_json::from_str(&raw_curr).context("Failed to parse current JSON")?;
+    capabilities::validate_scene_capabilities(&scene_curr)?;
+    let assets_curr = AssetStore::load_for_scene(&scene_curr, cache_dir)?;
+    let rgba_curr = renderer::render_frame_at_time(&scene_curr, &assets_curr, t)?;
+
+    if scene_base.canvas.width != scene_curr.canvas.width
+        || scene_base.canvas.height != scene_curr.canvas.height
+    {
+        anyhow::bail!(
+            "Canvas dimension mismatch: baseline {}x{} vs current {}x{}",
+            scene_base.canvas.width,
+            scene_base.canvas.height,
+            scene_curr.canvas.width,
+            scene_curr.canvas.height
+        );
+    }
+
+    let img_base = premul_to_rgba_image(scene_base.canvas.width, scene_base.canvas.height, rgba_base)?;
+    let img_curr = premul_to_rgba_image(scene_curr.canvas.width, scene_curr.canvas.height, rgba_curr)?;
+
+    let total_channels = (img_base.width() as u64) * (img_base.height() as u64) * 4;
+    let mut abs_sum: u64 = 0;
+    let mut sq_sum: u128 = 0;
+    let mut diff_pixels: u64 = 0;
+
+    let mut diff_img = image::RgbaImage::new(img_base.width(), img_base.height());
+    for (x, y, p_out) in diff_img.enumerate_pixels_mut() {
+        let a = img_base.get_pixel(x, y);
+        let b = img_curr.get_pixel(x, y);
+        let mut px_diff: u32 = 0;
+        for c in 0..4 {
+            let d = (a[c] as i32 - b[c] as i32).unsigned_abs();
+            abs_sum += d as u64;
+            sq_sum += (d as u128) * (d as u128);
+            px_diff = px_diff.max(d);
+        }
+        if px_diff > 0 {
+            diff_pixels += 1;
+            let boost = (px_diff.saturating_mul(4)).min(255) as u8;
+            *p_out = image::Rgba([255, 255 - boost, 255 - boost, 255]);
+        } else {
+            // Dimmed grayscale background for unchanged pixels
+            let luma = ((b[0] as u16 + b[1] as u16 + b[2] as u16) / 6) as u8;
+            *p_out = image::Rgba([luma, luma, luma, 255]);
+        }
+    }
+
+    let mae = (abs_sum as f64) / (total_channels as f64 * 255.0);
+    let rmse = ((sq_sum as f64) / (total_channels as f64)).sqrt() / 255.0;
+    let changed_pct = (diff_pixels as f64) * 100.0 / ((img_base.width() as f64) * (img_base.height() as f64));
+
+    if let Some(out_path) = out {
+        if let Some(parent) = out_path.parent() {
+            if !parent.as_os_str().is_empty() {
+                fs::create_dir_all(parent)?;
+            }
+        }
+        diff_img.save(out_path)?;
+    }
+
+    println!(
+        "Diff at t={:.2}s: MAE={:.6} RMSE={:.6} changed_pixels={:.2}% (threshold={:.6})",
+        t, mae, rmse, changed_pct, threshold
+    );
+
+    if mae as f32 > threshold {
+        anyhow::bail!(
+            "Visual regression detected: MAE {:.6} > threshold {:.6}",
+            mae,
+            threshold
+        );
+    }
+
     Ok(())
 }

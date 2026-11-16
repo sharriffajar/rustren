@@ -4,12 +4,18 @@ version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
 description = "Browserless 2D Video Render Engine in Rust"
+repository = "https://github.com/sharriffajar/rustren"
+homepage = "https://github.com/sharriffajar/rustren"
+readme = "README.md"
+keywords = ["video", "render", "2d", "json", "ffmpeg"]
+categories = ["multimedia::video", "command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
 cosmic-text = "0.12"
 image = "0.25"
+notify = "6.1"
 rayon = "1.10"
 resvg = "0.44"
 serde = { version = "1.0", features = ["derive"] }
