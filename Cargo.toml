@@ -2,6 +2,7 @@
 name = "rustren"
 version = "0.1.0"
 edition = "2024"
+license = "Apache-2.0"
 description = "Browserless 2D Video Render Engine in Rust"
 
 [dependencies]
