@@ -8,6 +8,7 @@ mod conformance_tests;
 mod encoder;
 mod ir;
 mod lint;
+mod mcp;
 mod renderer;
 mod schema;
 mod security;
@@ -217,6 +218,11 @@ enum Commands {
         #[arg(long, default_value = ".rustren_cache")]
         cache_dir: PathBuf,
     },
+    /// Start MCP (Model Context Protocol) stdio JSON-RPC server for AI agents
+    Mcp {
+        /// Path to the scene JSON file to inspect/edit
+        input: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -422,6 +428,9 @@ fn main() -> Result<()> {
                 .enable_all()
                 .build()?;
             rt.block_on(run_studio(Some(&input), &host, port, &cache_dir))?;
+        }
+        Commands::Mcp { input } => {
+            mcp::run_mcp_server(&input)?;
         }
     }
 
