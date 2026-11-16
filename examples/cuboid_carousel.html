@@ -1,0 +1,147 @@
+<!--
+  rustren Declarative 2D Video Adaptation: Cuboid Carousel
+  Original Content: Creative Requests & Product Cards
+  Duration: 6.67s @ 30fps (200 frames) | 1920x1080
+-->
+<scene width="1920" height="1080" fps="30" duration="6.67" background="#0B0D13">
+    <!-- Profile Komposisi Responsif -->
+    <profiles>
+        <profile name="portrait" width="1080" height="1920" />
+        <profile name="square" width="1080" height="1080" />
+    </profiles>
+
+    <!-- Background Ambient Glow & Grid Accents -->
+    <circle cx="960" cy="540" r="450" color="#4F6EF0" opacity="0.12">
+        <animate property="scale" from="0.6" to="1.4" start="0.0" end="3.5" easing="ease_out" />
+    </circle>
+    <circle cx="1500" cy="300" r="300" color="#FE552E" opacity="0.10">
+        <animate property="scale" from="0.8" to="1.6" start="1.0" end="4.5" easing="ease_out" />
+    </circle>
+
+    <!-- Top Navigation / Header Badge -->
+    <container x="160" y="80" layout="row" gap="16" opacity="0.9">
+        <animate property="y" from="40" to="80" start="0.0" end="0.8" easing="ease_out" />
+        <animate property="opacity" from="0.0" to="0.9" start="0.0" end="0.6" easing="ease_out" />
+        <rect width="180" height="36" radius="18" color="#1E293B" border-color="#38BDF8" border-width="1">
+            <text x="24" y="8" font-size="16" color="#38BDF8" font-weight="bold">CUBOID CAROUSEL</text>
+        </rect>
+        <text font-size="18" color="#94A3B8" y="8">200 frames • 30 fps • Browserless 2D Engine</text>
+    </container>
+
+    <!-- ================= CARD 1: Creative Requests (Hero Card 1) ================= -->
+    <!-- Waktu tayang: 0.0s -> 2.3s -->
+    <container x="460" y="240" width="1000" height="560" radius="24" background="#1E293B" border-color="#FE552E" border-width="2" opacity="1.0" layout="column" padding="48" gap="24" start="0.0" duration="2.3">
+        <animate property="y" from="320" to="240" start="0.0" end="0.7" easing="ease_out" />
+        <animate property="opacity" from="0.0" to="1.0" start="0.0" end="0.5" easing="ease_out" />
+        <!-- Exit transition -->
+        <animate property="x" from="460" to="-600" start="1.8" end="2.3" easing="ease_in" />
+        <animate property="opacity" from="1.0" to="0.0" start="1.9" end="2.3" easing="ease_in" />
+
+        <text font-size="28" color="#FE552E" font-weight="bold">
+            CREATIVE REQUESTS
+        </text>
+
+        <text font-size="56" color="#FFFFFF" font-weight="bold">
+            Identify key resources
+        </text>
+
+        <text font-size="24" color="#94A3B8">
+            Review design scope, allocate animators, and approve art assets.
+        </text>
+
+        <!-- Status Pills -->
+        <container layout="row" gap="16">
+            <rect width="160" height="44" radius="22" color="#0F172A" border-color="#FE552E" border-width="1.5">
+                <text x="28" y="10" font-size="18" color="#FE552E" font-weight="bold">In progress</text>
+            </rect>
+            <rect width="160" height="44" radius="22" color="#0F172A" border-color="#FE552E" border-width="1.5">
+                <text x="32" y="10" font-size="18" color="#FE552E">Jul 17, 2026</text>
+            </rect>
+        </container>
+
+        <!-- Progress Indicator -->
+        <rect width="904" height="6" color="#FE552E" radius="3">
+            <animate property="scale" from="0.0" to="1.0" start="0.4" end="1.8" easing="ease_out" />
+        </rect>
+    </container>
+
+    <!-- ================= CARD 2: Product Development (Hero Card 2) ================= -->
+    <!-- Waktu tayang: 2.1s -> 4.4s -->
+    <container x="460" y="240" width="1000" height="560" radius="24" background="#1E293B" border-color="#4F6EF0" border-width="2" opacity="1.0" layout="column" padding="48" gap="24" start="2.1" duration="2.3">
+        <!-- Enter from Right -->
+        <animate property="x" from="1500" to="460" start="2.1" end="2.7" easing="ease_out" />
+        <animate property="opacity" from="0.0" to="1.0" start="2.1" end="2.5" easing="ease_out" />
+        <!-- Exit to Left -->
+        <animate property="x" from="460" to="-600" start="3.9" end="4.4" easing="ease_in" />
+        <animate property="opacity" from="1.0" to="0.0" start="4.0" end="4.4" easing="ease_in" />
+
+        <text font-size="28" color="#4F6EF0" font-weight="bold">
+            PRODUCT DEVELOPMENT
+        </text>
+
+        <text font-size="56" color="#FFFFFF" font-weight="bold">
+            Create Design Prototypes
+        </text>
+
+        <text font-size="24" color="#94A3B8">
+            High-fidelity interactive flow, vector assets, and design system tokens.
+        </text>
+
+        <!-- Status Pills -->
+        <container layout="row" gap="16">
+            <rect width="160" height="44" radius="22" color="#0F172A" border-color="#4F6EF0" border-width="1.5">
+                <text x="28" y="10" font-size="18" color="#4F6EF0" font-weight="bold">In progress</text>
+            </rect>
+            <rect width="160" height="44" radius="22" color="#0F172A" border-color="#4F6EF0" border-width="1.5">
+                <text x="32" y="10" font-size="18" color="#4F6EF0">Aug 02, 2026</text>
+            </rect>
+        </container>
+
+        <!-- Progress Indicator -->
+        <rect width="904" height="6" color="#4F6EF0" radius="3">
+            <animate property="scale" from="0.0" to="1.0" start="2.4" end="3.8" easing="ease_out" />
+        </rect>
+    </container>
+
+    <!-- ================= CARD 3: Project Management (Hero Card 3) ================= -->
+    <!-- Waktu tayang: 4.2s -> 6.67s -->
+    <container x="460" y="240" width="1000" height="560" radius="24" background="#1E293B" border-color="#1F9D57" border-width="2" opacity="1.0" layout="column" padding="48" gap="24" start="4.2" duration="2.47">
+        <!-- Enter from Right -->
+        <animate property="x" from="1500" to="460" start="4.2" end="4.8" easing="ease_out" />
+        <animate property="opacity" from="0.0" to="1.0" start="4.2" end="4.6" easing="ease_out" />
+
+        <text font-size="28" color="#1F9D57" font-weight="bold">
+            PROJECT MANAGEMENT
+        </text>
+
+        <text font-size="56" color="#FFFFFF" font-weight="bold">
+            Draft Project Timeline
+        </text>
+
+        <text font-size="24" color="#94A3B8">
+            Sprint milestones, team capacity review, and delivery target dates.
+        </text>
+
+        <!-- Status Pills -->
+        <container layout="row" gap="16">
+            <rect width="160" height="44" radius="22" color="#0F172A" border-color="#1F9D57" border-width="1.5">
+                <text x="40" y="10" font-size="18" color="#1F9D57" font-weight="bold">Planned</text>
+            </rect>
+            <rect width="160" height="44" radius="22" color="#0F172A" border-color="#1F9D57" border-width="1.5">
+                <text x="32" y="10" font-size="18" color="#1F9D57">Aug 09, 2026</text>
+            </rect>
+        </container>
+
+        <!-- Progress Indicator -->
+        <rect width="904" height="6" color="#1F9D57" radius="3">
+            <animate property="scale" from="0.0" to="1.0" start="4.5" end="6.2" easing="ease_out" />
+        </rect>
+    </container>
+
+    <!-- Bottom Carousel Dots / Pager Indicator -->
+    <container x="900" y="840" layout="row" gap="16">
+        <circle cx="10" cy="10" r="8" color="#FE552E" opacity="0.9" />
+        <circle cx="10" cy="10" r="8" color="#4F6EF0" opacity="0.9" />
+        <circle cx="10" cy="10" r="8" color="#1F9D57" opacity="0.9" />
+    </container>
+</scene>
