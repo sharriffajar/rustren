@@ -919,7 +919,7 @@ fn test_p2_expression_rtl_and_composition_profile() {
                 "animations": [
                     {
                         "property": "x",
-                        "expr": "val + t * 50.0"
+                        "expr": "clamp(lerp(val, 100, t), 10, 80)"
                     }
                 ]
             },
@@ -929,7 +929,17 @@ fn test_p2_expression_rtl_and_composition_profile() {
                 "y": 60,
                 "content": "مرحبا بالعالم",
                 "direction": "rtl",
-                "text_align": "right",
+                "text_align": "start",
+                "font_size": 20,
+                "color": "#FFFFFF"
+            },
+            {
+                "type": "text",
+                "x": 10,
+                "y": 30,
+                "content": "Hello World",
+                "direction": "ltr",
+                "text_align": "end",
                 "font_size": 20,
                 "color": "#FFFFFF"
             },
@@ -959,4 +969,20 @@ fn test_p2_expression_rtl_and_composition_profile() {
     let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
     let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
     assert_ne!(f0, f1, "expression animation should change frames over time");
+
+    // Also verify helper functions directly
+    let v_lerp = crate::animation::eval_math_expression("lerp(0, 100, 0.5)", 0.0, 0.0).unwrap();
+    assert!((v_lerp - 50.0).abs() < 1e-4);
+
+    let v_clamp = crate::animation::eval_math_expression("clamp(150, 0, 100)", 0.0, 0.0).unwrap();
+    assert!((v_clamp - 100.0).abs() < 1e-4);
+
+    let v_smooth = crate::animation::eval_math_expression("smoothstep(0, 1, 0.5)", 0.0, 0.0).unwrap();
+    assert!((v_smooth - 0.5).abs() < 1e-4);
+
+    let v_abs = crate::animation::eval_math_expression("abs(-42.5)", 0.0, 0.0).unwrap();
+    assert!((v_abs - 42.5).abs() < 1e-4);
+
+    let v_minmax = crate::animation::eval_math_expression("max(min(10, 20), 5)", 0.0, 0.0).unwrap();
+    assert!((v_minmax - 10.0).abs() < 1e-4);
 }

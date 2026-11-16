@@ -359,7 +359,7 @@
         "letter_spacing": { "type": "number", "default": 0.0, "description": "Extra spacing between characters in px" },
         "font_family": { "type": "string" },
         "font_weight": { "enum": ["normal", "bold"], "default": "normal" },
-        "text_align": { "enum": ["left", "center", "right"], "default": "left" },
+        "text_align": { "enum": ["left", "center", "right", "start", "end"], "default": "left" },
         "direction": { "enum": ["auto", "ltr", "rtl"], "default": "auto", "description": "Text layout direction for RTL/BiDi shaping (Arabic, Hebrew)" },
         "color": { "$ref": "#/$defs/HexColor", "default": "#FFFFFF" },
         "gradient": { "$ref": "#/$defs/LinearGradient" },

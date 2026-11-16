@@ -1,14 +1,94 @@
 use crate::schema::{AnimProperty, AnimValue, Animation, Easing, RepeatMode, RepeatSpec, SpringConfig};
+use evalexpr::*;
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+thread_local! {
+    static PARSED_EXPR_CACHE: RefCell<HashMap<String, Node<DefaultNumericTypes>>> = RefCell::new(HashMap::new());
+}
+
+fn create_math_context(time_sec: f32, current_val: f32) -> HashMapContext<DefaultNumericTypes> {
+    let mut context = HashMapContext::<DefaultNumericTypes>::new();
+    let _ = context.set_value("t".into(), Value::Float(time_sec as f64));
+    let _ = context.set_value("time".into(), Value::Float(time_sec as f64));
+    let _ = context.set_value("val".into(), Value::Float(current_val as f64));
+    let _ = context.set_value("PI".into(), Value::Float(std::f64::consts::PI));
+
+    let _ = context.set_function("clamp".into(), Function::<DefaultNumericTypes>::new(|argument| {
+        let args = argument.as_tuple()?;
+        if args.len() != 3 {
+            return Err(EvalexprError::wrong_function_argument_amount(3, args.len()));
+        }
+        let v: f64 = args[0].as_number()?;
+        let min: f64 = args[1].as_number()?;
+        let max: f64 = args[2].as_number()?;
+        Ok(Value::Float(v.clamp(min, max)))
+    }));
+
+    let _ = context.set_function("lerp".into(), Function::<DefaultNumericTypes>::new(|argument| {
+        let args = argument.as_tuple()?;
+        if args.len() != 3 {
+            return Err(EvalexprError::wrong_function_argument_amount(3, args.len()));
+        }
+        let a: f64 = args[0].as_number()?;
+        let b: f64 = args[1].as_number()?;
+        let t: f64 = args[2].as_number()?;
+        Ok(Value::Float(a + (b - a) * t))
+    }));
+
+    let _ = context.set_function("smoothstep".into(), Function::<DefaultNumericTypes>::new(|argument| {
+        let args = argument.as_tuple()?;
+        if args.len() != 3 {
+            return Err(EvalexprError::wrong_function_argument_amount(3, args.len()));
+        }
+        let edge0: f64 = args[0].as_number()?;
+        let edge1: f64 = args[1].as_number()?;
+        let x: f64 = args[2].as_number()?;
+        let t = ((x - edge0) / (edge1 - edge0).max(1e-9)).clamp(0.0, 1.0);
+        Ok(Value::Float(t * t * (3.0 - 2.0 * t)))
+    }));
+
+    let _ = context.set_function("abs".into(), Function::<DefaultNumericTypes>::new(|argument| {
+        let v: f64 = argument.as_number()?;
+        Ok(Value::Float(v.abs()))
+    }));
+
+    let _ = context.set_function("min".into(), Function::<DefaultNumericTypes>::new(|argument| {
+        let args = argument.as_tuple()?;
+        if args.len() != 2 {
+            return Err(EvalexprError::wrong_function_argument_amount(2, args.len()));
+        }
+        let a: f64 = args[0].as_number()?;
+        let b: f64 = args[1].as_number()?;
+        Ok(Value::Float(a.min(b)))
+    }));
+
+    let _ = context.set_function("max".into(), Function::<DefaultNumericTypes>::new(|argument| {
+        let args = argument.as_tuple()?;
+        if args.len() != 2 {
+            return Err(EvalexprError::wrong_function_argument_amount(2, args.len()));
+        }
+        let a: f64 = args[0].as_number()?;
+        let b: f64 = args[1].as_number()?;
+        Ok(Value::Float(a.max(b)))
+    }));
+
+    context
+}
 
 pub fn eval_math_expression(expr: &str, time_sec: f32, current_val: f32) -> anyhow::Result<f32> {
-    use evalexpr::*;
-    let mut context = HashMapContext::<DefaultNumericTypes>::new();
-    context.set_value("t".into(), Value::Float(time_sec as f64))?;
-    context.set_value("time".into(), Value::Float(time_sec as f64))?;
-    context.set_value("val".into(), Value::Float(current_val as f64))?;
-    context.set_value("PI".into(), Value::Float(std::f64::consts::PI))?;
-    let val = eval_number_with_context(expr, &context)?;
-    Ok(val as f32)
+    let context = create_math_context(time_sec, current_val);
+    let val = PARSED_EXPR_CACHE.with(|cache| -> anyhow::Result<f32> {
+        let mut map = cache.borrow_mut();
+        if !map.contains_key(expr) {
+            let node = build_operator_tree(expr)?;
+            map.insert(expr.to_string(), node);
+        }
+        let node = map.get(expr).unwrap();
+        let num = node.eval_number_with_context(&context)?;
+        Ok(num as f32)
+    })?;
+    Ok(val)
 }
 
 pub fn eval_spring_physics(elapsed_sec: f32, cfg: SpringConfig) -> f32 {

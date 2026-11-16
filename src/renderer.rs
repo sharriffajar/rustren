@@ -1345,6 +1345,20 @@ fn render_layer_inner(
             )?;
 
             let ls = *letter_spacing * s;
+            let is_rtl_text = match *direction {
+                TextDirectionSpec::Rtl => true,
+                TextDirectionSpec::Ltr => false,
+                TextDirectionSpec::Auto => {
+                    let mut check_str = resolved_content.to_string();
+                    for s in effective_spans {
+                        check_str.push_str(&s.text);
+                    }
+                    check_str.chars().any(|c| {
+                        let u = c as u32;
+                        (0x0590..=0x08FF).contains(&u) || (0xFB1D..=0xFDFF).contains(&u) || (0xFE70..=0xFEFF).contains(&u)
+                    })
+                }
+            };
             let use_fx_buffer = gradient.is_some()
                 || outline.as_ref().is_some_and(|o| o.width > 0.0);
 
@@ -1384,6 +1398,20 @@ fn render_layer_inner(
                             TextAlignSpec::Left => 0.0,
                             TextAlignSpec::Center => -extra_w * 0.5,
                             TextAlignSpec::Right => -extra_w,
+                            TextAlignSpec::Start => {
+                                if is_rtl_text {
+                                    -extra_w
+                                } else {
+                                    0.0
+                                }
+                            }
+                            TextAlignSpec::End => {
+                                if is_rtl_text {
+                                    0.0
+                                } else {
+                                    -extra_w
+                                }
+                            }
                         };
                         for (idx, glyph) in run.glyphs.iter().enumerate() {
                             let physical_glyph = glyph.physical((0., 0.), 1.0);
@@ -1452,6 +1480,20 @@ fn render_layer_inner(
                             TextAlignSpec::Left => 0.0,
                             TextAlignSpec::Center => -extra_w * 0.5,
                             TextAlignSpec::Right => -extra_w,
+                            TextAlignSpec::Start => {
+                                if is_rtl_text {
+                                    -extra_w
+                                } else {
+                                    0.0
+                                }
+                            }
+                            TextAlignSpec::End => {
+                                if is_rtl_text {
+                                    0.0
+                                } else {
+                                    -extra_w
+                                }
+                            }
                         };
                         for (idx, glyph) in run.glyphs.iter().enumerate() {
                             let physical_glyph = glyph.physical((0., 0.), 1.0);
@@ -2138,11 +2180,6 @@ fn build_text_buffer(
         FontWeightSpec::Normal => Weight::NORMAL,
         FontWeightSpec::Bold => Weight::BOLD,
     };
-    let align = match text_align {
-        TextAlignSpec::Left => Align::Left,
-        TextAlignSpec::Center => Align::Center,
-        TextAlignSpec::Right => Align::Right,
-    };
     let is_rtl = match direction {
         TextDirectionSpec::Rtl => true,
         TextDirectionSpec::Ltr => false,
@@ -2155,6 +2192,25 @@ fn build_text_buffer(
                 let u = c as u32;
                 (0x0590..=0x08FF).contains(&u) || (0xFB1D..=0xFDFF).contains(&u) || (0xFE70..=0xFEFF).contains(&u)
             })
+        }
+    };
+    let align = match text_align {
+        TextAlignSpec::Left => Align::Left,
+        TextAlignSpec::Center => Align::Center,
+        TextAlignSpec::Right => Align::Right,
+        TextAlignSpec::Start => {
+            if is_rtl {
+                Align::Right
+            } else {
+                Align::Left
+            }
+        }
+        TextAlignSpec::End => {
+            if is_rtl {
+                Align::Left
+            } else {
+                Align::Right
+            }
         }
     };
     let default_attrs = Attrs::new().family(family).weight(weight).color(default_color);
@@ -2229,12 +2285,7 @@ fn build_text_buffer(
         buffer.set_rich_text(font_system, rich_spans, default_attrs, Shaping::Advanced);
     }
     for line in buffer.lines.iter_mut() {
-        let effective_align = if is_rtl && text_align == TextAlignSpec::Left {
-            Align::Right
-        } else {
-            align
-        };
-        line.set_align(Some(effective_align));
+        line.set_align(Some(align));
     }
     buffer.shape_until_scroll(font_system, false);
     Ok(buffer)
@@ -2414,6 +2465,7 @@ fn build_taffy_child_node(
         LayerKind::Text {
             content,
             spans,
+            direction,
             max_width,
             font_size,
             line_height,
@@ -2424,6 +2476,20 @@ fn build_taffy_child_node(
             scale,
             ..
         } => {
+            let is_rtl_text = match *direction {
+                TextDirectionSpec::Rtl => true,
+                TextDirectionSpec::Ltr => false,
+                TextDirectionSpec::Auto => {
+                    let mut check_str = content.clone();
+                    for s in spans {
+                        check_str.push_str(&s.text);
+                    }
+                    check_str.chars().any(|c| {
+                        let u = c as u32;
+                        (0x0590..=0x08FF).contains(&u) || (0xFB1D..=0xFDFF).contains(&u) || (0xFE70..=0xFEFF).contains(&u)
+                    })
+                }
+            };
             let s = eval_property(&child.animations, AnimProperty::Scale, time_sec, *scale);
             let wrap_w = max_width.or(parent_width_hint);
             let (measured_w, measured_h) = measure_text_size(
@@ -2440,6 +2506,8 @@ fn build_taffy_child_node(
             );
             let final_w = match (text_align, max_width) {
                 (TextAlignSpec::Center | TextAlignSpec::Right, Some(mw)) => *mw,
+                (TextAlignSpec::Start, Some(mw)) if is_rtl_text => *mw,
+                (TextAlignSpec::End, Some(mw)) if !is_rtl_text => *mw,
                 (_, Some(mw)) => measured_w.min(*mw),
                 (_, None) => measured_w,
             };

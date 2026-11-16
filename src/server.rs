@@ -77,6 +77,8 @@ enum SubmitJobPayload {
     Wrapped {
         scene: Scene,
         #[serde(default)]
+        composition: Option<String>,
+        #[serde(default)]
         webhook_url: Option<String>,
     },
     Direct(Scene),
@@ -271,7 +273,18 @@ async fn submit_job(
     };
 
     let (scene, webhook_url) = match payload {
-        SubmitJobPayload::Wrapped { scene, webhook_url } => (scene, webhook_url),
+        SubmitJobPayload::Wrapped {
+            mut scene,
+            composition,
+            webhook_url,
+        } => {
+            if let Some(comp_name) = composition {
+                if let Err(e) = scene.apply_profile(&comp_name) {
+                    return api_error(StatusCode::BAD_REQUEST, e.to_string());
+                }
+            }
+            (scene, webhook_url)
+        }
         SubmitJobPayload::Direct(scene) => (scene, None),
     };
 

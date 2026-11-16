@@ -62,6 +62,9 @@ enum Commands {
         /// Also flag non-deterministic patterns (remote URLs, missing bundled fonts, repeat=infinite)
         #[arg(long, default_value_t = false)]
         strict_determinism: bool,
+        /// Name of composition profile to apply (e.g. "portrait", "square", "4k")
+        #[arg(long)]
+        composition: Option<String>,
     },
     /// Render one or more timestamp frames to PNG (or a contact sheet)
     Snapshot {
@@ -82,6 +85,9 @@ enum Commands {
         /// Directory for caching downloaded assets
         #[arg(long, default_value = ".rustren_cache")]
         cache_dir: PathBuf,
+        /// Name of composition profile to apply (e.g. "portrait", "square", "4k")
+        #[arg(long)]
+        composition: Option<String>,
     },
     /// Inspect computed bounding boxes and measured text sizes at a given timestamp
     Layout {
@@ -93,6 +99,9 @@ enum Commands {
         /// Directory for caching downloaded assets
         #[arg(long, default_value = ".rustren_cache")]
         cache_dir: PathBuf,
+        /// Name of composition profile to apply (e.g. "portrait", "square", "4k")
+        #[arg(long)]
+        composition: Option<String>,
     },
     /// Print supported renderer and schema capabilities as JSON
     Capabilities,
@@ -154,6 +163,9 @@ enum Commands {
         /// Directory for caching downloaded assets
         #[arg(long, default_value = ".rustren_cache")]
         cache_dir: PathBuf,
+        /// Name of composition profile to apply (e.g. "portrait", "square", "4k")
+        #[arg(long)]
+        composition: Option<String>,
     },
     /// Compare two scene JSON files visually at timestamp t (visual regression test)
     Diff {
@@ -199,11 +211,15 @@ fn main() -> Result<()> {
         Commands::Validate {
             input,
             strict_determinism,
+            composition,
         } => {
             let raw = fs::read_to_string(&input)
                 .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
             lint::validate_no_unknown_fields(&raw)?;
-            let scene: Scene = serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+            let mut scene: Scene = serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+            if let Some(comp_name) = composition {
+                scene.apply_profile(&comp_name)?;
+            }
             capabilities::validate_scene_capabilities(&scene)?;
             let mut warnings = collect_lint_warnings(&scene);
             if strict_determinism {
@@ -275,12 +291,16 @@ fn main() -> Result<()> {
             sheet,
             cols,
             cache_dir,
+            composition,
         } => {
             let start_time = Instant::now();
             let raw = fs::read_to_string(&input)
                 .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
-            let scene: Scene =
+            let mut scene: Scene =
                 serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+            if let Some(comp_name) = composition {
+                scene.apply_profile(&comp_name)?;
+            }
             capabilities::validate_scene_capabilities(&scene)?;
             let assets = AssetStore::load_for_scene(&scene, Path::new(&cache_dir))?;
             render_snapshots(&scene, &assets, &t, &output, sheet, cols)?;
@@ -294,11 +314,15 @@ fn main() -> Result<()> {
             input,
             t,
             cache_dir,
+            composition,
         } => {
             let raw = fs::read_to_string(&input)
                 .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
-            let scene: Scene =
+            let mut scene: Scene =
                 serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+            if let Some(comp_name) = composition {
+                scene.apply_profile(&comp_name)?;
+            }
             capabilities::validate_scene_capabilities(&scene)?;
             let assets = AssetStore::load_for_scene(&scene, Path::new(&cache_dir))?;
             let layout = renderer::inspect_layout_at_time(&scene, &assets, t)?;
@@ -347,8 +371,9 @@ fn main() -> Result<()> {
             t,
             output,
             cache_dir,
+            composition,
         } => {
-            run_watch(&input, t, &output, &cache_dir)?;
+            run_watch(&input, t, &output, &cache_dir, composition.as_deref())?;
         }
         Commands::Diff {
             baseline,
@@ -688,12 +713,21 @@ fn render_snapshots(
     Ok(())
 }
 
-fn render_preview_once(input: &Path, t: f32, output: &Path, cache_dir: &Path) -> Result<()> {
+fn render_preview_once(
+    input: &Path,
+    t: f32,
+    output: &Path,
+    cache_dir: &Path,
+    composition: Option<&str>,
+) -> Result<()> {
     let start = std::time::Instant::now();
     let raw = fs::read_to_string(input)
         .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
     lint::validate_no_unknown_fields(&raw)?;
-    let scene: Scene = serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+    let mut scene: Scene = serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+    if let Some(comp_name) = composition {
+        scene.apply_profile(comp_name)?;
+    }
     capabilities::validate_scene_capabilities(&scene)?;
     let assets = AssetStore::load_for_scene(&scene, cache_dir)?;
     let rgba = renderer::render_frame_at_time(&scene, &assets, t)?;
@@ -716,7 +750,13 @@ fn render_preview_once(input: &Path, t: f32, output: &Path, cache_dir: &Path) ->
     Ok(())
 }
 
-fn run_watch(input: &Path, t: f32, output: &Path, cache_dir: &Path) -> Result<()> {
+fn run_watch(
+    input: &Path,
+    t: f32,
+    output: &Path,
+    cache_dir: &Path,
+    composition: Option<&str>,
+) -> Result<()> {
     use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
     use std::sync::mpsc::channel;
     use std::time::{Duration, Instant};
@@ -734,7 +774,7 @@ fn run_watch(input: &Path, t: f32, output: &Path, cache_dir: &Path) -> Result<()
         t,
         output.display()
     );
-    if let Err(e) = render_preview_once(&abs_input, t, output, cache_dir) {
+    if let Err(e) = render_preview_once(&abs_input, t, output, cache_dir, composition) {
         eprintln!("Initial render error: {:#}", e);
     }
 
@@ -752,7 +792,7 @@ fn run_watch(input: &Path, t: f32, output: &Path, cache_dir: &Path) -> Result<()
                 let touches_target = event.paths.iter().any(|p| p == &abs_input);
                 if touches_target && last_render.elapsed() >= Duration::from_millis(80) {
                     last_render = Instant::now();
-                    if let Err(e) = render_preview_once(&abs_input, t, output, cache_dir) {
+                    if let Err(e) = render_preview_once(&abs_input, t, output, cache_dir, composition) {
                         eprintln!("Render error: {:#}", e);
                     }
                 }

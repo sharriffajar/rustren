@@ -766,6 +766,8 @@ pub enum TextAlignSpec {
     Left,
     Center,
     Right,
+    Start,
+    End,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default)]
