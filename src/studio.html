@@ -431,6 +431,7 @@
     let playTimer = null;
     let lastBlobUrl = null;
     let currentScene = null;
+    let selectedLayerIdx = 0;
     let activeVariables = {};
     let duration = 5.0;
     let fps = 30;
@@ -549,6 +550,10 @@
           <span class="time">${start.toFixed(1)}s - ${(start + dur).toFixed(1)}s</span>
         `;
         item.onclick = () => {
+          selectedLayerIdx = idx;
+          document.querySelectorAll(".layer-item").forEach((el, i) => {
+            el.style.borderColor = i === idx ? "#3b82f6" : "transparent";
+          });
           scrubber.value = start;
           updateTimeDisplay();
           renderFrame();
@@ -727,6 +732,46 @@
         }
       };
       reader.readAsText(file);
+    });
+
+    // Direct Canvas Drag-to-Move Gizmo for selected layer
+    let isDraggingCanvas = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    previewImg.style.cursor = "grab";
+    previewImg.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      isDraggingCanvas = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      previewImg.style.cursor = "grabbing";
+    });
+    window.addEventListener("mousemove", (e) => {
+      if (!isDraggingCanvas || !currentScene || !currentScene.canvas) return;
+      const rect = previewImg.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const scaleX = currentScene.canvas.width / rect.width;
+      const scaleY = currentScene.canvas.height / rect.height;
+      const dx = (e.clientX - dragStartX) * scaleX;
+      const dy = (e.clientY - dragStartY) * scaleY;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          action: "move_layer",
+          layer_index: selectedLayerIdx,
+          dx: dx,
+          dy: dy
+        }));
+        renderFrame();
+      }
+    });
+    window.addEventListener("mouseup", () => {
+      if (isDraggingCanvas) {
+        isDraggingCanvas = false;
+        previewImg.style.cursor = "grab";
+      }
     });
 
     connect();

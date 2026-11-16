@@ -1016,9 +1016,16 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
         t: Option<f32>,
         #[serde(default)]
         variables: Option<serde_json::Map<String, serde_json::Value>>,
+        #[serde(default)]
+        layer_index: Option<usize>,
+        #[serde(default)]
+        dx: Option<f32>,
+        #[serde(default)]
+        dy: Option<f32>,
     }
 
     let mut dropped_file: Option<(String, String)> = None;
+    let mut layer_offsets: std::collections::HashMap<usize, (f32, f32)> = std::collections::HashMap::new();
 
     let parse_scene_from_str = |raw_content: &str, name_or_path: &str, vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
         let mut content = raw_content.to_string();
@@ -1118,7 +1125,23 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
             }
         };
 
+        if req.action.as_deref() == Some("move_layer") {
+            let idx = req.layer_index.unwrap_or(0);
+            let dx = req.dx.unwrap_or(0.0);
+            let dy = req.dy.unwrap_or(0.0);
+            let entry = layer_offsets.entry(idx).or_insert((0.0, 0.0));
+            entry.0 += dx;
+            entry.1 += dy;
+            let _ = socket
+                .send(Message::Text(
+                    serde_json::json!({ "type": "layer_moved", "layer_index": idx }).to_string(),
+                ))
+                .await;
+            continue;
+        }
+
         if req.action.as_deref() == Some("load_file") {
+            layer_offsets.clear();
             if let (Some(fname), Some(fcontent)) = (req.filename, req.content) {
                 match parse_scene_from_str(&fcontent, &fname, None) {
                     Ok((_scene, path_str, vars, scene_val)) => {
@@ -1218,13 +1241,34 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
         let t = req.t.unwrap_or(0.0);
         let start = std::time::Instant::now();
         let render_res: Result<(Vec<u8>, u32, u32)> = (|| {
-            let scene = if let Some(ref s_str) = req.scene {
+            let mut scene = if let Some(ref s_str) = req.scene {
                 lint::validate_no_unknown_fields(s_str)?;
                 serde_json::from_str::<Scene>(s_str)?
             } else {
                 let (s, _, _, _) = load_current_scene(dropped_file.as_ref(), req.variables.as_ref())?;
                 s
             };
+            for (&idx, &(ox, oy)) in &layer_offsets {
+                if let Some(layer) = scene.layers.get_mut(idx) {
+                    match &mut layer.kind {
+                        schema::LayerKind::Rect { x, y, .. }
+                        | schema::LayerKind::Text { x, y, .. }
+                        | schema::LayerKind::Image { x, y, .. }
+                        | schema::LayerKind::Svg { x, y, .. }
+                        | schema::LayerKind::Video { x, y, .. }
+                        | schema::LayerKind::Waveform { x, y, .. }
+                        | schema::LayerKind::Lottie { x, y, .. }
+                        | schema::LayerKind::Container { x, y, .. } => {
+                            *x += ox;
+                            *y += oy;
+                        }
+                        schema::LayerKind::Circle { cx, cy, .. } => {
+                            *cx += ox;
+                            *cy += oy;
+                        }
+                    }
+                }
+            }
 
             capabilities::validate_scene_capabilities(&scene)?;
             let assets = AssetStore::load_for_scene(&scene, &cache_dir)?;
