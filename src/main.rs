@@ -1084,6 +1084,12 @@ async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: P
                     },
                     "start_sec": l.start_sec,
                     "duration_secs": l.duration_secs,
+                    "animations": l.animations.iter().map(|a| {
+                        serde_json::json!({
+                            "start_sec": a.start_sec,
+                            "end_sec": a.end_sec,
+                        })
+                    }).collect::<Vec<_>>(),
                 })
             }).collect::<Vec<_>>()
         });
