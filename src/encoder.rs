@@ -224,3 +224,101 @@ impl FfmpegPipe {
         Ok(())
     }
 }
+
+/// Detect audio beat timestamps (in seconds) from an audio/video file using FFmpeg mono PCM + energy peak detection.
+#[allow(dead_code)]
+pub fn detect_audio_beats(audio_path: &Path, sensitivity: f32) -> Result<Vec<f32>> {
+    let sample_rate = 22050usize;
+    let output = Command::new("ffmpeg")
+        .args([
+            "-v",
+            "error",
+            "-i",
+            &audio_path.to_string_lossy(),
+            "-ac",
+            "1",
+            "-ar",
+            &sample_rate.to_string(),
+            "-f",
+            "f32le",
+            "-",
+        ])
+        .output()
+        .context("Failed to run ffmpeg for audio beat detection")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("ffmpeg beat detection failed: {}", stderr);
+    }
+
+    let mut samples = Vec::with_capacity(output.stdout.len() / 4);
+    for chunk in output.stdout.chunks_exact(4) {
+        samples.push(f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
+    }
+
+    Ok(detect_beats_from_pcm(&samples, sample_rate, sensitivity))
+}
+
+/// Pure-Rust RMS energy peak detector over mono f32 PCM samples.
+pub fn detect_beats_from_pcm(samples: &[f32], sample_rate: usize, sensitivity: f32) -> Vec<f32> {
+    if samples.is_empty() || sample_rate == 0 {
+        return Vec::new();
+    }
+    let window_size = (sample_rate / 20).max(1); // 50ms windows
+    let energies: Vec<f32> = samples
+        .chunks(window_size)
+        .map(|w| {
+            let sum_sq: f32 = w.iter().map(|&s| s * s).sum();
+            (sum_sq / w.len() as f32).sqrt()
+        })
+        .collect();
+
+    if energies.is_empty() {
+        return Vec::new();
+    }
+
+    let sens = sensitivity.max(1.05);
+    let mut beats = Vec::new();
+    let cooldown_windows = 4; // 200ms minimum between beats
+    let mut last_beat_idx: Option<usize> = None;
+
+    for i in 0..energies.len() {
+        let start = i.saturating_sub(10);
+        let end = (i + 11).min(energies.len());
+        let local_avg: f32 = energies[start..end].iter().sum::<f32>() / (end - start) as f32;
+
+        if energies[i] > local_avg * sens && energies[i] > 0.02 {
+            let ok_cooldown = match last_beat_idx {
+                Some(prev) => i - prev >= cooldown_windows,
+                None => true,
+            };
+            if ok_cooldown {
+                beats.push((i * window_size) as f32 / sample_rate as f32);
+                last_beat_idx = Some(i);
+            }
+        }
+    }
+    beats
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_beats_from_pcm_finds_peaks() {
+        let sr = 22050usize;
+        let mut samples = vec![0.01f32; sr * 2]; // 2 seconds of quiet background
+        // Inject strong beat bursts at t=0.5s and t=1.2s
+        for idx in (sr / 2)..(sr / 2 + 1000) {
+            samples[idx] = 0.9;
+        }
+        for idx in (sr * 12 / 10)..(sr * 12 / 10 + 1000) {
+            samples[idx] = 0.9;
+        }
+        let beats = detect_beats_from_pcm(&samples, sr, 1.5);
+        assert_eq!(beats.len(), 2);
+        assert!((beats[0] - 0.5).abs() < 0.06);
+        assert!((beats[1] - 1.2).abs() < 0.06);
+    }
+}
