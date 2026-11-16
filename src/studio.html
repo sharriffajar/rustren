@@ -3,206 +3,693 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>rustren studio</title>
+  <title>Rustren Studio</title>
   <style>
-    * { box-sizing: border-box; }
+    :root {
+      --bg-base: #0b0d13;
+      --bg-panel: #131722;
+      --bg-panel-header: #1a202c;
+      --border: #2d3748;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --danger: #ef4444;
+      --success: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      background: #0d1117;
-      color: #e6edf3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background: var(--bg-base);
+      color: var(--text-main);
       height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+      user-select: none;
     }
     header {
+      height: 48px;
+      background: var(--bg-panel-header);
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 16px;
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
-    }
-    header h1 { margin: 0; font-size: 15px; font-weight: 600; color: #58a6ff; }
-    #status { font-size: 12px; color: #8b949e; }
-    #status.err { color: #f85149; }
-    main { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
-    .pane { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid #30363d; }
-    textarea {
-      flex: 1;
-      width: 100%;
-      background: #0d1117;
-      color: #e6edf3;
-      border: none;
-      padding: 14px;
-      font-family: inherit;
+      padding: 0 16px;
       font-size: 13px;
-      line-height: 1.5;
-      resize: none;
-      outline: none;
+      font-weight: 500;
     }
-    .preview-wrap {
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand span.logo {
+      font-size: 18px;
+    }
+    .brand span.title {
+      font-weight: 700;
+      color: #60a5fa;
+      letter-spacing: 0.5px;
+    }
+    .file-badge {
+      background: #1e293b;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .stats-badge {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+    .btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #1d4ed8; }
+    .btn-secondary {
+      background: #334155;
+      color: var(--text-main);
+    }
+    .btn-secondary:hover { background: #475569; }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 320px 1fr 280px;
+      min-height: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .pane {
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+    }
+    .pane:last-child {
+      border-right: none;
+    }
+    .pane-header {
+      height: 36px;
+      background: #182030;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    /* Left pane: layers / outline */
+    .layer-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .layer-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #1e2638;
+      border-radius: 5px;
+      font-size: 12px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+    }
+    .layer-item:hover {
+      background: #28334a;
+      border-color: #3b82f6;
+    }
+    .layer-item .icon {
+      font-size: 14px;
+    }
+    .layer-item .name {
+      flex: 1;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .layer-item .time {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    /* Center pane: viewport */
+    .viewport {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: #07090e;
+      position: relative;
+    }
+    .canvas-container {
       flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #010409;
-      padding: 16px;
-      min-height: 0;
+      padding: 20px;
       overflow: hidden;
+      position: relative;
     }
-    .preview-wrap img {
+    .canvas-container img {
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
-      border: 1px solid #30363d;
-      border-radius: 6px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      border-radius: 4px;
+      border: 1px solid #1f293d;
     }
-    .controls {
+    .viewport-toolbar {
+      height: 42px;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border);
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      background: #161b22;
-      border-top: 1px solid #30363d;
+      justify-content: center;
+      gap: 16px;
+      padding: 0 16px;
     }
-    .controls input[type="range"] { flex: 1; }
-    button {
-      background: #238636;
-      color: #fff;
-      border: none;
-      padding: 6px 12px;
+    .control-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      width: 32px;
+      height: 32px;
       border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
-      font-family: inherit;
-      font-size: 12px;
+      font-size: 14px;
+      transition: all 0.15s;
     }
-    button:hover { background: #2ea043; }
-    #timeLabel { font-size: 12px; min-width: 72px; text-align: right; }
+    .control-btn:hover {
+      background: #2563eb;
+      border-color: #2563eb;
+    }
+    .control-btn.play-btn {
+      width: 40px;
+      height: 32px;
+      background: #2563eb;
+      border-color: #2563eb;
+      font-weight: bold;
+    }
+
+    /* Right pane: variables & inspector */
+    .variable-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .var-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .var-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+    }
+    .var-input {
+      background: #0e121a;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: monospace;
+      outline: none;
+    }
+    .var-input:focus { border-color: var(--accent); }
+    .var-slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .var-slider {
+      flex: 1;
+      accent-color: var(--accent);
+    }
+    .var-color {
+      height: 30px;
+      width: 100%;
+      cursor: pointer;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+
+    /* Bottom pane: Timeline */
+    footer.timeline {
+      height: 140px;
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    .timeline-ruler-wrap {
+      height: 30px;
+      background: #182030;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+    }
+    .timecode {
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: #60a5fa;
+      min-width: 110px;
+    }
+    .ruler {
+      flex: 1;
+      height: 100%;
+      position: relative;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+    .scrubber-slider {
+      width: 100%;
+      accent-color: #ef4444;
+      cursor: pointer;
+    }
+    .timeline-tracks {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+    }
+    .track-lane {
+      height: 22px;
+      background: #192233;
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #232d42;
+    }
+    .track-block {
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      background: #3b82f6;
+      border-radius: 3px;
+      font-size: 10px;
+      padding: 0 6px;
+      display: flex;
+      align-items: center;
+      color: white;
+      white-space: nowrap;
+      overflow: hidden;
+      font-weight: 500;
+      opacity: 0.85;
+    }
+    .track-block.audio { background: #10b981; }
+    .track-block.text { background: #8b5cf6; }
+    .track-block.rect { background: #f59e0b; }
+    .track-block.image { background: #ec4899; }
+
+    /* Modal / Alert */
+    .status-pill {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      margin-right: 6px;
+    }
+    .status-pill.error { background: #ef4444; }
   </style>
 </head>
 <body>
   <header>
-    <h1>rustren studio</h1>
-    <span id="status">Connecting...</span>
-  </header>
-  <main>
-    <div class="pane">
-      <textarea id="editor" spellcheck="false"></textarea>
+    <div class="brand">
+      <span class="logo">🦀</span>
+      <span class="title">RUSTREN STUDIO</span>
+      <span class="file-badge" id="scenePath">Scene Loaded</span>
     </div>
-    <div class="pane" style="border-right:none;">
-      <div class="preview-wrap">
-        <img id="preview" alt="Preview frame" />
+    <div class="header-actions">
+      <span class="stats-badge" id="renderStats">Ready</span>
+      <button class="btn btn-secondary" id="snapBtn">📸 Snapshot PNG</button>
+      <button class="btn" id="exportBtn">⚡ Render MP4</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left Pane: Layer Tree -->
+    <div class="pane">
+      <div class="pane-header">
+        <span>Timeline Layers</span>
+        <span id="layerCount">0 layers</span>
       </div>
-      <div class="controls">
-        <button id="playBtn">Play</button>
-        <input id="scrubber" type="range" min="0" max="5" step="0.033" value="0" />
-        <span id="timeLabel">0.00s</span>
+      <div class="layer-list" id="layerList"></div>
+    </div>
+
+    <!-- Center Pane: Viewport & Controls -->
+    <div class="viewport">
+      <div class="canvas-container">
+        <img id="previewImg" alt="Rustren Viewport" />
+      </div>
+      <div class="viewport-toolbar">
+        <button class="control-btn" id="btnStart" title="Jump to start">⏮️</button>
+        <button class="control-btn" id="btnPrev" title="Previous frame (-1/30s)">◀️</button>
+        <button class="control-btn play-btn" id="btnPlay" title="Play / Pause (Space)">▶</button>
+        <button class="control-btn" id="btnNext" title="Next frame (+1/30s)">▶️</button>
+        <button class="control-btn" id="btnEnd" title="Jump to end">⏭️</button>
+      </div>
+    </div>
+
+    <!-- Right Pane: Variables & Inspector -->
+    <div class="pane">
+      <div class="pane-header">
+        <span>Variables & Parameters</span>
+      </div>
+      <div class="variable-list" id="varList">
+        <div style="font-size: 11px; color: var(--text-muted);">No dynamic variables detected in this scene.</div>
       </div>
     </div>
   </main>
+
+  <!-- Bottom Pane: Timeline & Scrubber -->
+  <footer class="timeline">
+    <div class="timeline-ruler-wrap">
+      <div class="timecode" id="timecodeDisplay">00:00.00 / 00:00.00</div>
+      <div class="ruler">
+        <input type="range" class="scrubber-slider" id="scrubber" min="0" max="5" step="0.0166" value="0" />
+      </div>
+    </div>
+    <div class="timeline-tracks" id="timelineTracks"></div>
+  </footer>
+
   <script>
-    const defaultScene = {
-      canvas: { width: 720, height: 720, fps: 30, duration_secs: 3.0, bg_color: "#0d1117" },
-      layers: [
-        {
-          type: "rect",
-          x: 160, y: 260, width: 400, height: 200,
-          corner_radius: 24,
-          color: "#238636",
-          animations: [{ property: "scale", from: 0.85, to: 1.0, start_secs: 0.0, end_secs: 1.0, easing: "ease_out" }]
-        },
-        {
-          type: "text",
-          x: 360, y: 360,
-          anchor: "center",
-          content: "rustren studio",
-          font_size: 42,
-          color: "#ffffff"
-        }
-      ]
-    };
-
-    const editor = document.getElementById("editor");
-    const preview = document.getElementById("preview");
-    const scrubber = document.getElementById("scrubber");
-    const timeLabel = document.getElementById("timeLabel");
-    const statusEl = document.getElementById("status");
-    const playBtn = document.getElementById("playBtn");
-
-    editor.value = JSON.stringify(defaultScene, null, 2);
-
-    let ws;
+    let ws = null;
     let playing = false;
-    let timer = null;
+    let playTimer = null;
     let lastBlobUrl = null;
+    let currentScene = null;
+    let activeVariables = {};
+    let duration = 5.0;
+    let fps = 30;
+
+    const previewImg = document.getElementById("previewImg");
+    const scrubber = document.getElementById("scrubber");
+    const timecodeDisplay = document.getElementById("timecodeDisplay");
+    const renderStats = document.getElementById("renderStats");
+    const btnPlay = document.getElementById("btnPlay");
+    const btnStart = document.getElementById("btnStart");
+    const btnEnd = document.getElementById("btnEnd");
+    const btnPrev = document.getElementById("btnPrev");
+    const btnNext = document.getElementById("btnNext");
+    const snapBtn = document.getElementById("snapBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const layerList = document.getElementById("layerList");
+    const layerCount = document.getElementById("layerCount");
+    const timelineTracks = document.getElementById("timelineTracks");
+    const varList = document.getElementById("varList");
+    const scenePath = document.getElementById("scenePath");
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      const ms = Math.floor((sec % 1) * 100);
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
+    }
+
+    function updateTimeDisplay() {
+      const t = parseFloat(scrubber.value) || 0;
+      timecodeDisplay.textContent = `${formatTime(t)} / ${formatTime(duration)}`;
+    }
 
     function connect() {
       const proto = location.protocol === "https:" ? "wss:" : "ws:";
       ws = new WebSocket(`${proto}//${location.host}/ws`);
       ws.binaryType = "blob";
+
       ws.onopen = () => {
-        statusEl.textContent = "Connected";
-        statusEl.className = "";
-        sendRender();
+        renderStats.innerHTML = `<span class="status-pill"></span>Connected`;
+        requestInitialScene();
       };
+
       ws.onmessage = (ev) => {
         if (typeof ev.data === "string") {
           try {
-            const msg = JSON.parse(ev.data);
-            if (msg.error) {
-              statusEl.textContent = msg.error;
-              statusEl.className = "err";
-            } else if (msg.ms !== undefined) {
-              statusEl.textContent = `Rendered ${msg.width}x${msg.height} in ${msg.ms.toFixed(1)}ms`;
-              statusEl.className = "";
+            const data = JSON.parse(ev.data);
+            if (data.type === "init") {
+              initScene(data.scene, data.path, data.variables);
+            } else if (data.type === "stats") {
+              renderStats.innerHTML = `<span class="status-pill"></span>${data.width}x${data.height} | ${data.ms.toFixed(1)}ms`;
+            } else if (data.error) {
+              renderStats.innerHTML = `<span class="status-pill error"></span>${data.error}`;
             }
-          } catch {}
+          } catch (e) {
+            console.error(e);
+          }
         } else {
+          // Binary PNG frame
           if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
           lastBlobUrl = URL.createObjectURL(ev.data);
-          preview.src = lastBlobUrl;
+          previewImg.src = lastBlobUrl;
         }
       };
+
       ws.onclose = () => {
-        statusEl.textContent = "Disconnected — retrying...";
-        statusEl.className = "err";
+        renderStats.innerHTML = `<span class="status-pill error"></span>Disconnected — retrying...`;
         setTimeout(connect, 1000);
       };
     }
 
-    function sendRender() {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      try {
-        const parsed = JSON.parse(editor.value);
-        if (parsed.canvas && parsed.canvas.duration_secs) {
-          scrubber.max = parsed.canvas.duration_secs;
-        }
-      } catch {}
-      const t = parseFloat(scrubber.value) || 0;
-      timeLabel.textContent = `${t.toFixed(2)}s`;
-      ws.send(JSON.stringify({ scene: editor.value, t }));
+    function requestInitialScene() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "get_scene" }));
+      }
     }
 
-    let debounce = null;
-    editor.addEventListener("input", () => {
-      clearTimeout(debounce);
-      debounce = setTimeout(sendRender, 120);
-    });
-    scrubber.addEventListener("input", sendRender);
+    function initScene(scene, path, variables) {
+      currentScene = scene;
+      if (path) scenePath.textContent = path;
+      if (scene.canvas) {
+        duration = scene.canvas.duration_secs || 5.0;
+        fps = scene.canvas.fps || 30;
+      }
+      scrubber.max = duration;
+      scrubber.step = 1.0 / fps;
+      updateTimeDisplay();
+      renderLayers(scene.layers || []);
+      renderTimelineBlocks(scene.layers || []);
+      renderVariables(variables || []);
+      renderFrame();
+    }
 
-    playBtn.addEventListener("click", () => {
+    function renderLayers(layers) {
+      layerList.innerHTML = "";
+      layerCount.textContent = `${layers.length} layers`;
+      layers.forEach((l, idx) => {
+        const item = document.createElement("div");
+        item.className = "layer-item";
+        let icon = "📦";
+        if (l.type === "text") icon = "🔤";
+        else if (l.type === "image") icon = "🖼️";
+        else if (l.type === "rect") icon = "⏹️";
+        else if (l.type === "circle") icon = "⚪";
+        else if (l.type === "video") icon = "🎬";
+        else if (l.type === "audio") icon = "🎵";
+
+        const start = l.start_sec || 0;
+        const dur = l.duration_secs || duration;
+        item.innerHTML = `
+          <span class="icon">${icon}</span>
+          <span class="name">${l.id || l.type + ' #' + (idx + 1)}</span>
+          <span class="time">${start.toFixed(1)}s - ${(start + dur).toFixed(1)}s</span>
+        `;
+        item.onclick = () => {
+          scrubber.value = start;
+          updateTimeDisplay();
+          renderFrame();
+        };
+        layerList.appendChild(item);
+      });
+    }
+
+    function renderTimelineBlocks(layers) {
+      timelineTracks.innerHTML = "";
+      layers.forEach((l, idx) => {
+        const lane = document.createElement("div");
+        lane.className = "track-lane";
+        const start = l.start_sec || 0;
+        const dur = l.duration_secs || (duration - start);
+        const leftPercent = (start / duration) * 100;
+        const widthPercent = (dur / duration) * 100;
+
+        const block = document.createElement("div");
+        block.className = `track-block ${l.type || ''}`;
+        block.style.left = `${leftPercent}%`;
+        block.style.width = `${widthPercent}%`;
+        block.textContent = l.id || `${l.type || 'layer'} #${idx + 1}`;
+        lane.appendChild(block);
+        timelineTracks.appendChild(lane);
+      });
+    }
+
+    function renderVariables(variables) {
+      varList.innerHTML = "";
+      if (!variables || variables.length === 0) {
+        varList.innerHTML = `<div style="font-size: 11px; color: var(--text-muted);">No dynamic variables found in scene.</div>`;
+        return;
+      }
+      variables.forEach((v) => {
+        const group = document.createElement("div");
+        group.className = "var-group";
+        const label = document.createElement("div");
+        label.className = "var-label";
+        label.innerHTML = `<span>${v.label || v.id}</span><span id="val_${v.id}">${v.default}</span>`;
+        group.appendChild(label);
+
+        if (v.type === "number") {
+          const wrap = document.createElement("div");
+          wrap.className = "var-slider-wrap";
+          const slider = document.createElement("input");
+          slider.type = "range";
+          slider.className = "var-slider";
+          slider.min = v.min !== undefined ? v.min : 0;
+          slider.max = v.max !== undefined ? v.max : 100;
+          slider.step = v.step !== undefined ? v.step : 1;
+          slider.value = v.default;
+          slider.oninput = (e) => {
+            document.getElementById(`val_${v.id}`).textContent = e.target.value;
+            activeVariables[v.id] = parseFloat(e.target.value);
+            renderFrame();
+          };
+          wrap.appendChild(slider);
+          group.appendChild(wrap);
+        } else if (v.type === "color") {
+          const colorInput = document.createElement("input");
+          colorInput.type = "color";
+          colorInput.className = "var-color";
+          colorInput.value = v.default || "#ffffff";
+          colorInput.oninput = (e) => {
+            document.getElementById(`val_${v.id}`).textContent = e.target.value;
+            activeVariables[v.id] = e.target.value;
+            renderFrame();
+          };
+          group.appendChild(colorInput);
+        }
+        varList.appendChild(group);
+      });
+    }
+
+    function renderFrame() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const t = parseFloat(scrubber.value) || 0;
+      updateTimeDisplay();
+      ws.send(JSON.stringify({
+        action: "render_frame",
+        t: t,
+        variables: activeVariables
+      }));
+    }
+
+    scrubber.addEventListener("input", () => {
+      if (playing) togglePlay();
+      renderFrame();
+    });
+
+    function togglePlay() {
       playing = !playing;
-      playBtn.textContent = playing ? "Pause" : "Play";
+      btnPlay.textContent = playing ? "⏸" : "▶";
       if (playing) {
-        timer = setInterval(() => {
-          let next = parseFloat(scrubber.value) + 0.05;
-          if (next > parseFloat(scrubber.max)) next = 0;
-          scrubber.value = next;
-          sendRender();
-        }, 50);
+        const frameInterval = 1000 / fps;
+        playTimer = setInterval(() => {
+          let t = parseFloat(scrubber.value) + (1.0 / fps);
+          if (t >= duration) t = 0;
+          scrubber.value = t;
+          renderFrame();
+        }, frameInterval);
       } else {
-        clearInterval(timer);
+        clearInterval(playTimer);
+      }
+    }
+
+    btnPlay.addEventListener("click", togglePlay);
+    btnStart.addEventListener("click", () => { scrubber.value = 0; renderFrame(); });
+    btnEnd.addEventListener("click", () => { scrubber.value = duration; renderFrame(); });
+    btnPrev.addEventListener("click", () => {
+      scrubber.value = Math.max(0, parseFloat(scrubber.value) - (1.0 / fps));
+      renderFrame();
+    });
+    btnNext.addEventListener("click", () => {
+      scrubber.value = Math.min(duration, parseFloat(scrubber.value) + (1.0 / fps));
+      renderFrame();
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === "ArrowLeft") {
+        scrubber.value = Math.max(0, parseFloat(scrubber.value) - (1.0 / fps));
+        renderFrame();
+      } else if (e.code === "ArrowRight") {
+        scrubber.value = Math.min(duration, parseFloat(scrubber.value) + (1.0 / fps));
+        renderFrame();
+      }
+    });
+
+    snapBtn.addEventListener("click", () => {
+      if (!previewImg.src) return;
+      const a = document.createElement("a");
+      a.href = previewImg.src;
+      a.download = `rustren_frame_${parseFloat(scrubber.value).toFixed(2)}s.png`;
+      a.click();
+    });
+
+    exportBtn.addEventListener("click", () => {
+      alert("Render to MP4 dimulai di background! Cek terminal output untuk progress.");
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "export_mp4", variables: activeVariables }));
       }
     });
 
