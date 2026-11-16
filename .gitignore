@@ -8,6 +8,7 @@
 
 # Rendered video & temporary snapshot outputs
 *.mp4
+!assets/showreel.mp4
 *.mov
 *.webm
 snapshot*.png

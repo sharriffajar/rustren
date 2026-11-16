@@ -8,6 +8,16 @@ AI generates → Schema validates → Capability checks → Snapshot/Layout prev
 
 `rustren` compiles a single declarative JSON scene into an MP4 video or PNG frame snapshots without spawning a headless browser, DOM, or CSS engine. Every stage of the pipeline is explicit, inspectable, and deterministic.
 
+## Teaser — Rustren Showreel (17s, 30fps)
+**100% Rust, no browser. `JSON in → MP4 out.`**
+
+- **Source JSON:** [examples/showreel.json](examples/showreel.json) (`44` root layers, `65 KB`)
+- **Output MP4:** [assets/showreel.mp4](assets/showreel.mp4) (`359 KB`, `--crf 18 --preset medium`)
+- **Resolution & Timing:** `1280×720 @ 30fps`, `17.0s` (`510` frames) — rendered in **`7.00s`** (`~73 fps` effective throughput)
+- **Hardware:** `4 vCPU` Intel Xeon E5-2630 v4 @ 2.20GHz, `15 GiB` RAM (CPU-only, no GPU)
+
+<video src="assets/showreel.mp4" controls muted playsinline width="720"></video>
+
 ## Zero-Encode Preview (`snapshot` & `layout`) — AI One-Shot Loop
 Unlike traditional video pipelines that force you to encode a full MP4 just to check alignment, `rustren` lets AI agents and developers inspect any timestamp in milliseconds:
 
