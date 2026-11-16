@@ -1,9 +1,11 @@
 mod animation;
 mod assets;
 mod capabilities;
+mod compilers;
 #[cfg(test)]
 mod conformance_tests;
 mod encoder;
+mod ir;
 mod lint;
 mod renderer;
 mod schema;
@@ -213,23 +215,23 @@ fn main() -> Result<()> {
             strict_determinism,
             composition,
         } => {
-            let raw = fs::read_to_string(&input)
-                .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
-            lint::validate_no_unknown_fields(&raw)?;
-            let mut scene: Scene = serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+            let compiler = compilers::detect(&input)?;
+            let mut compiled = compiler.compile(&input)?;
+            let scene = compiled.as_static_mut();
             if let Some(comp_name) = composition {
                 scene.apply_profile(&comp_name)?;
             }
-            capabilities::validate_scene_capabilities(&scene)?;
-            let mut warnings = collect_lint_warnings(&scene);
+            capabilities::validate_scene_capabilities(scene)?;
+            let mut warnings = collect_lint_warnings(scene);
             if strict_determinism {
-                warnings.extend(lint::collect_determinism_warnings(&scene));
+                warnings.extend(lint::collect_determinism_warnings(scene));
             }
             for w in &warnings {
                 eprintln!("warning: {w}");
             }
             println!(
-                "rustren: valid JSON (schema v{}, {}x{} @ {}fps, {:.2}s, {} root layers, {} warning(s))",
+                "rustren: valid {} (schema v{}, {}x{} @ {}fps, {:.2}s, {} root layers, {} warning(s))",
+                compiler.format_name().to_uppercase(),
                 scene.schema_version,
                 scene.canvas.width,
                 scene.canvas.height,
@@ -249,14 +251,13 @@ fn main() -> Result<()> {
             composition,
         } => {
             let start_time = Instant::now();
-            let raw = fs::read_to_string(&input)
-                .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
-            let mut scene: Scene =
-                serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+            let compiler = compilers::detect(&input)?;
+            let mut compiled = compiler.compile(&input)?;
+            let scene = compiled.as_static_mut();
             if let Some(comp_name) = composition {
                 scene.apply_profile(&comp_name)?;
             }
-            capabilities::validate_scene_capabilities(&scene)?;
+            capabilities::validate_scene_capabilities(scene)?;
 
             let total_frames = (scene.canvas.duration_secs * scene.canvas.fps as f32).ceil() as u32;
             println!(
@@ -271,7 +272,7 @@ fn main() -> Result<()> {
             );
 
             render_scene_to_file_with_profile(
-                &scene,
+                scene,
                 &output,
                 Path::new(&cache_dir),
                 crf,
@@ -294,16 +295,15 @@ fn main() -> Result<()> {
             composition,
         } => {
             let start_time = Instant::now();
-            let raw = fs::read_to_string(&input)
-                .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
-            let mut scene: Scene =
-                serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+            let compiler = compilers::detect(&input)?;
+            let mut compiled = compiler.compile(&input)?;
+            let scene = compiled.as_static_mut();
             if let Some(comp_name) = composition {
                 scene.apply_profile(&comp_name)?;
             }
-            capabilities::validate_scene_capabilities(&scene)?;
-            let assets = AssetStore::load_for_scene(&scene, Path::new(&cache_dir))?;
-            render_snapshots(&scene, &assets, &t, &output, sheet, cols)?;
+            capabilities::validate_scene_capabilities(scene)?;
+            let assets = AssetStore::load_for_scene(scene, Path::new(&cache_dir))?;
+            render_snapshots(scene, &assets, &t, &output, sheet, cols)?;
             println!(
                 "rustren: snapshot(s) rendered in {:.2}s -> {}",
                 start_time.elapsed().as_secs_f32(),
@@ -316,16 +316,15 @@ fn main() -> Result<()> {
             cache_dir,
             composition,
         } => {
-            let raw = fs::read_to_string(&input)
-                .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
-            let mut scene: Scene =
-                serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+            let compiler = compilers::detect(&input)?;
+            let mut compiled = compiler.compile(&input)?;
+            let scene = compiled.as_static_mut();
             if let Some(comp_name) = composition {
                 scene.apply_profile(&comp_name)?;
             }
-            capabilities::validate_scene_capabilities(&scene)?;
-            let assets = AssetStore::load_for_scene(&scene, Path::new(&cache_dir))?;
-            let layout = renderer::inspect_layout_at_time(&scene, &assets, t)?;
+            capabilities::validate_scene_capabilities(scene)?;
+            let assets = AssetStore::load_for_scene(scene, Path::new(&cache_dir))?;
+            let layout = renderer::inspect_layout_at_time(scene, &assets, t)?;
             println!("{}", serde_json::to_string_pretty(&layout)?);
         }
         Commands::Serve {
@@ -721,16 +720,15 @@ fn render_preview_once(
     composition: Option<&str>,
 ) -> Result<()> {
     let start = std::time::Instant::now();
-    let raw = fs::read_to_string(input)
-        .with_context(|| format!("Failed to read scene file: {}", input.display()))?;
-    lint::validate_no_unknown_fields(&raw)?;
-    let mut scene: Scene = serde_json::from_str(&raw).context("Failed to parse scene JSON")?;
+    let compiler = compilers::detect(input)?;
+    let mut compiled = compiler.compile(input)?;
+    let scene = compiled.as_static_mut();
     if let Some(comp_name) = composition {
         scene.apply_profile(comp_name)?;
     }
-    capabilities::validate_scene_capabilities(&scene)?;
-    let assets = AssetStore::load_for_scene(&scene, cache_dir)?;
-    let rgba = renderer::render_frame_at_time(&scene, &assets, t)?;
+    capabilities::validate_scene_capabilities(scene)?;
+    let assets = AssetStore::load_for_scene(scene, cache_dir)?;
+    let rgba = renderer::render_frame_at_time(scene, &assets, t)?;
     let img = premul_to_rgba_image(scene.canvas.width, scene.canvas.height, rgba)?;
     if let Some(parent) = output.parent() {
         if !parent.as_os_str().is_empty() {
@@ -811,21 +809,19 @@ fn run_diff(
     out: Option<&Path>,
     cache_dir: &Path,
 ) -> Result<()> {
-    let raw_base = fs::read_to_string(baseline)
-        .with_context(|| format!("Failed to read baseline: {}", baseline.display()))?;
-    let scene_base: Scene =
-        serde_json::from_str(&raw_base).context("Failed to parse baseline JSON")?;
-    capabilities::validate_scene_capabilities(&scene_base)?;
-    let assets_base = AssetStore::load_for_scene(&scene_base, cache_dir)?;
-    let rgba_base = renderer::render_frame_at_time(&scene_base, &assets_base, t)?;
+    let base_compiler = compilers::detect(baseline)?;
+    let base_compiled = base_compiler.compile(baseline)?;
+    let scene_base = base_compiled.as_static();
+    capabilities::validate_scene_capabilities(scene_base)?;
+    let assets_base = AssetStore::load_for_scene(scene_base, cache_dir)?;
+    let rgba_base = renderer::render_frame_at_time(scene_base, &assets_base, t)?;
 
-    let raw_curr = fs::read_to_string(current)
-        .with_context(|| format!("Failed to read current: {}", current.display()))?;
-    let scene_curr: Scene =
-        serde_json::from_str(&raw_curr).context("Failed to parse current JSON")?;
-    capabilities::validate_scene_capabilities(&scene_curr)?;
-    let assets_curr = AssetStore::load_for_scene(&scene_curr, cache_dir)?;
-    let rgba_curr = renderer::render_frame_at_time(&scene_curr, &assets_curr, t)?;
+    let curr_compiler = compilers::detect(current)?;
+    let curr_compiled = curr_compiler.compile(current)?;
+    let scene_curr = curr_compiled.as_static();
+    capabilities::validate_scene_capabilities(scene_curr)?;
+    let assets_curr = AssetStore::load_for_scene(scene_curr, cache_dir)?;
+    let rgba_curr = renderer::render_frame_at_time(scene_curr, &assets_curr, t)?;
 
     if scene_base.canvas.width != scene_curr.canvas.width
         || scene_base.canvas.height != scene_curr.canvas.height
