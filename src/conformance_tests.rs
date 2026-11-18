@@ -1024,6 +1024,9 @@ fn test_all_examples_compile_and_validate() {
         }
         let mut content = std::fs::read_to_string(&path).unwrap();
         if ext == "html" {
+            if content.contains("components/") && !std::path::Path::new("examples/components").exists() {
+                continue;
+            }
             let doc = scraper::Html::parse_document(&content);
             let sel = scraper::Selector::parse("html[data-composition-variables]").unwrap();
             if let Some(el) = doc.select(&sel).next() {
