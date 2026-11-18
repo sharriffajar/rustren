@@ -1,0 +1,46 @@
+<!--
+  Rustren Showcase: Neon Glow & Typewriter Text
+-->
+<scene width="1920" height="1080" fps="30" duration="3.0" background="#08090E">
+    <!-- Ambient Radial Glow background element -->
+    <circle
+        cx="960"
+        cy="540"
+        r="280"
+        color="#0F172A"
+        glow="120"
+        glow-color="#1E293B"
+        glow-intensity="1.5"
+    />
+
+    <!-- Main Neon Glow Title (Vertically & Horizontally Centered) -->
+    <text
+        x="960"
+        y="470"
+        text-align="center"
+        font-size="72"
+        font-weight="bold"
+        color="#38BDF8"
+        glow="40"
+        glow-color="#0284C7"
+        glow-intensity="1.8"
+    >
+        RUSTREN ENGINE
+    </text>
+
+    <!-- Dynamic Typewriter Subtitle -->
+    <text
+        x="960"
+        y="575"
+        text-align="center"
+        font-size="32"
+        color="#F8FAFC"
+        typewriter="true"
+        typewriter-start="0.5"
+        typewriter-end="2.2"
+        cursor="▍"
+    >
+        High-performance programmatic motion graphics built in Rust.
+    </text>
+</scene>
+

@@ -1,0 +1,32 @@
+<scene width="1920" height="1080" duration="4.0" fps="30" background="#05070d">
+  <rect x="0" y="0" width="1920" height="1080" color="#05070d" />
+
+  <!-- Showcase Header -->
+  <container x="100" y="70" layout="column" gap="8">
+    <text text="RUSTREN 2D SUITE · PIPELINE & BRAND OUTRO" font-size="16" font-weight="700" color="#38bdf8" letter-spacing="3.0" opacity="0.9" />
+    <text text="Hand-Drawn Flowchart, Magnetic Cursor & Outro" font-size="40" font-weight="700" color="#ffffff" letter-spacing="-0.5" />
+  </container>
+
+  <!-- 1. Hand-Drawn Flowchart Pipeline -->
+  <container x="280" y="240" layout="row" align-items="center">
+    <include src="components/hw_pipeline.html"
+             step1_title="Capture Raw" step1_desc="AVFrame / NV12"
+             step2_title="Skia Raster" step2_desc="SIMD Blend & FX"
+             step3_title="H.264 Mux" step3_desc="Constant Bitrate" />
+  </container>
+
+  <!-- 2. Magnetic Cursor moving towards the transformer node -->
+  <container x="460" y="320">
+    <animate property="x" from="460" to="740" start="0.4" end="2.2" easing="ease_in_out" />
+    <animate property="y" from="320" to="200" start="0.4" end="2.2" easing="ease_in_out" />
+    <include src="components/magnetic_cursor.html" target="GPU SIMD Core" coords="x: 740, y: 200" />
+  </container>
+
+  <!-- 3. Logo Outro Card -->
+  <container x="690" y="660" layout="row" justify="center">
+    <include src="components/logo_outro.html"
+             brand="RUSTREN STUDIO"
+             tagline="High-Throughput Declarative Video Generation"
+             url="crates.io/crates/rustren" />
+  </container>
+</scene>

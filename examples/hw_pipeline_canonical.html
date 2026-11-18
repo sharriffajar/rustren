@@ -1,0 +1,80 @@
+<scene width="1920" height="1080" fps="30" duration="4.5" background="#0d0f18">
+  <!-- Clean dark stage background -->
+  <rect x="0" y="0" width="1920" height="1080" color="#0d0f18" />
+
+  <!-- Showcase Header: Hand-Drawn Flowchart Block -->
+  <container x="100" y="80" layout="column" gap="8">
+    <text text="HYPERFRAMES 2D BLOCK · 1:1 CANONICAL" font-size="16" font-weight="bold" color="#ffb020" letter-spacing="3.0" opacity="0.9" max-width="1400" />
+    <text text="Hand-Drawn Flowchart (hw-pipeline)" font-size="44" font-weight="bold" color="#f4f2ec" letter-spacing="-0.5" max-width="1400" />
+    <text text="Wobbled procedural paths with curved connectors and sequential draw-on." font-size="16" color="#94a3b8" max-width="1400" />
+  </container>
+
+  <!-- Flowchart Connectors (SVG) -->
+  <svg x="0" y="0" width="1920" height="1080" viewBox="0 0 1920 1080" fill="none">
+    <!-- Connector 1 (Box 0 to Box 1) -->
+    <path d="M 620.0 540.0 Q 704.0 483.4 790.0 540.0 M 764.3 535.8 L 790.0 540.0 L 776.0 518.1"
+          stroke="#ffb020" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.0">
+      <animate property="opacity" from="0.0" to="1.0" start="0.8" end="1.3" easing="ease_out" />
+    </path>
+
+    <!-- Connector 2 (Box 1 to Box 2) -->
+    <path d="M 1130.0 540.0 Q 1203.1 486.3 1300.0 540.0 M 1274.1 537.8 L 1300.0 540.0 L 1284.4 519.2"
+          stroke="#ffb020" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.0">
+      <animate property="opacity" from="0.0" to="1.0" start="1.6" end="2.1" easing="ease_out" />
+    </path>
+  </svg>
+
+  <!-- Box 0: Node 1 (Idea / Raw Input) -->
+  <container position="absolute" x="290" y="455" width="320" height="170" opacity="0.0">
+    <animate property="opacity" from="0.0" to="1.0" start="0.2" end="0.7" easing="ease_out" />
+    <animate property="scale" from="0.9" to="1.0" start="0.2" end="0.7" easing="back_out" />
+    
+    <svg width="320" height="170" viewBox="-10 -10 340 190" fill="none">
+      <path d="M 23.1 -0.2 L 163.1 -1.3 L 296.3 -3.3 Q 320.1 2.2 320.3 22.0 L 317.4 87.3 L 318.0 145.9 Q 320.9 172.8 295.3 167.2 L 158.0 172.8 L 21.9 172.4 Q -3.4 167.3 0.6 145.9 L 0.5 84.5 L 3.3 24.1 Q 3.2 2.2 27.0 -0.9 Z"
+            fill="#161b26" stroke="#f4f2ec" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+
+    <container position="absolute" x="0" y="0" width="320" height="170" layout="column" align-items="center" justify-content="center">
+      <text font-size="42" font-weight="700" color="#f4f2ec" align="center">Idea</text>
+      <text font-size="16" color="#94a3b8" margin-top="6" align="center">Source Concept</text>
+    </container>
+  </container>
+
+  <!-- Box 1: Node 2 (Record / Process) -->
+  <container position="absolute" x="800" y="455" width="320" height="170" opacity="0.0">
+    <animate property="opacity" from="0.0" to="1.0" start="1.0" end="1.5" easing="ease_out" />
+    <animate property="scale" from="0.9" to="1.0" start="1.0" end="1.5" easing="back_out" />
+    
+    <svg width="320" height="170" viewBox="-10 -10 340 190" fill="none">
+      <path d="M 23.2 1.4 L 160.3 0.7 L 297.8 -1.6 Q 318.8 -3.2 321.8 24.3 L 317.6 86.6 L 321.7 143.8 Q 320.2 170.6 297.7 167.8 L 162.5 172.5 L 23.5 171.5 Q 0.4 171.0 -2.2 145.4 L 2.8 83.5 L -2.6 23.6 Q 3.4 -1.2 21.7 -0.9 Z"
+            fill="#161b26" stroke="#ffb020" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+
+    <container position="absolute" x="0" y="0" width="320" height="170" layout="column" align-items="center" justify-content="center">
+      <text font-size="42" font-weight="700" color="#ffb020" align="center">Record</text>
+      <text font-size="16" color="#94a3b8" margin-top="6" align="center">Skia Pipeline</text>
+    </container>
+  </container>
+
+  <!-- Box 2: Node 3 (Shine! / Output) -->
+  <container position="absolute" x="1310" y="455" width="320" height="170" opacity="0.0">
+    <animate property="opacity" from="0.0" to="1.0" start="1.8" end="2.3" easing="ease_out" />
+    <animate property="scale" from="0.9" to="1.0" start="1.8" end="2.3" easing="back_out" />
+    
+    <svg width="320" height="170" viewBox="-10 -10 340 190" fill="none">
+      <path d="M 25.6 -3.5 L 156.8 -1.0 L 299.2 3.2 Q 322.4 0.2 318.6 21.3 L 316.6 82.7 L 317.7 148.4 Q 319.3 170.0 297.3 171.3 L 162.1 168.5 L 24.8 168.5 Q 2.3 167.4 -3.1 146.7 L 0.2 86.5 L 3.4 27.0 Q 0.5 1.0 20.6 1.3 Z"
+            fill="#161b26" stroke="#f4f2ec" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+
+    <container position="absolute" x="0" y="0" width="320" height="170" layout="column" align-items="center" justify-content="center">
+      <text font-size="42" font-weight="700" color="#f4f2ec" align="center">Shine!</text>
+      <text font-size="16" color="#94a3b8" margin-top="6" align="center">H.264 Video</text>
+    </container>
+  </container>
+
+  <!-- Footer Info -->
+  <container x="100" y="990" layout="row" align-items="center" gap="12">
+    <circle r="5" fill="#ffb020" />
+    <text text="Exact HyperFrames hw-pipeline geometry: 320x170 boxes, 190px gap, curved tangents, center aligned." font-size="16" color="#64748b" />
+  </container>
+</scene>

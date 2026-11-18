@@ -8,11 +8,15 @@ mod conformance_tests;
 mod encoder;
 mod ir;
 mod lint;
+#[cfg(feature = "pro")]
 mod mcp;
 mod renderer;
 mod schema;
 mod security;
+#[cfg(feature = "pro")]
 mod server;
+#[cfg(feature = "pro")]
+mod studio;
 
 pub use lint::collect_lint_warnings;
 
@@ -106,10 +110,14 @@ enum Commands {
         /// Name of composition profile to apply (e.g. "portrait", "square", "4k")
         #[arg(long)]
         composition: Option<String>,
+        /// Run automated layout troubleshooting diagnostics (overlaps, clipping, overflow)
+        #[arg(long, default_value_t = false)]
+        diagnose: bool,
     },
     /// Print supported renderer and schema capabilities as JSON
     Capabilities,
     /// Start the HTTP render service and job queue (Phase 3 VPS API)
+    #[cfg(feature = "pro")]
     Serve {
         /// Bind address
         #[arg(long, default_value = "0.0.0.0")]
@@ -191,6 +199,7 @@ enum Commands {
         cache_dir: PathBuf,
     },
     /// Launch browser-based live studio UI with interactive timeline, scrubber and preview
+    #[cfg(feature = "pro")]
     Studio {
         /// Optional path to scene file (JSON or HTML) to open in studio
         input: Option<PathBuf>,
@@ -205,6 +214,7 @@ enum Commands {
         cache_dir: PathBuf,
     },
     /// Alias for Studio: preview a scene file in browser with live scrubber
+    #[cfg(feature = "pro")]
     Preview {
         /// Path to scene file (JSON or HTML) to preview
         input: PathBuf,
@@ -219,6 +229,7 @@ enum Commands {
         cache_dir: PathBuf,
     },
     /// Start MCP (Model Context Protocol) stdio JSON-RPC server for AI agents
+    #[cfg(feature = "pro")]
     Mcp {
         /// Path to the scene JSON file to inspect/edit
         input: PathBuf,
@@ -346,6 +357,7 @@ fn main() -> Result<()> {
             t,
             cache_dir,
             composition,
+            diagnose,
         } => {
             let compiler = compilers::detect(&input)?;
             let mut compiled = compiler.compile(&input)?;
@@ -356,8 +368,22 @@ fn main() -> Result<()> {
             capabilities::validate_scene_capabilities(scene)?;
             let assets = AssetStore::load_for_scene(scene, Path::new(&cache_dir))?;
             let layout = renderer::inspect_layout_at_time(scene, &assets, t)?;
-            println!("{}", serde_json::to_string_pretty(&layout)?);
+            if diagnose {
+                let diagnostics = renderer::diagnose_layout_at_time(scene, &assets, t)?;
+                eprintln!(
+                    "rustren: layout diagnostics: {} issue(s) found",
+                    diagnostics.len()
+                );
+                let out = serde_json::json!({
+                    "layout": layout,
+                    "diagnostics": diagnostics,
+                });
+                println!("{}", serde_json::to_string_pretty(&out)?);
+            } else {
+                println!("{}", serde_json::to_string_pretty(&layout)?);
+            }
         }
+        #[cfg(feature = "pro")]
         Commands::Serve {
             host,
             port,
@@ -415,6 +441,7 @@ fn main() -> Result<()> {
         } => {
             run_diff(&baseline, &current, t, threshold, out.as_deref(), &cache_dir)?;
         }
+        #[cfg(feature = "pro")]
         Commands::Studio {
             input,
             host,
@@ -424,8 +451,9 @@ fn main() -> Result<()> {
             let rt = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()?;
-            rt.block_on(run_studio(input.as_deref(), &host, port, &cache_dir))?;
+            rt.block_on(studio::run_studio(input.as_deref(), &host, port, &cache_dir))?;
         }
+        #[cfg(feature = "pro")]
         Commands::Preview {
             input,
             host,
@@ -435,8 +463,9 @@ fn main() -> Result<()> {
             let rt = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()?;
-            rt.block_on(run_studio(Some(&input), &host, port, &cache_dir))?;
+            rt.block_on(studio::run_studio(Some(&input), &host, port, &cache_dir))?;
         }
+        #[cfg(feature = "pro")]
         Commands::Mcp { input } => {
             mcp::run_mcp_server(&input)?;
         }
@@ -543,6 +572,8 @@ pub fn render_scene_to_file_with_profile(
 ) -> Result<()> {
     if profile {
         renderer::reset_cache_stats();
+    } else {
+        renderer::clear_render_caches();
     }
     let assets = AssetStore::load_for_scene(scene, cache_dir)?;
     let mut audio_tracks: Vec<_> = scene
@@ -579,64 +610,144 @@ pub fn render_scene_to_file_with_profile(
         Vec::new()
     };
 
-    // Render in small parallel batches to keep RAM usage low
-    let batch_size = rayon::current_num_threads().max(4) as u32;
-    for batch_start in (0..total_frames).step_by(batch_size as usize) {
-        let batch_end = (batch_start + batch_size).min(total_frames);
-        let frames: Vec<(Vec<u8>, Vec<u64>)> = (batch_start..batch_end)
-            .into_par_iter()
-            .map(|idx| {
-                if profile {
-                    renderer::render_frame_with_base_profiled(
-                        scene,
-                        &assets,
-                        idx,
-                        static_prefix_len,
-                        static_base.as_ref(),
-                    )
-                } else {
-                    renderer::render_frame_with_base(
-                        scene,
-                        &assets,
-                        idx,
-                        static_prefix_len,
-                        static_base.as_ref(),
-                    )
-                    .map(|b| (b, Vec::new()))
-                }
-            })
-            .collect::<Result<Vec<_>>>()?;
+    // Render batches in parallel with Rayon while streaming encoded frames over a bounded channel.
+    let batch_size = (rayon::current_num_threads() * 8).clamp(16, 64) as u32;
+    let (tx, rx) =
+        std::sync::mpsc::sync_channel::<std::sync::Arc<Vec<u8>>>((batch_size as usize) * 2);
+    let writer_handle = std::thread::spawn(move || -> Result<()> {
+        for frame in rx {
+            pipe.write_frame(&frame)?;
+            if let Ok(buf) = std::sync::Arc::try_unwrap(frame) {
+                renderer::recycle_frame_buffer(buf);
+            }
+        }
+        pipe.finish()
+    });
 
-        for (frame, lns) in frames {
-            if profile {
-                for (i, ns) in lns.into_iter().enumerate() {
-                    total_layer_ns[i] += ns;
+    let mut render_err: Option<anyhow::Error> = None;
+    'batches: for batch_start in (0..total_frames).step_by(batch_size as usize) {
+        let batch_end = (batch_start + batch_size).min(total_frames);
+        let mut batch_sigs: Vec<(u32, Option<u64>)> =
+            Vec::with_capacity((batch_end - batch_start) as usize);
+        let mut unique_to_render: Vec<(u32, Option<u64>)> =
+            Vec::with_capacity((batch_end - batch_start) as usize);
+        let mut seen_sigs: Vec<u64> = Vec::with_capacity((batch_end - batch_start) as usize);
+
+        for idx in batch_start..batch_end {
+            let t = idx as f32 / scene.canvas.fps as f32;
+            let sig = renderer::compute_frame_temporal_signature(scene, t, static_prefix_len);
+            if let Some(s) = sig {
+                if seen_sigs.contains(&s) {
+                    batch_sigs.push((idx, Some(s)));
+                    continue;
+                }
+                seen_sigs.push(s);
+            }
+            batch_sigs.push((idx, sig));
+            unique_to_render.push((idx, sig));
+        }
+
+        let skipped_in_batch = batch_sigs.len() - unique_to_render.len();
+        if skipped_in_batch > 0 {
+            renderer::record_frame_dedup_hits(skipped_in_batch as u64);
+        }
+
+        let frames_res: Result<Vec<(u32, Option<u64>, std::sync::Arc<Vec<u8>>, Vec<u64>)>> =
+            unique_to_render
+                .into_par_iter()
+                .map(|(idx, sig)| {
+                    renderer::render_frame_arc_with_base_profiled(
+                        scene,
+                        &assets,
+                        idx,
+                        static_prefix_len,
+                        static_base.as_ref(),
+                        profile,
+                    )
+                    .map(|(arc, lns)| (idx, sig, arc, lns))
+                })
+                .collect();
+
+        match frames_res {
+            Ok(rendered) => {
+                let mut by_idx: Vec<(u32, std::sync::Arc<Vec<u8>>)> =
+                    Vec::with_capacity(rendered.len());
+                let mut by_sig: Vec<(u64, std::sync::Arc<Vec<u8>>)> =
+                    Vec::with_capacity(rendered.len());
+                for (idx, sig, arc, lns) in rendered {
+                    if profile {
+                        for (i, ns) in lns.into_iter().enumerate() {
+                            total_layer_ns[i] += ns;
+                        }
+                    }
+                    if let Some(s) = sig {
+                        by_sig.push((s, arc.clone()));
+                    }
+                    by_idx.push((idx, arc));
+                }
+                for (idx, sig) in batch_sigs {
+                    let frame = if let Some(s) = sig {
+                        by_sig
+                            .iter()
+                            .find(|(ks, _)| *ks == s)
+                            .map(|(_, a)| a.clone())
+                    } else {
+                        None
+                    }
+                    .or_else(|| by_idx.iter().find(|(ki, _)| *ki == idx).map(|(_, a)| a.clone()))
+                    .expect("rendered frame must exist for batch index");
+                    if tx.send(frame).is_err() {
+                        break 'batches;
+                    }
                 }
             }
-            pipe.write_frame(&frame)?;
+            Err(e) => {
+                render_err = Some(e);
+                break 'batches;
+            }
         }
     }
 
-    pipe.finish()?;
+    drop(tx);
+    let writer_res = writer_handle
+        .join()
+        .map_err(|_| anyhow::anyhow!("FFmpeg writer thread panicked"))?;
+
+    if let Some(e) = render_err {
+        renderer::clear_render_caches();
+        return Err(e);
+    }
+    writer_res?;
+    renderer::clear_render_caches();
+
     if profile {
         let (svg_hits, svg_misses, blur_hits, blur_misses) = renderer::get_cache_stats();
+        let (text_hits, text_misses) = renderer::get_text_cache_stats();
+        let (dedup_hits, dedup_misses) = renderer::get_frame_dedup_stats();
+        let pct = |h: u64, m: u64| {
+            if h + m > 0 {
+                h as f64 * 100.0 / (h + m) as f64
+            } else {
+                0.0
+            }
+        };
         println!("--- rustren profile ---");
         println!("static_prefix_skipped: {static_prefix_len}/{} root layers", scene.layers.len());
         println!(
             "svg_raster_cache:  hits={svg_hits}, misses={svg_misses} ({:.1}% hit)",
-            if svg_hits + svg_misses > 0 {
-                svg_hits as f64 * 100.0 / (svg_hits + svg_misses) as f64
-            } else {
-                0.0
-            }
+            pct(svg_hits, svg_misses)
         );
         println!(
             "blur_cache:        hits={blur_hits}, misses={blur_misses} ({:.1}% hit)",
-            if blur_hits + blur_misses > 0 {
-                blur_hits as f64 * 100.0 / (blur_hits + blur_misses) as f64
-            } else {
-                0.0
-            }
+            pct(blur_hits, blur_misses)
+        );
+        println!(
+            "text_raster_cache: hits={text_hits}, misses={text_misses} ({:.1}% hit)",
+            pct(text_hits, text_misses)
+        );
+        println!(
+            "frame_dedup_cache: hits={dedup_hits}, misses={dedup_misses} ({:.1}% hit)",
+            pct(dedup_hits, dedup_misses)
         );
         let mut ranked: Vec<(usize, u64)> = total_layer_ns.into_iter().enumerate().collect();
         ranked.sort_by(|a, b| b.1.cmp(&a.1));
@@ -652,7 +763,7 @@ pub fn render_scene_to_file_with_profile(
     Ok(())
 }
 
-fn premul_to_rgba_image(w: u32, h: u32, mut data: Vec<u8>) -> Result<image::RgbaImage> {
+pub(crate) fn premul_to_rgba_image(w: u32, h: u32, mut data: Vec<u8>) -> Result<image::RgbaImage> {
     for px in data.chunks_exact_mut(4) {
         let a = px[3];
         if a > 0 && a < 255 {
@@ -942,445 +1053,4 @@ fn run_diff(
     }
 
     Ok(())
-}
-
-async fn run_studio(input_path: Option<&Path>, host: &str, port: u16, cache_dir: &Path) -> Result<()> {
-    use axum::{
-        extract::{ws::WebSocketUpgrade, State},
-        response::Html,
-        routing::get,
-        Router,
-    };
-
-    #[derive(Clone)]
-    struct StudioState {
-        cache_dir: PathBuf,
-        input_path: Option<PathBuf>,
-    }
-
-    let state = StudioState {
-        cache_dir: cache_dir.to_path_buf(),
-        input_path: input_path.map(|p| p.to_path_buf()),
-    };
-
-    let app = Router::new()
-        .route("/", get(|| async { Html(include_str!("studio.html")) }))
-        .route(
-            "/logo.png",
-            get(|| async {
-                (
-                    [(axum::http::header::CONTENT_TYPE, "image/png")],
-                    include_bytes!("../assets/logo.png").as_slice(),
-                )
-            }),
-        )
-        .route(
-            "/ws",
-            get(
-                |ws: WebSocketUpgrade, State(state): State<StudioState>| async move {
-                    ws.on_upgrade(move |socket| handle_studio_ws(socket, state.cache_dir, state.input_path))
-                },
-            ),
-        )
-        .with_state(state);
-
-    let addr = format!("{}:{}", host, port);
-    println!("🦀 rustren studio / preview listening at http://{}", addr);
-    if let Some(p) = input_path {
-        println!("   Loading scene: {}", p.display());
-    }
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-    let url = format!("http://{}", addr);
-    open_browser(&url);
-    axum::serve(listener, app).await?;
-    Ok(())
-}
-
-fn open_browser(url: &str) {
-    #[cfg(target_os = "windows")]
-    let _ = std::process::Command::new("cmd")
-        .args(["/C", "start", "", url])
-        .spawn();
-    #[cfg(target_os = "macos")]
-    let _ = std::process::Command::new("open").arg(url).spawn();
-    #[cfg(target_os = "linux")]
-    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
-}
-
-async fn handle_studio_ws(mut socket: axum::extract::ws::WebSocket, cache_dir: PathBuf, input_path: Option<PathBuf>) {
-    use axum::extract::ws::Message;
-    use std::io::Cursor;
-
-    #[derive(serde::Deserialize)]
-    struct StudioReq {
-        #[serde(default)]
-        action: Option<String>,
-        #[serde(default)]
-        scene: Option<String>,
-        #[serde(default)]
-        filename: Option<String>,
-        #[serde(default)]
-        content: Option<String>,
-        #[serde(default)]
-        t: Option<f32>,
-        #[serde(default)]
-        variables: Option<serde_json::Map<String, serde_json::Value>>,
-        #[serde(default)]
-        layer_index: Option<usize>,
-        #[serde(default)]
-        dx: Option<f32>,
-        #[serde(default)]
-        dy: Option<f32>,
-        #[serde(default)]
-        ds: Option<f32>,
-        #[serde(default)]
-        drot: Option<f32>,
-    }
-
-    let mut dropped_file: Option<(String, String)> = None;
-    let mut layer_offsets: std::collections::HashMap<usize, (f32, f32)> = std::collections::HashMap::new();
-    let mut layer_scales: std::collections::HashMap<usize, f32> = std::collections::HashMap::new();
-    let mut layer_rots: std::collections::HashMap<usize, f32> = std::collections::HashMap::new();
-
-    let parse_scene_from_str = |raw_content: &str, name_or_path: &str, vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
-        let mut content = raw_content.to_string();
-        let mut detected_vars = Vec::new();
-        if let Ok(doc) = scraper::Html::parse_document(&content)
-            .select(&scraper::Selector::parse("html[data-composition-variables]").unwrap())
-            .next()
-            .and_then(|el| el.value().attr("data-composition-variables"))
-            .map(|v| serde_json::from_str::<Vec<serde_json::Value>>(v))
-            .transpose()
-        {
-            if let Some(dv) = doc {
-                detected_vars = dv;
-            }
-        }
-
-        for dv in &detected_vars {
-            if let (Some(id), Some(def)) = (dv.get("id").and_then(|v| v.as_str()), dv.get("default")) {
-                let placeholder = format!("{{{{{}}}}}", id);
-                let override_val = vars.and_then(|m| m.get(id)).unwrap_or(def);
-                let val_str = match override_val {
-                    serde_json::Value::String(s) => s.clone(),
-                    serde_json::Value::Number(n) => n.to_string(),
-                    serde_json::Value::Bool(b) => b.to_string(),
-                    other => other.to_string(),
-                };
-                content = content.replace(&placeholder, &val_str);
-            }
-        }
-        if let Some(v_map) = vars {
-            for (k, val) in v_map {
-                let placeholder = format!("{{{{{}}}}}", k);
-                let val_str = match val {
-                    serde_json::Value::String(s) => s.clone(),
-                    serde_json::Value::Number(n) => n.to_string(),
-                    serde_json::Value::Bool(b) => b.to_string(),
-                    other => other.to_string(),
-                };
-                content = content.replace(&placeholder, &val_str);
-            }
-        }
-
-        let is_html = name_or_path.ends_with(".html") || name_or_path.ends_with(".htm");
-        let scene = if is_html {
-            compilers::html::parse_html_scene(&content)?
-        } else {
-            serde_json::from_str::<Scene>(&content)?
-        };
-        let scene_val = serde_json::json!({
-            "canvas": {
-                "width": scene.canvas.width,
-                "height": scene.canvas.height,
-                "fps": scene.canvas.fps,
-                "duration_secs": scene.canvas.duration_secs,
-            },
-            "layers": scene.layers.iter().map(|l| {
-                serde_json::json!({
-                    "name": l.name,
-                    "type": match &l.kind {
-                        schema::LayerKind::Text { .. } => "text",
-                        schema::LayerKind::Image { .. } => "image",
-                        schema::LayerKind::Rect { .. } => "rect",
-                        schema::LayerKind::Circle { .. } => "circle",
-                        schema::LayerKind::Video { .. } => "video",
-                        schema::LayerKind::Waveform { .. } => "waveform",
-                        schema::LayerKind::Lottie { .. } => "lottie",
-                        schema::LayerKind::Svg { .. } => "svg",
-                        schema::LayerKind::Container { .. } => "container",
-                    },
-                    "start_sec": l.start_sec,
-                    "duration_secs": l.duration_secs,
-                    "animations": l.animations.iter().map(|a| {
-                        serde_json::json!({
-                            "start_sec": a.start_sec,
-                            "end_sec": a.end_sec,
-                        })
-                    }).collect::<Vec<_>>(),
-                })
-            }).collect::<Vec<_>>()
-        });
-        Ok((scene, name_or_path.to_string(), detected_vars, scene_val))
-    };
-
-    let load_current_scene = |dropped: Option<&(String, String)>, vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
-        if let Some((fname, fcontent)) = dropped {
-            parse_scene_from_str(fcontent, fname, vars)
-        } else if let Some(ref path) = input_path {
-            let content = std::fs::read_to_string(path)?;
-            parse_scene_from_str(&content, &path.display().to_string(), vars)
-        } else {
-            let default_json = "{\n  \"canvas\": { \"width\": 1280, \"height\": 720, \"fps\": 30, \"duration_secs\": 4.0, \"background\": { \"color\": \"#0b0d13\" } },\n  \"layers\": [\n    { \"type\": \"rect\", \"x\": 340, \"y\": 210, \"width\": 600, \"height\": 300, \"color\": \"#1e293b\" },\n    { \"type\": \"text\", \"x\": 640, \"y\": 360, \"anchor\": \"center\", \"content\": \"RUSTREN STUDIO\", \"font_size\": 48, \"color\": \"#60a5fa\" }\n  ]\n}";
-            let scene: Scene = serde_json::from_str(default_json)?;
-            let scene_val = serde_json::json!({
-                "canvas": { "width": 1280, "height": 720, "fps": 30, "duration_secs": 4.0 },
-                "layers": [
-                    { "id": "background", "type": "rect", "start_sec": 0.0, "duration_secs": 4.0 },
-                    { "id": "title", "type": "text", "start_sec": 0.0, "duration_secs": 4.0 }
-                ]
-            });
-            Ok((scene, "default_scene.json".to_string(), vec![], scene_val))
-        }
-    };
-
-    while let Some(Ok(msg)) = socket.recv().await {
-        let Message::Text(txt) = msg else { continue };
-        let req: StudioReq = match serde_json::from_str(&txt) {
-            Ok(r) => r,
-            Err(e) => {
-                let _ = socket
-                    .send(Message::Text(
-                        serde_json::json!({ "error": format!("Invalid request: {}", e) })
-                            .to_string(),
-                    ))
-                    .await;
-                continue;
-            }
-        };
-
-        if req.action.as_deref() == Some("transform_layer") {
-            let idx = req.layer_index.unwrap_or(0);
-            if let Some(ds) = req.ds {
-                let s = layer_scales.entry(idx).or_insert(1.0);
-                *s = (*s + ds).clamp(0.05, 10.0);
-            }
-            if let Some(drot) = req.drot {
-                let r = layer_rots.entry(idx).or_insert(0.0);
-                *r += drot;
-            }
-            let _ = socket
-                .send(Message::Text(
-                    serde_json::json!({ "type": "layer_transformed", "layer_index": idx }).to_string(),
-                ))
-                .await;
-            continue;
-        }
-
-        if req.action.as_deref() == Some("move_layer") {
-            let idx = req.layer_index.unwrap_or(0);
-            let dx = req.dx.unwrap_or(0.0);
-            let dy = req.dy.unwrap_or(0.0);
-            let entry = layer_offsets.entry(idx).or_insert((0.0, 0.0));
-            entry.0 += dx;
-            entry.1 += dy;
-            let _ = socket
-                .send(Message::Text(
-                    serde_json::json!({ "type": "layer_moved", "layer_index": idx }).to_string(),
-                ))
-                .await;
-            continue;
-        }
-
-        if req.action.as_deref() == Some("load_file") {
-            layer_offsets.clear();
-            if let (Some(fname), Some(fcontent)) = (req.filename, req.content) {
-                match parse_scene_from_str(&fcontent, &fname, None) {
-                    Ok((_scene, path_str, vars, scene_val)) => {
-                        dropped_file = Some((fname, fcontent));
-                        let _ = socket.send(Message::Text(
-                            serde_json::json!({
-                                "type": "init",
-                                "scene": scene_val,
-                                "path": path_str,
-                                "variables": vars
-                            }).to_string()
-                        )).await;
-                    }
-                    Err(e) => {
-                        let _ = socket.send(Message::Text(
-                            serde_json::json!({ "error": format!("Failed to parse dropped file: {:#}", e) }).to_string()
-                        )).await;
-                    }
-                }
-            }
-            continue;
-        }
-
-        if req.action.as_deref() == Some("export_mp4") {
-            match load_current_scene(dropped_file.as_ref(), req.variables.as_ref()) {
-                Ok((scene, _, _, _)) => {
-                    let out_path = PathBuf::from("rustren_studio_export.mp4");
-                    let cache_clone = cache_dir.clone();
-                    let out_clone = out_path.clone();
-                    let res = tokio::task::spawn_blocking(move || {
-                        render_scene_to_file(&scene, &out_clone, &cache_clone)
-                    })
-                    .await;
-                    match res {
-                        Ok(Ok(_)) => {
-                            let _ = socket
-                                .send(Message::Text(
-                                    serde_json::json!({
-                                        "type": "export_done",
-                                        "path": out_path.display().to_string()
-                                    })
-                                    .to_string(),
-                                ))
-                                .await;
-                        }
-                        Ok(Err(e)) => {
-                            let _ = socket
-                                .send(Message::Text(
-                                    serde_json::json!({ "error": format!("Export failed: {:#}", e) })
-                                        .to_string(),
-                                ))
-                                .await;
-                        }
-                        Err(e) => {
-                            let _ = socket
-                                .send(Message::Text(
-                                    serde_json::json!({ "error": format!("Export task panicked: {}", e) })
-                                        .to_string(),
-                                ))
-                                .await;
-                        }
-                    }
-                }
-                Err(e) => {
-                    let _ = socket
-                        .send(Message::Text(
-                            serde_json::json!({ "error": format!("Export failed: {:#}", e) })
-                                .to_string(),
-                        ))
-                        .await;
-                }
-            }
-            continue;
-        }
-
-        if req.action.as_deref() == Some("get_scene") {
-            match load_current_scene(dropped_file.as_ref(), None) {
-                Ok((_scene, path_str, vars, scene_val)) => {
-                    let _ = socket.send(Message::Text(
-                        serde_json::json!({
-                            "type": "init",
-                            "scene": scene_val,
-                            "path": path_str,
-                            "variables": vars
-                        }).to_string()
-                    )).await;
-                }
-                Err(e) => {
-                    let _ = socket.send(Message::Text(
-                        serde_json::json!({ "error": format!("Failed to load scene: {:#}", e) }).to_string()
-                    )).await;
-                }
-            }
-            continue;
-        }
-
-        let t = req.t.unwrap_or(0.0);
-        let start = std::time::Instant::now();
-        let render_res: Result<(Vec<u8>, u32, u32)> = (|| {
-            let mut scene = if let Some(ref s_str) = req.scene {
-                lint::validate_no_unknown_fields(s_str)?;
-                serde_json::from_str::<Scene>(s_str)?
-            } else {
-                let (s, _, _, _) = load_current_scene(dropped_file.as_ref(), req.variables.as_ref())?;
-                s
-            };
-            for (&idx, &(ox, oy)) in &layer_offsets {
-                if let Some(layer) = scene.layers.get_mut(idx) {
-                    match &mut layer.kind {
-                        schema::LayerKind::Rect { x, y, .. }
-                        | schema::LayerKind::Text { x, y, .. }
-                        | schema::LayerKind::Image { x, y, .. }
-                        | schema::LayerKind::Svg { x, y, .. }
-                        | schema::LayerKind::Video { x, y, .. }
-                        | schema::LayerKind::Waveform { x, y, .. }
-                        | schema::LayerKind::Lottie { x, y, .. }
-                        | schema::LayerKind::Container { x, y, .. } => {
-                            *x += ox;
-                            *y += oy;
-                        }
-                        schema::LayerKind::Circle { cx, cy, .. } => {
-                            *cx += ox;
-                            *cy += oy;
-                        }
-                    }
-                }
-            }
-
-            for (&idx, &smul) in &layer_scales {
-                if let Some(layer) = scene.layers.get_mut(idx) {
-                    match &mut layer.kind {
-                        schema::LayerKind::Rect { scale, .. }
-                        | schema::LayerKind::Circle { scale, .. }
-                        | schema::LayerKind::Text { scale, .. }
-                        | schema::LayerKind::Image { scale, .. }
-                        | schema::LayerKind::Video { scale, .. }
-                        | schema::LayerKind::Waveform { scale, .. }
-                        | schema::LayerKind::Lottie { scale, .. }
-                        | schema::LayerKind::Container { scale, .. } => {
-                            *scale *= smul;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            for (&idx, &drot) in &layer_rots {
-                if let Some(layer) = scene.layers.get_mut(idx) {
-                    match &mut layer.kind {
-                        schema::LayerKind::Rect { rotation, .. }
-                        | schema::LayerKind::Image { rotation, .. }
-                        | schema::LayerKind::Svg { rotation, .. }
-                        | schema::LayerKind::Video { rotation, .. }
-                        | schema::LayerKind::Container { rotation, .. } => {
-                            *rotation += drot;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-
-            capabilities::validate_scene_capabilities(&scene)?;
-            let assets = AssetStore::load_for_scene(&scene, &cache_dir)?;
-            let rgba = renderer::render_frame_at_time(&scene, &assets, t)?;
-            let img = premul_to_rgba_image(scene.canvas.width, scene.canvas.height, rgba)?;
-            let mut png_bytes = Vec::new();
-            img.write_to(&mut Cursor::new(&mut png_bytes), image::ImageFormat::Png)?;
-            Ok((png_bytes, scene.canvas.width, scene.canvas.height))
-        })();
-
-        match render_res {
-            Ok((png_bytes, width, height)) => {
-                let ms = start.elapsed().as_secs_f64() * 1000.0;
-                let _ = socket.send(Message::Binary(png_bytes)).await;
-                let _ = socket
-                    .send(Message::Text(
-                        serde_json::json!({ "type": "stats", "width": width, "height": height, "ms": ms })
-                            .to_string(),
-                    ))
-                    .await;
-            }
-            Err(e) => {
-                let _ = socket
-                    .send(Message::Text(
-                        serde_json::json!({ "error": format!("{:#}", e) }).to_string(),
-                    ))
-                    .await;
-            }
-        }
-    }
 }

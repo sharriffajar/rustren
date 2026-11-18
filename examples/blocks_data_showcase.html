@@ -1,0 +1,25 @@
+<scene width="1920" height="1080" fps="30" duration="4.0" background="#0b0f19">
+  <!-- Minimal Gradient Background -->
+  <include src="components/mk_background.html"
+           start_color="#0b0f19" mid_color="#1e1b4b" end_color="#0f172a" />
+
+  <!-- Layout Showcase Content -->
+  <container width="1920" height="1080" direction="row" justify="space_around" align="center" padding="60">
+    <!-- Left: Rounded Media Grid -->
+    <container width="820" direction="column" align="center">
+      <text content="MEDIA GRID PREVIEW" font_size="18" font_weight="700" color="#94a3b8" letter_spacing="3" font_family="DejaVu Sans" />
+      <container height="24"></container>
+      <include src="components/mk_placeholder_grid.html"
+               card_bg="#1e293b" thumb_1="#3b82f6" thumb_2="#8b5cf6" thumb_3="#ec4899"
+               label_1="Design" label_2="Code" label_3="Render" />
+    </container>
+
+    <!-- Right: Data Chart Block -->
+    <container width="520" direction="column" align="center">
+      <text content="ANALYTICS VELOCITY" font_size="18" font_weight="700" color="#94a3b8" letter_spacing="3" font_family="DejaVu Sans" />
+      <container height="24"></container>
+      <include src="components/data_chart.html"
+               title="Active FPS Throughput" chart_color="#38bdf8" />
+    </container>
+  </container>
+</scene>

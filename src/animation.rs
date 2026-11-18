@@ -73,6 +73,16 @@ fn create_math_context(time_sec: f32, current_val: f32) -> HashMapContext<Defaul
         Ok(Value::Float(a.max(b)))
     }));
 
+    let _ = context.set_function("sin".into(), Function::<DefaultNumericTypes>::new(|argument| {
+        let v: f64 = argument.as_number()?;
+        Ok(Value::Float(v.sin()))
+    }));
+
+    let _ = context.set_function("cos".into(), Function::<DefaultNumericTypes>::new(|argument| {
+        let v: f64 = argument.as_number()?;
+        Ok(Value::Float(v.cos()))
+    }));
+
     context
 }
 

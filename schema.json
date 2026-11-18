@@ -155,8 +155,10 @@
       "properties": {
         "property": {
           "enum": [
-            "x", "y", "width", "height", "opacity", "scale", "rotation", "skew_x", "skew_y", "cx", "cy", "r", "radius",
-            "color", "background", "border_color", "path_progress", "stroke_dashoffset"
+            "x", "y", "width", "height", "opacity", "scale", "rotation", "skew_x", "skew_y",
+            "rotate_x", "rotate_y", "perspective", "z_index",
+            "cx", "cy", "r", "radius",
+            "color", "background", "border_color", "path_progress", "stroke_dashoffset", "volume"
           ],
           "description": "Animatable layer property."
         },

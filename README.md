@@ -12,21 +12,20 @@ AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Pr
 
 `rustren` compiles declarative **JSON** or **HTML** scenes into an MP4 video or PNG frame snapshots without spawning a headless browser, DOM, or Chromium engine. Every stage of the pipeline is explicit, inspectable, and deterministic.
 
-## Teaser — Rustren Showreel (17s, 30fps)
+## Teaser — Rustren Showreel (60s, 30fps, 16 Scenes)
 **100% Rust, no browser. `JSON / HTML in → MP4 out.`**
 
-- **Source JSON:** [examples/showreel.json](examples/showreel.json) (`44` root layers, `65 KB`)
-- **Output MP4:** [assets/showreel.mp4](assets/showreel.mp4) (`1280×720 @ 30fps`, `17.0s` / `510` frames, `--crf 18 --preset medium`)
+- **Source JSON:** [examples/showreel.json](examples/showreel.json) (`93` root layers, `16` scenes including 2.5D spatial cards, isometric bento, card flips, surface shaders, and finale)
+- **Output MP4:** [assets/showreel.mp4](assets/showreel.mp4) (`1280×720 @ 30fps`, `60.0s` / `1,800` frames, `--crf 18 --preset ultrafast`)
 - **Hardware:** `4 vCPU` Intel Xeon E5-2630 v4 @ 2.20GHz, `15 GiB` RAM (CPU-only, no GPU)
 
 | Metric | Measured (`examples/showreel.json`) |
 | :--- | :--- |
-| **Render Time (Wall Clock)** | `6.50s` |
-| **Average Speed** | `78.5 fps` (`2.62×` real-time) |
-| **Peak RAM (Max RSS)** | `305.6 MB` (`312,916 KB`) |
-| **MP4 File Size** | `358.8 KB` (`367,401 bytes`) |
-| **Total Bitrate** | `172.9 kbps` |
-| **Duration / Frame** | `12.7 ms / frame` |
+| **Render Time (Wall Clock)** | `8.24s` |
+| **Average Speed** | `218.4 fps` (`7.28×` real-time) |
+| **MP4 File Size** | `7.3 MB` |
+| **Duration / Frame** | `4.58 ms / frame` |
+| **Frame Dedup Cache Hit** | `66.7%` (`1,201 hits / 599 misses`) |
 
 <video src="assets/showreel.mp4" controls muted playsinline width="720"></video>
 
@@ -36,8 +35,8 @@ Unlike traditional video pipelines that force you to encode a full MP4 just to c
 ![Rustren contact sheet preview](assets/showreel_sheet.png)
 
 ```bash
-# Render 6 keyframes across the 17s showreel into one 3x2 contact sheet (~0.22s, no FFmpeg)
-rustren snapshot examples/showreel.json -t 1.5,3.2,5.6,7.0,11.0,14.5 --sheet --cols 3 -o assets/showreel_sheet.png
+# Render 16 keyframes across the 60s showreel into one 4x4 contact sheet (~0.95s, no FFmpeg)
+rustren snapshot examples/showreel.json -t 1.5,3.3,5.5,7.0,8.8,11.0,14.5,18.5,23.5,28.0,32.5,37.5,42.0,47.0,51.5,57.5 --sheet --cols 4 -o assets/showreel_sheet.png
 
 # Or inspect exact computed bounding boxes & measured text widths as JSON
 rustren layout examples/showreel.json -t 14.5
@@ -186,7 +185,7 @@ Type definitions matching `schema.json` are included for AI pipelines:
 
 ## Examples
 Browse [examples/](examples) for full scenes you can validate or render directly, including:
-- [examples/showreel.json](examples/showreel.json) — 17-second v1.1 showreel (`dynamic` typewriter & timecode, `skew_x`, `anchor`, `stagger_secs`)
+- [examples/showreel.json](examples/showreel.json) — 60-second, 16-scene v1.1 showreel (2.5D perspective, surface shaders, `dynamic` typewriter & timecode, `skew_x`, `anchor`, `stagger_secs`)
 - [examples/showreel.html](examples/showreel.html) — declarative HTML showreel scene
 - [examples/cuboid_carousel.html](examples/cuboid_carousel.html) — 200-frame 1080p declarative HTML card carousel
 - [examples/rustren_showcase_15s.json](examples/rustren_showcase_15s.json) — 15-second multi-scene showcase

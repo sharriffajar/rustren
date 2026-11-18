@@ -108,6 +108,14 @@ pub struct Layer {
     #[serde(default)]
     pub margin: Option<f32>,
     #[serde(default)]
+    pub margin_top: Option<f32>,
+    #[serde(default)]
+    pub margin_right: Option<f32>,
+    #[serde(default)]
+    pub margin_bottom: Option<f32>,
+    #[serde(default)]
+    pub margin_left: Option<f32>,
+    #[serde(default)]
     pub blend_mode: BlendModeSpec,
     #[serde(default)]
     pub blur: f32,
@@ -120,6 +128,22 @@ pub struct Layer {
     #[serde(default)]
     pub skew_y: f32,
     #[serde(default)]
+    pub rotate_x: f32,
+    #[serde(default)]
+    pub rotate_y: f32,
+    #[serde(default)]
+    pub perspective: f32,
+    #[serde(default = "default_true")]
+    pub backface_visible: bool,
+    #[serde(default, alias = "z")]
+    pub z_index: f32,
+    #[serde(default)]
+    pub grain: f32,
+    #[serde(default)]
+    pub vignette: f32,
+    #[serde(default)]
+    pub halftone: f32,
+    #[serde(default)]
     pub track_matte: TrackMatteMode,
     #[serde(default)]
     pub matte_layer: Option<Box<Layer>>,
@@ -129,6 +153,19 @@ pub struct Layer {
     pub kind: LayerKind,
     #[serde(default)]
     pub animations: Vec<Animation>,
+}
+
+impl Layer {
+    /// Return effective `(top, right, bottom, left)` margins with side overrides falling back to `margin`.
+    pub fn margin_trbl(&self) -> (f32, f32, f32, f32) {
+        let base = self.margin.unwrap_or(0.0);
+        (
+            self.margin_top.unwrap_or(base),
+            self.margin_right.unwrap_or(base),
+            self.margin_bottom.unwrap_or(base),
+            self.margin_left.unwrap_or(base),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
@@ -545,6 +582,42 @@ pub enum LayerKind {
         #[serde(default = "default_scale")]
         scale: f32,
     },
+    Particles {
+        #[serde(default)]
+        x: f32,
+        #[serde(default)]
+        y: f32,
+        #[serde(default = "default_particles_box")]
+        width: f32,
+        #[serde(default = "default_particles_box")]
+        height: f32,
+        #[serde(default = "default_particles_count")]
+        count: usize,
+        #[serde(default = "default_waveform_seed")]
+        seed: u64,
+        #[serde(default = "default_scale")]
+        speed: f32,
+        #[serde(default = "default_particles_gravity")]
+        gravity: f32,
+        #[serde(default = "default_particles_spread")]
+        spread: f32,
+        #[serde(default = "default_particles_angle")]
+        angle: f32,
+        #[serde(default = "default_particles_size")]
+        size: f32,
+        #[serde(default = "default_color_white")]
+        color: String,
+        #[serde(default)]
+        colors: Vec<String>,
+        #[serde(default)]
+        shape: ParticleShapeSpec,
+        #[serde(default = "default_opacity")]
+        opacity: f32,
+        #[serde(default)]
+        rotation: f32,
+        #[serde(default = "default_scale")]
+        scale: f32,
+    },
     Container {
         #[serde(default)]
         x: f32,
@@ -590,13 +663,48 @@ pub struct LayoutSpec {
     #[serde(default)]
     pub direction: FlexDirectionSpec,
     #[serde(default)]
+    pub flex_wrap: bool,
+    #[serde(default)]
     pub justify_content: Option<AlignSpec>,
     #[serde(default)]
     pub align_items: Option<AlignSpec>,
     #[serde(default)]
     pub gap: f32,
     #[serde(default)]
+    pub row_gap: Option<f32>,
+    #[serde(default)]
+    pub column_gap: Option<f32>,
+    #[serde(default)]
     pub padding: f32,
+    #[serde(default)]
+    pub padding_top: Option<f32>,
+    #[serde(default)]
+    pub padding_right: Option<f32>,
+    #[serde(default)]
+    pub padding_bottom: Option<f32>,
+    #[serde(default)]
+    pub padding_left: Option<f32>,
+}
+
+impl LayoutSpec {
+    /// Return effective `(top, right, bottom, left)` padding with side overrides falling back to `padding`.
+    pub fn padding_trbl(&self) -> (f32, f32, f32, f32) {
+        let base = self.padding;
+        (
+            self.padding_top.unwrap_or(base),
+            self.padding_right.unwrap_or(base),
+            self.padding_bottom.unwrap_or(base),
+            self.padding_left.unwrap_or(base),
+        )
+    }
+
+    /// Return effective `(column_gap, row_gap)` with axis overrides falling back to `gap`.
+    pub fn gaps(&self) -> (f32, f32) {
+        (
+            self.column_gap.unwrap_or(self.gap),
+            self.row_gap.unwrap_or(self.gap),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default)]
@@ -618,6 +726,43 @@ pub enum AlignSpec {
     SpaceBetween,
     SpaceAround,
     Stretch,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ParticleShapeSpec {
+    #[default]
+    Circle,
+    Rect,
+    Confetti,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_particles_box() -> f32 {
+    400.0
+}
+
+fn default_particles_count() -> usize {
+    40
+}
+
+fn default_particles_gravity() -> f32 {
+    120.0
+}
+
+fn default_particles_spread() -> f32 {
+    360.0
+}
+
+fn default_particles_angle() -> f32 {
+    -90.0
+}
+
+fn default_particles_size() -> f32 {
+    8.0
 }
 
 fn default_waveform_bars() -> usize {
@@ -754,6 +899,11 @@ pub enum AnimProperty {
     Rotation,
     SkewX,
     SkewY,
+    RotateX,
+    RotateY,
+    Perspective,
+    #[serde(alias = "z")]
+    ZIndex,
     Cx,
     Cy,
     R,
@@ -807,7 +957,7 @@ pub enum TextAlignSpec {
     End,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FontWeightSpec {
     #[default]

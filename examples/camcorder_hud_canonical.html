@@ -1,0 +1,50 @@
+<scene width="1920" height="1080" duration="4.0" background="#121316">
+  <!-- HyperFrames Camcorder HUD (blocks/camcorder-hud) 1:1 Canonical adaptation -->
+  <!-- Background subtle video frame simulator -->
+  <container id="cam-lens-grid" x="0" y="0" width="1920" height="1080">
+    <svg width="1920" height="1080">
+      <!-- Crosshairs -->
+      <path d="M 940 540 L 980 540 M 960 520 L 960 560" stroke="#ffffff" stroke-width="2" opacity="0.4" />
+      <circle cx="960" cy="540" r="120" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="8 8" opacity="0.25" />
+      <!-- Rule of thirds guide lines -->
+      <path d="M 640 0 L 640 1080 M 1280 0 L 1280 1080 M 0 360 L 1920 360 M 0 720 L 1920 720" stroke="#ffffff" stroke-width="1" stroke-dasharray="4 12" opacity="0.15" />
+    </svg>
+  </container>
+
+  <!-- Top-Left: REC Indicator with blinking dot -->
+  <container id="ch-record" x="80" y="70" direction="row" gap="16" align-items="center">
+    <container id="rec-dot" width="24" height="24" border-radius="12" background="#f12c2c" shadow="0 0 12 #f12c2c" />
+    <text text="REC" font-size="34" font-weight="700" fill="#ffffff" font-family="monospace" letter-spacing="2" />
+  </container>
+
+  <!-- Top-Right: Battery Icon -->
+  <container id="ch-battery" x="1740" y="70" direction="row" align-items="center">
+    <!-- Battery Outer Frame -->
+    <container width="76" height="38" border="3px solid #ffffff" border-radius="4" padding="4" justify-content="flex-start" align-items="center">
+      <!-- Battery Fill Level (80%) -->
+      <container width="50" height="24" background="#ffffff" border-radius="2" />
+    </container>
+    <!-- Battery Nipple -->
+    <container width="6" height="16" background="#ffffff" border-radius="0 2 2 0" />
+  </container>
+
+  <!-- Bottom-Left: Date and Time -->
+  <container id="ch-date" x="80" y="930" direction="column" gap="4">
+    <text text="JAN 01 2000" font-size="32" font-weight="700" fill="#ffffff" font-family="monospace" letter-spacing="2" />
+    <text text="12:00 AM" font-size="32" font-weight="700" fill="#ffffff" font-family="monospace" letter-spacing="2" />
+  </container>
+
+  <!-- Bottom-Right: Video Mode & Running Timecode -->
+  <container id="ch-counter" x="1560" y="930" direction="column" gap="6" align-items="flex-end">
+    <text text="SP · 16:9" font-size="24" font-weight="700" fill="#ffffff" font-family="monospace" letter-spacing="1" />
+    <text text="00:00:03" font-size="34" font-weight="700" fill="#ffffff" font-family="monospace" letter-spacing="2" />
+  </container>
+
+  <!-- REC Dot Blinking Animation (0.55s cycle) -->
+  <animate target="rec-dot" property="opacity" from="1" to="0.2" duration="0.25" start="0.55" />
+  <animate target="rec-dot" property="opacity" from="0.2" to="1" duration="0.25" start="1.10" />
+  <animate target="rec-dot" property="opacity" from="1" to="0.2" duration="0.25" start="1.65" />
+  <animate target="rec-dot" property="opacity" from="0.2" to="1" duration="0.25" start="2.20" />
+  <animate target="rec-dot" property="opacity" from="1" to="0.2" duration="0.25" start="2.75" />
+  <animate target="rec-dot" property="opacity" from="0.2" to="1" duration="0.25" start="3.30" />
+</scene>

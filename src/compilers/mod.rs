@@ -88,7 +88,7 @@ mod tests {
         let path = std::path::Path::new("examples/showreel.json");
         let compiler = detect(path).unwrap();
         let compiled = compiler.compile(path).unwrap();
-        assert_eq!(compiled.frame_count(30), 510);
+        assert_eq!(compiled.frame_count(30), 1800);
         assert_eq!(compiled.as_static().canvas.fps, 30);
     }
 }

@@ -140,10 +140,17 @@ Use these primitives to keep AI-generated JSON compact and expressive:
 
 ## Common Layer Properties
 - `name` (optional): string
-- `type` (required): `"container"` | `"rect"` | `"circle"` | `"text"` | `"svg"` | `"image"` | `"video"`
+- `type` (required): `"container"` | `"rect"` | `"circle"` | `"text"` | `"svg"` | `"image"` | `"video"` | `"waveform"` | `"lottie"` | `"particles"`
 - `position` (optional, default `"relative"`): `"relative"` | `"absolute"`
 - `anchor` (optional, default `"top_left"`): `"top_left"` | `"top_center"` | `"top_right"` | `"center_left"` | `"center"` | `"center_right"` | `"bottom_left"` | `"bottom_center"` | `"bottom_right"`
 - `skew_x`, `skew_y` (optional, default `0.0`): f32 (degrees)
+- `rotate_x`, `rotate_y` (optional, default `0.0`): f32 (2.5D perspective tilt in degrees)
+- `perspective` (optional, default `800.0`): f32 (focal distance in px for 2.5D ray-plane homography)
+- `backface_visible` (optional, default `true`): bool (culls layer when facing away if `false`)
+- `z_index` *(alias: `z`)* (optional, default `0.0`): f32 (painter's depth sort order within root or container)
+- `grain` (optional, default `0.0`): f32 (`0.0..1.0` deterministic film grain intensity)
+- `vignette` (optional, default `0.0`): f32 (`0.0..1.0` radial edge darkening)
+- `halftone` (optional, default `0.0`): f32 (`> 0.0` rotated 45-deg halftone dot screen)
 - `start_sec` (optional, default `0.0`): f32
 - `end_sec` (optional, default `canvas.duration_secs`): f32
 - `duration_secs` (optional): f32 (alternative `end_sec = start_sec + duration_secs`, useful for `series` sequencing)
@@ -213,7 +220,7 @@ Use these primitives to keep AI-generated JSON compact and expressive:
   "easing": "spring"
 }
 ```
-- `property`: `"x"` | `"y"` | `"width"` | `"height"` | `"opacity"` | `"scale"` | `"rotation"` | `"skew_x"` | `"skew_y"` | `"cx"` | `"cy"` | `"r"` | `"radius"` | `"color"` *(alias: `"background"`)* | `"border_color"` | `"path_progress"` | `"stroke_dashoffset"`
+- `property`: `"x"` | `"y"` | `"width"` | `"height"` | `"opacity"` | `"scale"` | `"rotation"` | `"skew_x"` | `"skew_y"` | `"rotate_x"` | `"rotate_y"` | `"perspective"` | `"z_index"` | `"cx"` | `"cy"` | `"r"` | `"radius"` | `"color"` *(alias: `"background"`)* | `"border_color"` | `"path_progress"` | `"stroke_dashoffset"` | `"volume"`
 - `from`, `to`: number (`f32`) or hex color (`"#RRGGBB"` / `"#RRGGBBAA"`) for `color` / `background` / `border_color`
 - `keyframes` *(optional alternative to `from`/`to`/`start_sec`/`end_sec`)*: array of `{ "time": 0.0, "value": 0.0, "easing": "ease_out" }` for multi-stop timelines in one block (e.g., fade-in → hold → fade-out)
 - `easing`: `"linear"` | `"ease_in"` | `"ease_out"` | `"ease_in_out"` | `"ease_in_quad"` | `"ease_out_quad"` | `"ease_in_out_quad"` | `"ease_in_expo"` | `"ease_out_expo"` | `"ease_in_out_expo"` | `"ease_in_back"` | `"ease_out_back"` | `"ease_in_out_back"` | `"ease_out_bounce"` | `"cubic_bezier"` | `"spring"`

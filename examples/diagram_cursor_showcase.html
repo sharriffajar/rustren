@@ -1,0 +1,40 @@
+<scene width="1920" height="1080" duration="4.0" fps="30" background="#090d16">
+  <rect x="0" y="0" width="1920" height="1080" color="#090d16" />
+
+  <!-- Showcase Header -->
+  <container x="100" y="70" layout="column" gap="8">
+    <text text="RUSTREN 2D SUITE · DIAGRAMS & MOTION" font-size="16" font-weight="700" color="#38bdf8" letter-spacing="3.0" opacity="0.9" />
+    <text text="Flowchart, Cursor Annotate & Orbit Cards" font-size="40" font-weight="700" color="#ffffff" letter-spacing="-0.5" />
+  </container>
+
+  <!-- Section 1: Flowchart Diagram & Connectors -->
+  <container x="120" y="220" layout="row" align-items="center" gap="40">
+    <include src="components/flowchart_node.html" title="Data Ingestion" subtitle="Kafka / S3 Stream" />
+    
+    <svg width="80" height="24" viewBox="0 0 80 24" fill="none">
+      <path d="M0 12 L70 12 M60 4 L72 12 L60 20" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+
+    <include src="components/flowchart_node.html" title="Rustren Engine" subtitle="SIMD + Skia Render" />
+
+    <svg width="80" height="24" viewBox="0 0 80 24" fill="none">
+      <path d="M0 12 L70 12 M60 4 L72 12 L60 20" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+
+    <include src="components/flowchart_node.html" title="MP4 Video" subtitle="H.264 High Profile" />
+  </container>
+
+  <!-- Section 2: Magnetic / Annotate Cursor -->
+  <container x="480" y="450" layout="column">
+    <animate property="x" from="480" to="780" start="0.5" end="2.5" easing="ease_in_out" />
+    <animate property="y" from="450" to="340" start="0.5" end="2.5" easing="ease_in_out" />
+    <include src="components/cursor_annotate.html" label="Active Stage" description="Processing 120 FPS render pass" />
+  </container>
+
+  <!-- Section 3: Orbit Cards Trio -->
+  <container x="340" y="660" layout="row" gap="60" align-items="center">
+    <include src="components/orbit_card.html" icon="⚡" title="Fast SIMD" badge="10x Faster" />
+    <include src="components/orbit_card.html" icon="🎨" title="Skia 2D" badge="Native Quality" />
+    <include src="components/orbit_card.html" icon="🦀" title="Pure Rust" badge="Zero Glitch" />
+  </container>
+</scene>

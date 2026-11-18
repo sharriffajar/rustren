@@ -19,3 +19,12 @@ frame_*.png
 .env.*
 .DS_Store
 Thumbs.db
+
+# External archive & catalog
+zh1ddu.zip
+hyperframes-catalog/
+
+# Pro exclusive crate & commercial templates
+crates/rustren-pro/
+examples/showcase_*.html
+examples/components/

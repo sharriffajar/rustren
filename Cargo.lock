@@ -2107,6 +2107,7 @@ dependencies = [
  "notify",
  "rayon",
  "resvg",
+ "rustren-pro",
  "scraper",
  "serde",
  "serde_json",
@@ -2118,6 +2119,10 @@ dependencies = [
  "uuid",
  "winres",
 ]
+
+[[package]]
+name = "rustren-pro"
+version = "0.3.0"
 
 [[package]]
 name = "rustversion"

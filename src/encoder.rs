@@ -45,6 +45,12 @@ impl FfmpegPipe {
         }
         let size_arg = format!("{}x{}", width, height);
         let fps_arg = fps.to_string();
+        let input_pix_fmt = if cfg!(feature = "pro") && width.is_multiple_of(2) && height.is_multiple_of(2)
+        {
+            "yuv420p"
+        } else {
+            "rgba"
+        };
 
         let mut cmd = Command::new("ffmpeg");
         cmd.args([
@@ -52,7 +58,7 @@ impl FfmpegPipe {
             "-f",
             "rawvideo",
             "-pix_fmt",
-            "rgba",
+            input_pix_fmt,
             "-s",
             &size_arg,
             "-r",
@@ -177,6 +183,8 @@ impl FfmpegPipe {
 
         let crf_arg = crf.to_string();
         cmd.args([
+            "-sws_flags",
+            "fast_bilinear",
             "-c:v",
             "libx264",
             "-pix_fmt",

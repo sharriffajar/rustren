@@ -1042,7 +1042,7 @@ fn test_all_examples_compile_and_validate() {
                     }
                 }
             }
-            let scene = crate::compilers::html::parse_html_scene(&content)
+            let scene = crate::compilers::html::parse_html_scene_with_base(&content, path.parent())
                 .unwrap_or_else(|e| panic!("Failed to parse {:?}: {}", path, e));
             crate::capabilities::validate_scene_capabilities(&scene)
                 .unwrap_or_else(|e| panic!("Capabilities failed for {:?}: {}", path, e));

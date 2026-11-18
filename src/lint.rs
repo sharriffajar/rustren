@@ -197,6 +197,13 @@ fn static_layer_bounds(layer: &Layer) -> Option<(f32, f32, f32, f32)> {
             height: h,
             ..
         }
+        | LayerKind::Particles {
+            x,
+            y,
+            width: w,
+            height: h,
+            ..
+        }
         | LayerKind::Lottie {
             x,
             y,
@@ -417,8 +424,10 @@ fn check_allowed_keys(
 fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> anyhow::Result<()> {
     const COMMON: &[&str] = &[
         "name", "type", "start_sec", "end_sec", "duration_secs", "overlap_secs", "position",
-        "flex_grow", "margin", "blend_mode", "blur", "shadow", "anchor", "skew_x", "skew_y",
-        "animations",
+        "flex_grow", "margin", "margin_top", "margin_right", "margin_bottom", "margin_left",
+        "blend_mode", "blur", "shadow", "anchor", "skew_x", "skew_y", "rotate_x", "rotate_y",
+        "perspective", "backface_visible", "z_index", "z", "grain", "vignette", "halftone",
+        "track_matte", "matte_layer", "echo", "animations",
     ];
     for (i, item) in layers.iter().enumerate() {
         let path = format!("{prefix}[{i}]");
@@ -458,6 +467,10 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
                 "x", "y", "width", "height", "src", "loop_animation", "speed", "opacity",
                 "rotation", "scale",
             ],
+            "particles" => &[
+                "x", "y", "width", "height", "count", "seed", "speed", "gravity", "spread",
+                "angle", "size", "color", "colors", "shape", "opacity", "rotation", "scale",
+            ],
             "container" => &[
                 "x", "y", "width", "height", "layout", "background", "gradient", "border_color",
                 "border_width", "radius", "opacity", "scale", "rotation", "clip",
@@ -490,7 +503,11 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
             check_allowed_keys(
                 layout,
                 &format!("{path}.layout"),
-                &["direction", "justify_content", "align_items", "gap", "padding"],
+                &[
+                    "direction", "flex_wrap", "justify_content", "align_items", "gap", "row_gap",
+                    "column_gap", "padding", "padding_top", "padding_right", "padding_bottom",
+                    "padding_left",
+                ],
             )?;
         }
         if let Some(spans) = obj.get("spans").and_then(|v| v.as_array()) {

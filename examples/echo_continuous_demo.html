@@ -1,0 +1,28 @@
+<!--
+  Continuous Motion Smear Demo (Border hidden on trail copies + soft micro-blur)
+-->
+<scene width="1920" height="1080" fps="30" duration="2.0" background="#0B0D13">
+    <text x="100" y="90" font-size="28" color="#94A3B8">ECHO SMEAR — CONTINUOUS MOTION BLUR (BORDER HIDDEN)</text>
+
+    <rect
+        name="Smear Card"
+        x="100"
+        y="340"
+        width="360"
+        height="400"
+        radius="24"
+        color="#FE552E"
+        border-color="#FFFFFF"
+        border-width="2"
+        blend-mode="lighten"
+        echo-count="14"
+        echo-step="0.018"
+        echo-decay="0.72"
+        echo-threshold="3.0"
+        echo-hide-border="true"
+        echo-blur="3.0"
+    >
+        <animate property="x" from="100" to="1420" start="0.3" end="1.2" easing="ease_in_out" />
+        <animate property="rotation" from="-8" to="8" start="0.3" end="1.2" easing="ease_in_out" />
+    </rect>
+</scene>
