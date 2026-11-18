@@ -44,10 +44,12 @@ pub(super) static GLOBAL_FRAME_DEDUP_CACHE: LazyLock<RwLock<HashMap<u64, Arc<Vec
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
 #[cfg(feature = "pro")]
-static GLOBAL_RGBA_POOL: rustren_pro::BufferPool = rustren_pro::BufferPool::new(32);
+static GLOBAL_RGBA_POOL: LazyLock<std::sync::Mutex<Vec<Vec<u8>>>> =
+    LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
 
 #[cfg(feature = "pro")]
-static GLOBAL_FRAME_POOL: rustren_pro::BufferPool = rustren_pro::BufferPool::new(48);
+static GLOBAL_FRAME_POOL: LazyLock<std::sync::Mutex<Vec<Vec<u8>>>> =
+    LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
 
 thread_local! {
     static THREAD_FONT_SYS: RefCell<Option<(usize, FontSystem, SwashCache)>> = const { RefCell::new(None) };
@@ -59,7 +61,10 @@ thread_local! {
 
 #[cfg(feature = "pro")]
 pub fn recycle_frame_buffer(buf: Vec<u8>) {
-    GLOBAL_FRAME_POOL.recycle(buf);
+    let mut pool = GLOBAL_FRAME_POOL.lock().unwrap();
+    if pool.len() < 48 {
+        pool.push(buf);
+    }
 }
 
 #[cfg(not(feature = "pro"))]
@@ -67,20 +72,29 @@ pub fn recycle_frame_buffer(_buf: Vec<u8>) {}
 
 #[cfg(feature = "pro")]
 pub(super) fn recycle_rgba_buffer(buf: Vec<u8>) {
-    GLOBAL_RGBA_POOL.recycle(buf);
+    let mut pool = GLOBAL_RGBA_POOL.lock().unwrap();
+    if pool.len() < 32 {
+        pool.push(buf);
+    }
 }
 
 #[cfg(feature = "pro")]
 pub(super) fn take_pooled_yuv_buffer(needed: usize) -> Vec<u8> {
-    GLOBAL_FRAME_POOL
-        .take_matching(needed)
-        .unwrap_or_else(|| Vec::with_capacity(needed))
+    let mut pool = GLOBAL_FRAME_POOL.lock().unwrap();
+    if let Some(pos) = pool.iter().position(|b| b.len() == needed) {
+        return pool.swap_remove(pos);
+    }
+    Vec::with_capacity(needed)
 }
 
 #[cfg(feature = "pro")]
 pub(super) fn take_pooled_pixmap(base: &Pixmap) -> Option<Pixmap> {
     let needed = base.data().len();
-    let mut buf = GLOBAL_RGBA_POOL.take_matching(needed)?;
+    let mut buf = {
+        let mut pool = GLOBAL_RGBA_POOL.lock().unwrap();
+        let pos = pool.iter().position(|b| b.len() == needed)?;
+        pool.swap_remove(pos)
+    };
     buf.copy_from_slice(base.data());
     let size = tiny_skia::IntSize::from_wh(base.width(), base.height())?;
     Pixmap::from_vec(buf, size)
@@ -104,8 +118,8 @@ pub fn clear_render_caches() {
     GLOBAL_FRAME_DEDUP_CACHE.write().unwrap().clear();
     #[cfg(feature = "pro")]
     {
-        GLOBAL_RGBA_POOL.clear();
-        GLOBAL_FRAME_POOL.clear();
+        GLOBAL_RGBA_POOL.lock().unwrap().clear();
+        GLOBAL_FRAME_POOL.lock().unwrap().clear();
     }
     text::clear_text_raster_cache();
 }

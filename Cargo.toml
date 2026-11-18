@@ -11,10 +11,9 @@ categories = ["multimedia::video", "command-line-utilities"]
 
 [features]
 default = []
-pro = ["dep:rustren-pro"]
+pro = []
 
 [dependencies]
-rustren-pro = { path = "crates/rustren-pro", optional = true }
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
 cosmic-text = "0.12"
