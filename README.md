@@ -195,6 +195,7 @@ Browse [examples/](examples) for full scenes you can validate or render directly
 
 ## Documentation & Testing
 - Full schema reference: [SCHEMA.md](SCHEMA.md) & [schema.json](schema.json)
+- AI agent skill (workflow, rules, recipes): [SKILL.md](SKILL.md)
 - Run unit & conformance tests:
 ```bash
 cargo test --release
