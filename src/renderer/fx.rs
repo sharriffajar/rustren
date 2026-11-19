@@ -82,7 +82,7 @@ fn box_blur_v(src: &[u8], dst: &mut [u8], w: usize, h: usize, r: usize) {
 /// 3-pass separable box blur approximating a Gaussian blur on premultiplied RGBA.
 /// For large radii (>= 20.0), uses 2x downsampling + bilinear upsampling for ~4x speedup.
 pub(super) fn fast_blur_rgba(data: &mut [u8], w: u32, h: u32, radius: f32) {
-    if radius >= 20.0 && w >= 64 && h >= 64 {
+    if radius >= 8.0 && w >= 64 && h >= 64 {
         let dw = (w / 2).max(1) as usize;
         let dh = (h / 2).max(1) as usize;
         let sw = w as usize;
