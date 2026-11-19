@@ -564,10 +564,8 @@ fn draw_rgba_frame(
     }
 
     let (x, y) = apply_anchor(x, y, w, h, layer.anchor);
-    let size =
-        tiny_skia::IntSize::from_wh(src_w, src_h).ok_or_else(|| anyhow!("Invalid media dimensions"))?;
-    let src_pixmap = Pixmap::from_vec(raw_rgba.to_vec(), size)
-        .ok_or_else(|| anyhow!("Failed to create Pixmap from media frame"))?;
+    let src_pixmap = tiny_skia::PixmapRef::from_bytes(raw_rgba, src_w, src_h)
+        .ok_or_else(|| anyhow!("Failed to create PixmapRef from media frame"))?;
 
     let paint = PixmapPaint {
         opacity: op.clamp(0.0, 1.0),
@@ -583,7 +581,7 @@ fn draw_rgba_frame(
             let transform = Transform::from_scale(sx, sy)
                 .post_translate(x, y)
                 .post_concat(pivot_xf);
-            pixmap.draw_pixmap(0, 0, src_pixmap.as_ref(), &paint, transform, None);
+            pixmap.draw_pixmap(0, 0, src_pixmap, &paint, transform, None);
         }
         FitSpec::Contain => {
             let u = (w / src_w as f32).min(h / src_h as f32);
@@ -594,33 +592,49 @@ fn draw_rgba_frame(
             let transform = Transform::from_scale(u, u)
                 .post_translate(ox, oy)
                 .post_concat(pivot_xf);
-            pixmap.draw_pixmap(0, 0, src_pixmap.as_ref(), &paint, transform, None);
+            pixmap.draw_pixmap(0, 0, src_pixmap, &paint, transform, None);
         }
         FitSpec::Cover => {
-            let pw = (w.ceil() as u32).max(1);
-            let ph = (h.ceil() as u32).max(1);
-            let mut box_pixmap = Pixmap::new(pw, ph)
-                .ok_or_else(|| anyhow!("Failed to allocate cover pixmap {}x{}", pw, ph))?;
             let u = (w / src_w as f32).max(h / src_h as f32);
             let draw_w = src_w as f32 * u;
             let draw_h = src_h as f32 * u;
             let ox = (w - draw_w) * 0.5;
             let oy = (h - draw_h) * 0.5;
-            let inner_xf = Transform::from_scale(u, u).post_translate(ox, oy);
-            box_pixmap.draw_pixmap(
-                0,
-                0,
-                src_pixmap.as_ref(),
-                &PixmapPaint {
-                    opacity: 1.0,
-                    quality: FilterQuality::Bilinear,
-                    ..PixmapPaint::default()
-                },
-                inner_xf,
-                None,
-            );
-            let outer_xf = Transform::from_translate(x, y).post_concat(pivot_xf);
-            pixmap.draw_pixmap(0, 0, box_pixmap.as_ref(), &paint, outer_xf, None);
+
+            // Fast path: if the cover box (after scale/translate) fully covers the target
+            // pixmap and has no rotation/skew, draw directly in a single pass without
+            // allocating an oversized intermediate ScratchPixmap or double-resampling.
+            let covers_target = if rot.abs() < 1e-4 && sk_x.abs() < 1e-4 && sk_y.abs() < 1e-4 {
+                let cx = x + w * 0.5;
+                let cy = y + h * 0.5;
+                let half_w = w * 0.5 * s;
+                let half_h = h * 0.5 * s;
+                (cx - half_w) <= 0.0
+                    && (cy - half_h) <= 0.0
+                    && (cx + half_w) >= pixmap.width() as f32
+                    && (cy + half_h) >= pixmap.height() as f32
+            } else {
+                false
+            };
+
+            let direct_xf = Transform::from_scale(u, u)
+                .post_translate(x + ox, y + oy)
+                .post_concat(pivot_xf);
+
+            if covers_target {
+                pixmap.draw_pixmap(0, 0, src_pixmap, &paint, direct_xf, None);
+            } else {
+                let mut mask = Mask::new(pixmap.width(), pixmap.height())
+                    .ok_or_else(|| anyhow!("Failed to allocate cover clip mask"))?;
+                if let Some(rect) = Rect::from_xywh(x, y, w, h) {
+                    let mut pb = PathBuilder::new();
+                    pb.push_rect(rect);
+                    if let Some(path) = pb.finish() {
+                        mask.fill_path(&path, FillRule::Winding, false, pivot_xf);
+                    }
+                }
+                pixmap.draw_pixmap(0, 0, src_pixmap, &paint, direct_xf, Some(&mask));
+            }
         }
     }
     Ok(())
@@ -665,9 +679,9 @@ fn render_layer(
         if let Some(ref matte) = layer.matte_layer {
             let w = pixmap.width();
             let h = pixmap.height();
-            let mut layer_pm = Pixmap::new(w, h)
+            let mut layer_pm = cache::ScratchPixmap::new(w, h)
                 .ok_or_else(|| anyhow::anyhow!("Failed to allocate matte layer pixmap"))?;
-            let mut matte_pm = Pixmap::new(w, h)
+            let mut matte_pm = cache::ScratchPixmap::new(w, h)
                 .ok_or_else(|| anyhow::anyhow!("Failed to allocate matte mask pixmap"))?;
 
             render_layer_scoped(
@@ -1968,7 +1982,7 @@ fn render_layer_inner(
             if needs_offscreen {
                 let pw = (cw.ceil() as u32).max(1);
                 let ph = (ch.ceil() as u32).max(1);
-                let mut child_pixmap = Pixmap::new(pw, ph)
+                let mut child_pixmap = cache::ScratchPixmap::new(pw, ph)
                     .ok_or_else(|| anyhow!("Failed to allocate container pixmap {}x{}", pw, ph))?;
                 for (child, cbox, ct, cdur, _) in active_children {
                     let local_box = LayoutBox {
