@@ -601,40 +601,110 @@ fn draw_rgba_frame(
             let ox = (w - draw_w) * 0.5;
             let oy = (h - draw_h) * 0.5;
 
-            // Fast path: if the cover box (after scale/translate) fully covers the target
-            // pixmap and has no rotation/skew, draw directly in a single pass without
-            // allocating an oversized intermediate ScratchPixmap or double-resampling.
-            let covers_target = if rot.abs() < 1e-4 && sk_x.abs() < 1e-4 && sk_y.abs() < 1e-4 {
+            if rot.abs() < 1e-4 && sk_x.abs() < 1e-4 && sk_y.abs() < 1e-4 {
                 let cx = x + w * 0.5;
                 let cy = y + h * 0.5;
                 let half_w = w * 0.5 * s;
                 let half_h = h * 0.5 * s;
-                (cx - half_w) <= 0.0
-                    && (cy - half_h) <= 0.0
-                    && (cx + half_w) >= pixmap.width() as f32
-                    && (cy + half_h) >= pixmap.height() as f32
-            } else {
-                false
-            };
+                let canvas_w = pixmap.width();
+                let canvas_h = pixmap.height();
+                let dst_x0 = (cx - half_w).max(0.0).floor() as i32;
+                let dst_y0 = (cy - half_h).max(0.0).floor() as i32;
+                let dst_x1 = (cx + half_w).min(canvas_w as f32).ceil() as i32;
+                let dst_y1 = (cy + half_h).min(canvas_h as f32).ceil() as i32;
+                if dst_x1 <= dst_x0 || dst_y1 <= dst_y0 {
+                    return Ok(());
+                }
+                let dst_w = (dst_x1 - dst_x0) as u32;
+                let dst_h = (dst_y1 - dst_y0) as u32;
+                let eff_s = u * s;
+                let img_x0 = cx - draw_w * 0.5 * s;
+                let img_y0 = cy - draw_h * 0.5 * s;
+                let src_crop_x = ((dst_x0 as f32 - img_x0) / eff_s).clamp(0.0, (src_w - 1) as f32);
+                let src_crop_y = ((dst_y0 as f32 - img_y0) / eff_s).clamp(0.0, (src_h - 1) as f32);
+                let src_crop_w = ((dst_w as f32) / eff_s)
+                    .max(1e-3)
+                    .min(src_w as f32 - src_crop_x);
+                let src_crop_h = ((dst_h as f32) / eff_s)
+                    .max(1e-3)
+                    .min(src_h as f32 - src_crop_y);
+
+                if src_crop_w > 0.0 && src_crop_h > 0.0 {
+                    use fast_image_resize::images::{Image, ImageRef};
+                    use fast_image_resize::{FilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
+                    use std::cell::RefCell;
+
+                    thread_local! {
+                        static SIMD_RESIZER: RefCell<(Resizer, Vec<u8>)> =
+                            RefCell::new((Resizer::new(), Vec::new()));
+                    }
+
+                    if let Ok(src_img) = ImageRef::new(src_w, src_h, raw_rgba, PixelType::U8x4) {
+                        let opts = ResizeOptions::new()
+                            .resize_alg(ResizeAlg::Convolution(FilterType::Bilinear))
+                            .use_alpha(false)
+                            .crop(
+                                src_crop_x as f64,
+                                src_crop_y as f64,
+                                src_crop_w as f64,
+                                src_crop_h as f64,
+                            );
+                        let ok = SIMD_RESIZER.with(|cell| {
+                            let mut borrow = cell.borrow_mut();
+                            let (resizer, scratch) = &mut *borrow;
+                            let needed = (dst_w as usize) * (dst_h as usize) * 4;
+                            if scratch.len() < needed {
+                                scratch.resize(needed, 0);
+                            }
+                            if let Ok(mut dst_img) = Image::from_slice_u8(
+                                dst_w,
+                                dst_h,
+                                &mut scratch[..needed],
+                                PixelType::U8x4,
+                            ) {
+                                if resizer.resize(&src_img, &mut dst_img, Some(&opts)).is_ok() {
+                                    if let Some(resized_ref) =
+                                        tiny_skia::PixmapRef::from_bytes(&scratch[..needed], dst_w, dst_h)
+                                    {
+                                        let blit_paint = PixmapPaint {
+                                            opacity: op.clamp(0.0, 1.0),
+                                            quality: FilterQuality::Nearest,
+                                            ..PixmapPaint::default()
+                                        };
+                                        pixmap.draw_pixmap(
+                                            dst_x0,
+                                            dst_y0,
+                                            resized_ref,
+                                            &blit_paint,
+                                            Transform::identity(),
+                                            None,
+                                        );
+                                        return true;
+                                    }
+                                }
+                            }
+                            false
+                        });
+                        if ok {
+                            return Ok(());
+                        }
+                    }
+                }
+            }
 
             let direct_xf = Transform::from_scale(u, u)
                 .post_translate(x + ox, y + oy)
                 .post_concat(pivot_xf);
-
-            if covers_target {
-                pixmap.draw_pixmap(0, 0, src_pixmap, &paint, direct_xf, None);
-            } else {
-                let mut mask = Mask::new(pixmap.width(), pixmap.height())
-                    .ok_or_else(|| anyhow!("Failed to allocate cover clip mask"))?;
-                if let Some(rect) = Rect::from_xywh(x, y, w, h) {
-                    let mut pb = PathBuilder::new();
-                    pb.push_rect(rect);
-                    if let Some(path) = pb.finish() {
-                        mask.fill_path(&path, FillRule::Winding, false, pivot_xf);
-                    }
+            let mut mask = Mask::new(pixmap.width(), pixmap.height())
+                .ok_or_else(|| anyhow!("Failed to allocate cover clip mask"))?;
+            if let Some(rect) = Rect::from_xywh(x, y, w, h) {
+                let mut pb = PathBuilder::new();
+                pb.push_rect(rect);
+                if let Some(path) = pb.finish() {
+                    mask.fill_path(&path, FillRule::Winding, false, pivot_xf);
                 }
-                pixmap.draw_pixmap(0, 0, src_pixmap, &paint, direct_xf, Some(&mask));
             }
+            pixmap.draw_pixmap(0, 0, src_pixmap, &paint, direct_xf, Some(&mask));
         }
     }
     Ok(())
