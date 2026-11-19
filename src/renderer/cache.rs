@@ -256,12 +256,29 @@ where
         };
         if needs_init {
             let mut fs = FontSystem::new();
-            fs.db_mut().load_font_data(
-                include_bytes!("../../assets/fonts/allo/Allo-Regular.otf").to_vec(),
-            );
-            fs.db_mut().load_font_data(
-                include_bytes!("../../assets/fonts/allo/Allo-Bold.otf").to_vec(),
-            );
+            const BUNDLED_ALLO_FONTS: &[&[u8]] = &[
+                include_bytes!("../../assets/fonts/allo/Allo-Thin.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-ThinOblique.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-ExtraLight.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-ExtraLightOblique.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-Light.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-LightOblique.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-Regular.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-Oblique.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-Medium.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-MediumOblique.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-SemiBold.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-SemiBoldOblique.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-Bold.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-BoldOblique.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-ExtraBold.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-ExtraBoldOblique.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-Black.otf"),
+                include_bytes!("../../assets/fonts/allo/Allo-BlackOblique.otf"),
+            ];
+            for font_bytes in BUNDLED_ALLO_FONTS {
+                fs.db_mut().load_font_data(font_bytes.to_vec());
+            }
             for font_bytes in &assets.fonts {
                 fs.db_mut().load_font_data(font_bytes.clone());
             }
