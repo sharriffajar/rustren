@@ -11,7 +11,7 @@ categories = ["multimedia::video", "command-line-utilities"]
 
 [features]
 default = []
-pro = []
+pro = ["dep:axum", "dep:tokio", "dep:uuid"]
 
 [dependencies]
 anyhow = "1.0"
@@ -27,9 +27,9 @@ sha2 = "0.10"
 taffy = "0.7"
 tiny-skia = "0.11"
 ureq = "2.10"
-axum = { version = "0.7", features = ["ws"] }
-tokio = { version = "1", features = ["full"] }
-uuid = { version = "1", features = ["v4"] }
+axum = { version = "0.7", features = ["ws"], optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+uuid = { version = "1", features = ["v4"], optional = true }
 evalexpr = "13.1.0"
 fast_image_resize = "5"
 scraper = "0.20"

@@ -88,6 +88,7 @@ fn is_blocked_ip(ip: IpAddr) -> bool {
     }
 }
 
+#[cfg_attr(not(feature = "pro"), allow(dead_code))]
 #[derive(Clone)]
 pub struct ServiceLimits {
     pub allow_local_paths: bool,
@@ -112,6 +113,7 @@ impl Default for ServiceLimits {
 }
 
 /// Validates scene limits and asset sources for untrusted API submissions.
+#[cfg_attr(not(feature = "pro"), allow(dead_code))]
 pub fn validate_scene_for_service(scene: &Scene, limits: &ServiceLimits) -> Result<()> {
     if scene.canvas.width == 0 || scene.canvas.height == 0 {
         bail!("Canvas dimensions must be > 0");
@@ -154,6 +156,7 @@ pub fn validate_scene_for_service(scene: &Scene, limits: &ServiceLimits) -> Resu
     Ok(())
 }
 
+#[cfg_attr(not(feature = "pro"), allow(dead_code))]
 fn validate_layers_assets(layers: &[Layer], allow_local_paths: bool) -> Result<()> {
     for layer in layers {
         match &layer.kind {
@@ -170,6 +173,7 @@ fn validate_layers_assets(layers: &[Layer], allow_local_paths: bool) -> Result<(
     Ok(())
 }
 
+#[cfg_attr(not(feature = "pro"), allow(dead_code))]
 fn validate_asset_ref(src: &str, allow_local_paths: bool, allow_inline_svg: bool) -> Result<()> {
     let trimmed = src.trim();
     if allow_inline_svg && trimmed.starts_with("<svg") {

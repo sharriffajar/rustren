@@ -106,6 +106,7 @@ impl ScratchPixmap {
         Some(Self { pm: Some(pm) })
     }
 
+    #[allow(dead_code)]
     pub(super) fn into_pixmap(mut self) -> Pixmap {
         self.pm.take().expect("ScratchPixmap already consumed")
     }
