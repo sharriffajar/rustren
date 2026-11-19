@@ -10,14 +10,47 @@ pub struct FfmpegPipe {
     stdin: ChildStdin,
 }
 
-/// Detect an available H.264 hardware encoder when `RUSTREN_HW_ENCODER` is set
-/// (e.g. `auto`, `1`, or an explicit encoder name), falling back to `libx264`.
+/// Probe whether an FFmpeg hardware video encoder actually works on this host
+/// by encoding a single tiny black frame to null.
+fn probe_hw_encoder(encoder: &str) -> bool {
+    Command::new("ffmpeg")
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=64x64:d=0.04",
+            "-frames:v",
+            "1",
+            "-c:v",
+            encoder,
+            "-f",
+            "null",
+            "-",
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Detect a working H.264 hardware encoder by default (`auto`), falling back
+/// cleanly to `libx264` when no GPU encoder is usable.
+/// Set `RUSTREN_HW_ENCODER=off` (or `0`/`cpu`) to force `libx264`, or an explicit
+/// encoder name (`h264_nvenc`, `h264_videotoolbox`, `h264_qsv`).
 fn detect_video_encoder() -> &'static str {
     static CACHED: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
     *CACHED.get_or_init(|| {
         let mode = std::env::var("RUSTREN_HW_ENCODER").unwrap_or_default();
         let mode_trim = mode.trim();
-        if mode_trim.is_empty() || mode_trim == "0" || mode_trim.eq_ignore_ascii_case("off") {
+        if mode_trim == "0"
+            || mode_trim.eq_ignore_ascii_case("off")
+            || mode_trim.eq_ignore_ascii_case("cpu")
+            || mode_trim.eq_ignore_ascii_case("libx264")
+        {
             return "libx264";
         }
         if mode_trim.eq_ignore_ascii_case("h264_nvenc") {
@@ -35,7 +68,7 @@ fn detect_video_encoder() -> &'static str {
         {
             let text = String::from_utf8_lossy(&out.stdout);
             for candidate in ["h264_nvenc", "h264_videotoolbox", "h264_qsv"] {
-                if text.contains(candidate) {
+                if text.contains(candidate) && probe_hw_encoder(candidate) {
                     return candidate;
                 }
             }

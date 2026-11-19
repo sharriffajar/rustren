@@ -82,7 +82,7 @@ Rules for the loop:
 
 Responsive output: define `<profiles>` in the scene (e.g. `portrait` 1080x1920, `square` 720x720) and pass `--composition portrait` to `validate`, `snapshot`, `layout`, `render`.
 
-Faster renders: `--preset veryfast` (or `ultrafast`) trades file size for speed. Set `RUSTREN_HW_ENCODER=auto` to try a GPU H.264 encoder (`h264_nvenc`, `h264_videotoolbox`, `h264_qsv`); it falls back to `libx264` if none is found. Unset means CPU `libx264`.
+Faster renders: `--preset veryfast` (or `ultrafast`) trades file size for speed. Hardware H.264 encoding (`h264_nvenc`, `h264_videotoolbox`, `h264_qsv`) is auto-probed by default and falls back cleanly to `libx264` if no working GPU encoder is present; set `RUSTREN_HW_ENCODER=off` to force CPU `libx264`.
 
 ## 4. Minimal scene (HTML)
 

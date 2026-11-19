@@ -77,7 +77,7 @@ rustren render examples/cuboid_carousel.html -o cuboid.mp4
 ## Prerequisites & Installation
 - **Rust toolchain** (edition `2024`, Cargo)
 - **`ffmpeg`** (and `ffprobe` for `video` layers) available in `PATH`
-- **Optional GPU Hardware Encoding**: Set `RUSTREN_HW_ENCODER=auto` (or `h264_nvenc`, `h264_videotoolbox`, `h264_qsv`) to accelerate H.264 encoding when a compatible GPU is available; defaults to `libx264` CPU encoding.
+- **Automatic GPU Hardware Encoding**: Probes for a working GPU H.264 encoder (`h264_nvenc`, `h264_videotoolbox`, `h264_qsv`) by default and falls back cleanly to `libx264` CPU encoding when unavailable. Override with `RUSTREN_HW_ENCODER=off` (force CPU) or an explicit encoder name.
 
 Build from source:
 ```bash
