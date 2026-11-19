@@ -10,6 +10,40 @@ pub struct FfmpegPipe {
     stdin: ChildStdin,
 }
 
+/// Detect an available H.264 hardware encoder when `RUSTREN_HW_ENCODER` is set
+/// (e.g. `auto`, `1`, or an explicit encoder name), falling back to `libx264`.
+fn detect_video_encoder() -> &'static str {
+    static CACHED: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+    *CACHED.get_or_init(|| {
+        let mode = std::env::var("RUSTREN_HW_ENCODER").unwrap_or_default();
+        let mode_trim = mode.trim();
+        if mode_trim.is_empty() || mode_trim == "0" || mode_trim.eq_ignore_ascii_case("off") {
+            return "libx264";
+        }
+        if mode_trim.eq_ignore_ascii_case("h264_nvenc") {
+            return "h264_nvenc";
+        }
+        if mode_trim.eq_ignore_ascii_case("h264_videotoolbox") {
+            return "h264_videotoolbox";
+        }
+        if mode_trim.eq_ignore_ascii_case("h264_qsv") {
+            return "h264_qsv";
+        }
+        if let Ok(out) = Command::new("ffmpeg")
+            .args(["-hide_banner", "-encoders"])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            for candidate in ["h264_nvenc", "h264_videotoolbox", "h264_qsv"] {
+                if text.contains(candidate) {
+                    return candidate;
+                }
+            }
+        }
+        "libx264"
+    })
+}
+
 const VALID_X264_PRESETS: &[&str] = &[
     "ultrafast",
     "superfast",
@@ -182,19 +216,23 @@ impl FfmpegPipe {
         }
 
         let crf_arg = crf.to_string();
-        cmd.args([
-            "-sws_flags",
-            "fast_bilinear",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "-preset",
-            preset,
-            "-crf",
-            &crf_arg,
-        ])
-        .arg(output)
+        let vcodec = detect_video_encoder();
+        cmd.args(["-sws_flags", "fast_bilinear", "-c:v", vcodec, "-pix_fmt", "yuv420p"]);
+        match vcodec {
+            "h264_nvenc" => {
+                cmd.args(["-preset", "p4", "-cq", &crf_arg]);
+            }
+            "h264_qsv" => {
+                cmd.args(["-preset", "faster", "-global_quality", &crf_arg]);
+            }
+            "h264_videotoolbox" => {
+                cmd.args(["-q:v", "65"]);
+            }
+            _ => {
+                cmd.args(["-preset", preset, "-crf", &crf_arg]);
+            }
+        }
+        cmd.arg(output)
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
