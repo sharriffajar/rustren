@@ -2,8 +2,8 @@
 name: rustren
 description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for 3D, live streaming, or editing existing video timelines frame-by-frame in a GUI.
 metadata:
-  skill_version: "1.0.0"
-  rustren_version: "0.3.0"
+  skill_version: "1.0.1"
+  rustren_version: "0.3.1"
   schema_version: "1.1"
   renderer_version: "1.1"
 ---
@@ -218,4 +218,5 @@ Asset downloads are cached on disk (`--cache-dir`, default `.rustren_cache`). Re
 
 ## Changelog
 
+- **1.0.1** (rustren 0.3.1, schema 1.1): updated hardware encoder guidance to reflect default safe 1-frame auto-probe (`RUSTREN_HW_ENCODER=off` to force CPU).
 - **1.0.0** (rustren 0.3.0, schema 1.1): first release. Golden loop, command cheat sheet, authoring rules, motion-comic and explainer recipes, cache-aware authoring, debugging playbook, version check.
