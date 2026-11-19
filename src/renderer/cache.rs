@@ -44,19 +44,92 @@ pub(super) static GLOBAL_FRAME_DEDUP_CACHE: LazyLock<RwLock<HashMap<u64, Arc<Vec
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
 #[cfg(feature = "pro")]
-static GLOBAL_RGBA_POOL: LazyLock<std::sync::Mutex<Vec<Vec<u8>>>> =
-    LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
-
-#[cfg(feature = "pro")]
 static GLOBAL_FRAME_POOL: LazyLock<std::sync::Mutex<Vec<Vec<u8>>>> =
     LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
+
+const MAX_THREAD_RGBA_POOL_ENTRIES: usize = 32;
+const MAX_POOLED_RGBA_BYTES: usize = 32 * 1024 * 1024;
 
 thread_local! {
     static THREAD_FONT_SYS: RefCell<Option<(usize, FontSystem, SwashCache)>> = const { RefCell::new(None) };
     pub(super) static THREAD_SVG_CACHE: RefCell<HashMap<(u64, usize), resvg::usvg::Tree>> = RefCell::new(HashMap::new());
     pub(super) static THREAD_SVG_RASTER_CACHE: RefCell<HashMap<(u64, usize, u32, u32), Pixmap>> = RefCell::new(HashMap::new());
     static THREAD_FX_SCRATCH: RefCell<Option<Pixmap>> = const { RefCell::new(None) };
+    static THREAD_RGBA_POOL: RefCell<Vec<Vec<u8>>> = const { RefCell::new(Vec::new()) };
     pub(super) static THREAD_SIG_BUF: RefCell<String> = const { RefCell::new(String::new()) };
+}
+
+pub(super) fn take_scratch_rgba(needed: usize, zeroed: bool) -> Vec<u8> {
+    let reused = THREAD_RGBA_POOL.with(|cell| {
+        let mut pool = cell.borrow_mut();
+        if let Some(pos) = pool.iter().position(|b| b.capacity() >= needed) {
+            Some(pool.swap_remove(pos))
+        } else {
+            None
+        }
+    });
+    match reused {
+        Some(mut buf) => {
+            buf.resize(needed, 0);
+            if zeroed {
+                buf.fill(0);
+            }
+            buf
+        }
+        None => vec![0u8; needed],
+    }
+}
+
+pub(super) fn recycle_scratch_rgba(buf: Vec<u8>) {
+    if buf.capacity() == 0 || buf.capacity() > MAX_POOLED_RGBA_BYTES {
+        return;
+    }
+    THREAD_RGBA_POOL.with(|cell| {
+        let mut pool = cell.borrow_mut();
+        if pool.len() < MAX_THREAD_RGBA_POOL_ENTRIES {
+            pool.push(buf);
+        }
+    });
+}
+
+/// RAII scratch `Pixmap` backed by the thread-local RGBA pool (lock-free).
+pub(super) struct ScratchPixmap {
+    pm: Option<Pixmap>,
+}
+
+impl ScratchPixmap {
+    pub(super) fn new(w: u32, h: u32) -> Option<Self> {
+        let needed = (w as usize).checked_mul(h as usize)?.checked_mul(4)?;
+        let size = tiny_skia::IntSize::from_wh(w, h)?;
+        let buf = take_scratch_rgba(needed, true);
+        let pm = Pixmap::from_vec(buf, size)?;
+        Some(Self { pm: Some(pm) })
+    }
+
+    pub(super) fn into_pixmap(mut self) -> Pixmap {
+        self.pm.take().expect("ScratchPixmap already consumed")
+    }
+}
+
+impl std::ops::Deref for ScratchPixmap {
+    type Target = Pixmap;
+    fn deref(&self) -> &Self::Target {
+        self.pm.as_ref().expect("ScratchPixmap already consumed")
+    }
+}
+
+impl std::ops::DerefMut for ScratchPixmap {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.pm.as_mut().expect("ScratchPixmap already consumed")
+    }
+}
+
+impl Drop for ScratchPixmap {
+    fn drop(&mut self) {
+        if let Some(pm) = self.pm.take() {
+            recycle_scratch_rgba(pm.take());
+        }
+    }
 }
 
 #[cfg(feature = "pro")]
@@ -72,10 +145,7 @@ pub fn recycle_frame_buffer(_buf: Vec<u8>) {}
 
 #[cfg(feature = "pro")]
 pub(super) fn recycle_rgba_buffer(buf: Vec<u8>) {
-    let mut pool = GLOBAL_RGBA_POOL.lock().unwrap();
-    if pool.len() < 32 {
-        pool.push(buf);
-    }
+    recycle_scratch_rgba(buf);
 }
 
 #[cfg(feature = "pro")]
@@ -90,11 +160,7 @@ pub(super) fn take_pooled_yuv_buffer(needed: usize) -> Vec<u8> {
 #[cfg(feature = "pro")]
 pub(super) fn take_pooled_pixmap(base: &Pixmap) -> Option<Pixmap> {
     let needed = base.data().len();
-    let mut buf = {
-        let mut pool = GLOBAL_RGBA_POOL.lock().unwrap();
-        let pos = pool.iter().position(|b| b.len() == needed)?;
-        pool.swap_remove(pos)
-    };
+    let mut buf = take_scratch_rgba(needed, false);
     buf.copy_from_slice(base.data());
     let size = tiny_skia::IntSize::from_wh(base.width(), base.height())?;
     Pixmap::from_vec(buf, size)
@@ -116,9 +182,9 @@ pub fn clear_render_caches() {
     GLOBAL_WARP_CACHE.write().unwrap().clear();
     GLOBAL_SHADOW_CACHE.write().unwrap().clear();
     GLOBAL_FRAME_DEDUP_CACHE.write().unwrap().clear();
+    THREAD_RGBA_POOL.with(|cell| cell.borrow_mut().clear());
     #[cfg(feature = "pro")]
     {
-        GLOBAL_RGBA_POOL.lock().unwrap().clear();
         GLOBAL_FRAME_POOL.lock().unwrap().clear();
     }
     text::clear_text_raster_cache();
@@ -190,6 +256,12 @@ where
         };
         if needs_init {
             let mut fs = FontSystem::new();
+            fs.db_mut().load_font_data(
+                include_bytes!("../../assets/fonts/allo/Allo-Regular.otf").to_vec(),
+            );
+            fs.db_mut().load_font_data(
+                include_bytes!("../../assets/fonts/allo/Allo-Bold.otf").to_vec(),
+            );
             for font_bytes in &assets.fonts {
                 fs.db_mut().load_font_data(font_bytes.clone());
             }
