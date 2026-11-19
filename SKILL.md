@@ -1,6 +1,11 @@
 ---
 name: rustren
 description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for 3D, live streaming, or editing existing video timelines frame-by-frame in a GUI.
+metadata:
+  skill_version: "1.0.0"
+  rustren_version: "0.3.0"
+  schema_version: "1.1"
+  renderer_version: "1.1"
 ---
 
 # rustren — AI Agent Skill
@@ -20,6 +25,22 @@ rustren capabilities       # JSON: supported elements, easings, animation proper
 
 If `rustren` is not on PATH, build it: `cargo build --release` (binary at `./target/release/rustren`).
 Always run `rustren capabilities` before using a feature you are unsure about. It is the source of truth.
+
+### Version check (do this once per session)
+
+This skill was written for the versions in the frontmatter (`metadata:` block at the top of this file): `rustren_version`, `schema_version`, `renderer_version`.
+
+```bash
+rustren --version                                   # compare with metadata.rustren_version
+rustren capabilities | grep -E '"(renderer|schema)_version"'   # compare with metadata.*_version
+```
+
+- **Same versions**: trust this file.
+- **Installed rustren is newer** (higher `schema_version` or `renderer_version`): this file may be missing features or describe old behavior. Prefer `rustren capabilities`, [schema.json](schema.json), and `rustren validate` output over this file when they disagree, and tell the user the skill looks outdated.
+- **Installed rustren is older** (lower than the frontmatter): features described here may not exist. Rely on `rustren capabilities` and tell the user to upgrade.
+- If a command or flag in this file errors with "unexpected argument", run `rustren <command> --help` and follow that instead.
+
+Versioning scheme of this file (`skill_version`): bump the patch for wording fixes, the minor for new recipes or sections, the major when the workflow or commands change incompatibly. Changes are recorded in the changelog at the bottom.
 
 ## 2. The golden loop (always follow this order)
 
@@ -194,3 +215,7 @@ Asset downloads are cached on disk (`--cache-dir`, default `.rustren_cache`). Re
 - Tell the user the exact output path and show a snapshot or contact sheet, not only "done".
 - Report what you actually ran and its result. If `validate` printed warnings you chose not to fix, say so.
 - Do not commit generated MP4/PNG files unless asked.
+
+## Changelog
+
+- **1.0.0** (rustren 0.3.0, schema 1.1): first release. Golden loop, command cheat sheet, authoring rules, motion-comic and explainer recipes, cache-aware authoring, debugging playbook, version check.

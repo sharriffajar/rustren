@@ -16,6 +16,49 @@ fn pixel_at(buf: &[u8], width: u32, x: u32, y: u32) -> [u8; 4] {
     [buf[idx], buf[idx + 1], buf[idx + 2], buf[idx + 3]]
 }
 
+/// Guards against `SKILL.md` drifting from the code. If this fails, update the
+/// `metadata:` block in SKILL.md (and its changelog) after reviewing the skill content.
+#[test]
+fn test_skill_md_versions_match_code() {
+    let skill = include_str!("../SKILL.md");
+    let front = skill
+        .strip_prefix("---\n")
+        .or_else(|| skill.strip_prefix("---\r\n"))
+        .and_then(|rest| rest.split("\n---").next())
+        .expect("SKILL.md must start with a --- frontmatter block");
+
+    let field = |key: &str| -> String {
+        front
+            .lines()
+            .map(str::trim)
+            .find_map(|l| l.strip_prefix(&format!("{key}:")))
+            .map(|v| v.trim().trim_matches('"').to_string())
+            .unwrap_or_else(|| panic!("SKILL.md frontmatter missing `{key}`"))
+    };
+
+    assert_eq!(
+        field("rustren_version"),
+        env!("CARGO_PKG_VERSION"),
+        "SKILL.md metadata.rustren_version is stale vs Cargo.toml version"
+    );
+    assert_eq!(
+        field("schema_version"),
+        crate::capabilities::SCHEMA_VERSION,
+        "SKILL.md metadata.schema_version is stale vs capabilities::SCHEMA_VERSION"
+    );
+    assert_eq!(
+        field("renderer_version"),
+        crate::capabilities::RENDERER_VERSION,
+        "SKILL.md metadata.renderer_version is stale vs capabilities::RENDERER_VERSION"
+    );
+
+    let skill_version = field("skill_version");
+    assert!(
+        skill.contains(&format!("**{skill_version}**")),
+        "SKILL.md changelog has no entry for skill_version {skill_version}"
+    );
+}
+
 #[test]
 fn test_schema_and_capabilities_alignment() {
     let schema_raw = include_str!("../schema.json");
