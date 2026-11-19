@@ -94,7 +94,7 @@ Supported tags: `scene`, `profiles`, `profile`, `fonts`, `font`, `audio-tracks`,
 6. **Time**: animation `start`/`end` are in seconds on the global clock unless the container has `timeline="local"` or `"series"`. Layer `end` is inclusive; for a hard cut use `next_start - 1/fps`.
 7. **Fade whole groups**: container `opacity` does not cascade by default. Set `cascade-opacity="true"` (HTML) / `"cascade_opacity": true` (JSON) on the container (and nested containers) to fade a whole scene together.
 8. **Missing assets fail the render** with a non-zero exit code (`image`, `video`, `svg`, `audio`, `fonts`). Prefer local paths. Remote URLs are fetched with SSRF protection and are flagged by `validate --strict-determinism`.
-9. **Cache-friendly authoring** (faster renders): put static backgrounds first; prefer animating `opacity`, `x`, `y`, `rotation`; avoid animating SVG `width`, `path_progress`, or text `scale` unless needed. `render --profile` prints cache hit rates and the slowest layers.
+9. **Cache-friendly authoring** (faster renders): see the "Cache-aware authoring" section below for the full checklist. Short version: static backgrounds first, animate `opacity`/`x`/`y`/`rotation`, reuse identical `src` strings, and check `render --profile`.
 10. **Safe sizes for 9:16 (1080x1920)**: keep body text >= 28px and keep key content inside the safe area. `validate` warns on font_size < 14.
 
 ## 6. Reading `validate` output
@@ -153,14 +153,43 @@ Look in [examples/](examples/) first and copy the closest file instead of writin
 | Render fails immediately | Read stderr: usually a missing asset path, unknown field, or `ffmpeg` not on PATH. |
 | Output differs from before | `rustren diff old.html new.html --t <sec>`. |
 
-## 10. Machine interfaces
+## 10. Cache-aware authoring (faster renders, same output)
+
+`rustren` caches aggressively. Write scenes that let the caches hit. Authoritative table: "Cache Engine" in [SCHEMA.md](SCHEMA.md).
+
+| Cache | Do this (hit) | Avoid this (miss) |
+|---|---|---|
+| Static background snapshot | Put 100% static layers (no animations, no `video`, active the whole duration) at the **start** of the layer list | An animated layer at index 0 stops the static prefix from being detected |
+| Blurred layer | `blur` without `shadow` on a root layer; animate only `opacity` | `shadow` with blur, blur inside a `container`, animating `x`/`y`/`width`/`height` |
+| SVG raster | Static `svg`; animating `x`, `y`, `rotation`, `opacity` still hits | Animating SVG `width`/`height`, `path_progress`, `stroke_dashoffset` |
+| SVG tree | Repeat the same inline SVG or `src` freely | n/a |
+| Asset store | Reuse the **exact same `src` string** so media is decoded once | Slightly different paths/URLs for the same file |
+| Text / glyph | Animate text `opacity`, `x`, `y` | Animating text `scale` (re-rasterizes glyphs every frame) |
+| Whole-frame dedup (Pro build) | Hold frames where nothing changes | Constant tiny motion everywhere |
+
+How to verify it worked:
+
+```bash
+rustren render scene.html -o out.mp4 --profile
+```
+
+`--profile` prints hit/miss counts per cache and the slowest root layers (cumulative CPU time). Typical reading:
+- Low hit rate on a cache means one of the "avoid" rows above applies to the top layers. Fix those first.
+- One root layer dominating CPU time is usually a very large `image`, a heavy `blur`, or an animated SVG. Reduce source size, simplify, or split static from animated parts.
+- `static_prefix_skipped: 0/N` means no static prefix was detected; move static layers to the top of the list.
+
+Cache-friendly trade-off: do not contort the creative design to chase hit rates. Only restructure when `--profile` shows a real bottleneck.
+
+Asset downloads are cached on disk (`--cache-dir`, default `.rustren_cache`). Reuse the same cache directory across runs; do not commit it.
+
+## 11. Machine interfaces
 
 - **CLI**: every command above; use exit codes (`0` ok, non-zero failure).
 - **MCP**: `rustren mcp` starts a stdio JSON-RPC server (Model Context Protocol) so an agent can call tools without shelling out.
 - **HTTP**: `rustren serve --host 0.0.0.0 --port 8080` with `RUSTREN_API_KEY` set; queue-based render service.
 - **Discovery**: `rustren capabilities` (JSON), [schema.json](schema.json) (JSON Schema).
 
-## 11. Output etiquette for agents
+## 12. Output etiquette for agents
 
 - Tell the user the exact output path and show a snapshot or contact sheet, not only "done".
 - Report what you actually ran and its result. If `validate` printed warnings you chose not to fix, say so.
