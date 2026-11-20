@@ -17,15 +17,15 @@ AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Pr
 
 - **Source JSON:** [examples/showreel.json](examples/showreel.json) (`93` root layers, `16` scenes including 2.5D spatial cards, isometric bento, card flips, surface shaders, and finale)
 - **Output MP4:** [assets/showreel.mp4](assets/showreel.mp4) (`1280×720 @ 30fps`, `60.0s` / `1,800` frames, `--crf 18 --preset ultrafast`)
-- **Hardware:** `4 vCPU` Intel Xeon E5-2630 v4 @ 2.20GHz, `15 GiB` RAM (CPU-only, no GPU)
+- **Hardware:** `8 vCPU` Intel Xeon E5-2630 v4 @ 2.20GHz, `15 GiB` RAM (CPU-only, no GPU)
 
 | Metric | Measured (`examples/showreel.json`) |
 | :--- | :--- |
-| **Render Time (Wall Clock)** | `8.24s` |
-| **Average Speed** | `218.4 fps` (`7.28×` real-time) |
-| **MP4 File Size** | `7.3 MB` |
-| **Duration / Frame** | `4.58 ms / frame` |
-| **Frame Dedup Cache Hit** | `66.7%` (`1,201 hits / 599 misses`) |
+| **Render Time (Wall Clock)** | `6.59s` |
+| **Average Speed** | `273.1 fps` (`9.10×` real-time) |
+| **MP4 File Size** | `7.8 MB` |
+| **Duration / Frame** | `3.66 ms / frame` |
+| **Frame Dedup Cache Hit** | `66.7%` (`1,200 hits / 600 misses`) |
 
 https://github.com/user-attachments/assets/7089ed1a-c188-4d1b-9f3a-ac08d2ca9e64
 
