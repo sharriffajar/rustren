@@ -34,7 +34,8 @@ use self::cache::{
     MAX_FRAME_DEDUP_CACHE_ENTRIES,
 };
 use self::cache::{
-    return_fx_scratch_pixmap, take_fx_scratch_pixmap, take_pooled_pixmap, with_thread_font_system,
+    cache_disabled, return_fx_scratch_pixmap, take_fx_scratch_pixmap, take_pooled_pixmap,
+    with_thread_font_system,
     BLUR_CACHE_HITS, BLUR_CACHE_MISSES, GLOBAL_BLUR_CACHE, GLOBAL_SHADOW_CACHE, GLOBAL_WARP_CACHE,
     MAX_BLUR_CACHE_ENTRIES, MAX_SHADOW_CACHE_ENTRIES, MAX_SVG_RASTER_CACHE_ENTRIES,
     MAX_WARP_CACHE_ENTRIES, SVG_CACHE_HITS, SVG_CACHE_MISSES, THREAD_SIG_BUF, THREAD_SVG_CACHE,
@@ -53,7 +54,7 @@ use crate::schema::{
 use self::fx::{
     apply_surface_effects_cropped, build_shadow_pixmap_cropped, can_use_blur_cache,
     combine_shadow_and_foreground, crop_pixmap_padded, fast_blur_rgba,
-    find_alpha_bounds, finished_cursor_blink_signature, is_extrinsic_pose_prop,
+    find_alpha_bounds, finished_cursor_blink_signature, hash_silhouette_alpha, is_extrinsic_pose_prop,
     layer_base_opacity, layer_pose_offset_and_scale, map_blend_mode, set_layer_base_scale,
     set_layer_opacity, splitmix64, warp_perspective_3d_cropped,
 };
@@ -949,24 +950,31 @@ fn render_layer_scoped(
             let blink_sig = finished_cursor_blink_signature(layer, time_sec);
             let _ = write!(
                 &mut *buf,
-                "{:?}|{:?}|{:?}|{:.3}|{:.3}|{:.3}|{:?}|{:.3}|{:.3}|{}|{:x}|",
+                "{:?}|{:?}|{:?}|{:x}|{:x}|{:x}|{:?}|{:x}|{:x}|{}|{:x}|",
                 layer.kind,
                 layer.position,
                 layer.anchor,
-                layer.skew_x,
-                layer.skew_y,
-                layer.blur,
+                layer.skew_x.to_bits(),
+                layer.skew_y.to_bits(),
+                layer.blur.to_bits(),
                 layer.shadow,
-                layer.vignette,
-                layer.halftone,
+                layer.vignette.to_bits(),
+                layer.halftone.to_bits(),
                 layer.animations.len(),
                 blink_sig,
             );
             if let Some(b) = layout_override {
+                // Bit-exact: the cached pixmap is reused verbatim, so a layout box that
+                // differs below 0.001 px must not alias onto the same entry.
                 let _ = write!(
                     &mut *buf,
-                    "{:.3},{:.3},{:.3},{:.3},{:.3},{:.3}",
-                    b.x, b.y, b.w, b.h, b.parent_x, b.parent_y
+                    "{:x},{:x},{:x},{:x},{:x},{:x}",
+                    b.x.to_bits(),
+                    b.y.to_bits(),
+                    b.w.to_bits(),
+                    b.h.to_bits(),
+                    b.parent_x.to_bits(),
+                    b.parent_y.to_bits()
                 );
             }
             hash_bytes_fnv1a(buf.as_bytes())
@@ -974,8 +982,12 @@ fn render_layer_scoped(
         let key = (sig_hash, pw, ph);
 
         let cached = {
-            let guard = GLOBAL_BLUR_CACHE.read().unwrap_or_else(|e| e.into_inner());
-            guard.get(&key).cloned()
+            if cache_disabled("blur") {
+                None
+            } else {
+                let guard = GLOBAL_BLUR_CACHE.read().unwrap_or_else(|e| e.into_inner());
+                guard.get(&key).cloned()
+            }
         };
 
         let entry = if let Some(hit) = cached {
@@ -1054,7 +1066,7 @@ fn render_layer_scoped(
                 None
             };
             return_fx_scratch_pixmap(layer_pixmap, bounds);
-            {
+            if !cache_disabled("blur") {
                 let mut guard = GLOBAL_BLUR_CACHE.write().unwrap_or_else(|e| e.into_inner());
                 if guard.len() >= MAX_BLUR_CACHE_ENTRIES {
                     guard.clear();
@@ -1076,16 +1088,24 @@ fn render_layer_scoped(
                 quality: FilterQuality::Nearest,
             };
             if has_3d {
+                // Bit-exact pose key: rounded quantisation aliased subtly different
+                // rotations onto one cached warp, so a cache hit could emit different
+                // pixels than the uncached path. Identical pose floats still hit, which
+                // is the case this cache exists for (static 3D layers).
                 let wkey = (
                     sig_hash,
-                    (rot_x * 20.0).round() as i32,
-                    (rot_y * 20.0).round() as i32,
-                    persp.round() as i32,
-                    (eff_scale * 200.0).round() as i32,
+                    rot_x.to_bits(),
+                    rot_y.to_bits(),
+                    persp.to_bits(),
+                    eff_scale.to_bits(),
                 );
                 let warped_cached = {
-                    let guard = GLOBAL_WARP_CACHE.read().unwrap_or_else(|e| e.into_inner());
-                    guard.get(&wkey).cloned()
+                    if cache_disabled("warp") {
+                        None
+                    } else {
+                        let guard = GLOBAL_WARP_CACHE.read().unwrap_or_else(|e| e.into_inner());
+                        guard.get(&wkey).cloned()
+                    }
                 };
                 let warped_entry = if let Some(hit) = warped_cached {
                     hit
@@ -1105,7 +1125,7 @@ fn render_layer_scoped(
                         ph,
                     )?
                     .map(|(pm, wx, wy)| (Arc::new(pm), wx, wy));
-                    {
+                    if !cache_disabled("warp") {
                         let mut guard = GLOBAL_WARP_CACHE.write().unwrap_or_else(|e| e.into_inner());
                         if guard.len() >= MAX_WARP_CACHE_ENTRIES {
                             guard.clear();
@@ -1196,6 +1216,7 @@ fn render_layer_scoped(
                         eff_rad.to_bits(),
                         hash_bytes_fnv1a(sh.color.as_bytes()),
                         sh.blur.to_bits(),
+                        hash_silhouette_alpha(&layer_pixmap, x0, y0, x1, y1),
                     ))
                 }
                 LayerKind::Rect {
@@ -1208,6 +1229,7 @@ fn render_layer_scoped(
                         eff_rad.to_bits(),
                         hash_bytes_fnv1a(sh.color.as_bytes()),
                         sh.blur.to_bits(),
+                        hash_silhouette_alpha(&layer_pixmap, x0, y0, x1, y1),
                     ))
                 }
                 _ => None,
@@ -1216,7 +1238,12 @@ fn render_layer_scoped(
             None
         };
 
-        let cached_sh = silhouette_key.and_then(|k| GLOBAL_SHADOW_CACHE.read().unwrap_or_else(|e| e.into_inner()).get(&k).cloned());
+        let cached_sh = if cache_disabled("shadow") {
+            None
+        } else {
+            silhouette_key
+                .and_then(|k| GLOBAL_SHADOW_CACHE.read().unwrap_or_else(|e| e.into_inner()).get(&k).cloned())
+        };
         let pad = if sh.blur > 0.0 {
             (sh.blur * 1.6).ceil() as i32 + 2
         } else {
@@ -1232,7 +1259,9 @@ fn render_layer_scoped(
             let (sh_pm, sx, sy) =
                 build_shadow_pixmap_cropped(&layer_pixmap, x0, y0, x1, y1, &sh.color, sh.blur)?;
             let sh_arc = Arc::new(sh_pm);
-            if let Some(k) = silhouette_key {
+            if let Some(k) = silhouette_key
+                && !cache_disabled("shadow")
+            {
                 let mut guard = GLOBAL_SHADOW_CACHE.write().unwrap_or_else(|e| e.into_inner());
                 if guard.len() >= MAX_SHADOW_CACHE_ENTRIES {
                     guard.clear();
@@ -1784,7 +1813,7 @@ fn render_layer_inner(
                     let raster_key = (svg_key.0, svg_key.1, pw, ph);
                     return THREAD_SVG_RASTER_CACHE.with(|rcell| -> Result<()> {
                         let mut rcache = rcell.borrow_mut();
-                        if !rcache.contains_key(&raster_key) {
+                        if cache_disabled("svg") || !rcache.contains_key(&raster_key) {
                             SVG_CACHE_MISSES.fetch_add(1, Ordering::Relaxed);
                             let mut svg_pixmap = Pixmap::new(pw, ph).ok_or_else(|| {
                                 anyhow!("Failed to allocate SVG pixmap {}x{}", pw, ph)

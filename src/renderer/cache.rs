@@ -20,6 +20,39 @@ pub(super) const MAX_SVG_RASTER_CACHE_ENTRIES: usize = 512;
 #[cfg(feature = "pro")]
 pub(super) const MAX_FRAME_DEDUP_CACHE_ENTRIES: usize = 16;
 
+/// Cache kill-switches for bisecting hit-vs-miss divergence.
+///
+/// `RUSTREN_DISABLE_CACHES=1` (or `all`) turns every cross-frame pixmap cache into a
+/// pure pass-through; `RUSTREN_DISABLE_CACHES=blur,warp,shadow,text,svg` disables only
+/// the named ones. With a cache disabled every frame takes the fresh path, so if two
+/// thread counts then render identically, that cache's hit path is not pixel-exact.
+pub(super) fn cache_disabled(name: &str) -> bool {
+    use std::sync::OnceLock;
+    static SPEC: OnceLock<(bool, Vec<String>)> = OnceLock::new();
+    let (all, names) = SPEC.get_or_init(|| {
+        let raw = std::env::var("RUSTREN_DISABLE_CACHES").unwrap_or_default();
+        if raw.is_empty() || raw == "0" {
+            return (false, Vec::new());
+        }
+        if raw == "1" || raw.eq_ignore_ascii_case("all") {
+            return (true, Vec::new());
+        }
+        (
+            false,
+            raw.split(',')
+                .map(|s| s.trim().to_ascii_lowercase())
+                .filter(|s| !s.is_empty())
+                .collect(),
+        )
+    });
+    *all || names.iter().any(|n| n == name)
+}
+
+#[allow(dead_code)]
+pub(super) fn caches_disabled() -> bool {
+    cache_disabled("any")
+}
+
 pub(super) static SVG_CACHE_HITS: AtomicU64 = AtomicU64::new(0);
 pub(super) static SVG_CACHE_MISSES: AtomicU64 = AtomicU64::new(0);
 pub(super) static BLUR_CACHE_HITS: AtomicU64 = AtomicU64::new(0);
@@ -33,11 +66,11 @@ pub(super) static GLOBAL_BLUR_CACHE: LazyLock<RwLock<HashMap<(u64, u32, u32), Pr
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
 pub(super) static GLOBAL_WARP_CACHE: LazyLock<
-    RwLock<HashMap<(u64, i32, i32, i32, i32), Option<(Arc<Pixmap>, i32, i32)>>>,
+    RwLock<HashMap<(u64, u32, u32, u32, u32), Option<(Arc<Pixmap>, i32, i32)>>>,
 > = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 pub(super) static GLOBAL_SHADOW_CACHE: LazyLock<
-    RwLock<HashMap<(u32, u32, u32, u64, u32), Arc<Pixmap>>>,
+    RwLock<HashMap<(u32, u32, u32, u64, u32, u64), Arc<Pixmap>>>,
 > = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 pub(super) static GLOBAL_FRAME_DEDUP_CACHE: LazyLock<RwLock<HashMap<u64, Arc<Vec<u8>>>>> =

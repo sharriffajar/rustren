@@ -767,11 +767,15 @@ pub(super) fn render_text_layer(
         mh,
     );
 
-    let cached = GLOBAL_TEXT_RASTER_CACHE
-        .read()
-        .unwrap_or_else(|e| e.into_inner())
-        .get(&cache_key)
-        .cloned();
+    let cached = if super::cache::cache_disabled("text") {
+        None
+    } else {
+        GLOBAL_TEXT_RASTER_CACHE
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&cache_key)
+            .cloned()
+    };
     let entry: TextRasterEntry = if let Some(hit) = cached {
         TEXT_CACHE_HITS.fetch_add(1, Ordering::Relaxed);
         hit
@@ -954,11 +958,13 @@ pub(super) fn render_text_layer(
             Some((Arc::new(final_pm), -(pad as f32), -(pad as f32), false))
         };
 
-        let mut guard = GLOBAL_TEXT_RASTER_CACHE.write().unwrap_or_else(|e| e.into_inner());
-        if guard.len() >= MAX_TEXT_RASTER_CACHE_ENTRIES {
-            guard.clear();
+        if !super::cache::cache_disabled("text") {
+            let mut guard = GLOBAL_TEXT_RASTER_CACHE.write().unwrap_or_else(|e| e.into_inner());
+            if guard.len() >= MAX_TEXT_RASTER_CACHE_ENTRIES {
+                guard.clear();
+            }
+            guard.insert(cache_key, built.clone());
         }
-        guard.insert(cache_key, built.clone());
         built
     };
 

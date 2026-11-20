@@ -264,6 +264,31 @@ pub(super) fn crop_pixmap_padded(
     Ok((out, x0 as i32 - pad as i32, y0 as i32 - pad as i32))
 }
 
+/// FNV-1a hash over the alpha channel of the `[x0..x1, y0..y1]` region.
+///
+/// Used as part of the shadow-cache key: anti-aliased edges make two frames with the
+/// *same* integer alpha bounds have *different* coverage. Keying on bounds alone let a
+/// frame reuse a silhouette built from another frame's edge coverage, which produced
+/// ±1..4 RGB drift that depended on thread scheduling. Hashing the mask makes the key
+/// imply an identical silhouette.
+pub(super) fn hash_silhouette_alpha(src: &Pixmap, x0: u32, y0: u32, x1: u32, y1: u32) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let sw = src.width() as usize;
+    let data = src.data();
+    let cx1 = (x1 as usize).min(sw);
+    let cx0 = (x0 as usize).min(cx1);
+    let rows = (y1 as usize).min(src.height() as usize);
+    for y in (y0 as usize)..rows {
+        let base = (y * sw + cx0) * 4;
+        let end = (y * sw + cx1) * 4;
+        for i in (base..end).step_by(4) {
+            h ^= data[i + 3] as u64;
+            h = h.wrapping_mul(0x1000_0000_01b3);
+        }
+    }
+    h
+}
+
 pub(super) fn build_shadow_pixmap_cropped(
     src: &Pixmap,
     x0: u32,
@@ -332,6 +357,51 @@ static GRAIN_LUT_256: std::sync::LazyLock<[i8; 256 * 256]> = std::sync::LazyLock
     lut
 });
 
+/// Per-column lookup tables for surface effects.
+///
+/// Every term the per-pixel loop needs depends only on the column offset inside the
+/// cropped box (or on the box origin plus a per-frame grain offset), never on the row.
+/// Recomputing them for all `w * h` pixels per frame cost ~35 CPU cycles/pixel; building
+/// them once per `(w, bx, grain_ox, step_uv)` keeps the arithmetic identical while
+/// removing the redundant work. Bounded to one entry, so memory stays flat.
+#[derive(Default)]
+struct SurfaceXLut {
+    key: Option<(usize, i32, i32, u32)>,
+    width: usize,
+    vx: Vec<f32>,
+    xstep: Vec<f32>,
+    txs: Vec<usize>,
+}
+
+impl SurfaceXLut {
+    fn ensure(&mut self, w: usize, bx: i32, grain_ox: i32, step_uv: f32) {
+        let key = (w, bx, grain_ox, step_uv.to_bits());
+        if self.key == Some(key) && self.width == w {
+            return;
+        }
+        self.key = Some(key);
+        self.width = w;
+        self.vx.clear();
+        self.xstep.clear();
+        self.txs.clear();
+        self.vx.reserve(w);
+        self.xstep.reserve(w);
+        self.txs.reserve(w);
+        let half_w = (w as f32 * 0.5).max(1.0);
+        for x in 0..w {
+            let nx = (x as f32 + 0.5 - half_w) / half_w;
+            self.vx.push(nx * nx);
+            self.xstep.push(x as f32 * step_uv);
+            self.txs.push(((bx + x as i32 + grain_ox) & 255) as usize);
+        }
+    }
+}
+
+thread_local! {
+    static SURFACE_X_LUT: std::cell::RefCell<SurfaceXLut> =
+        std::cell::RefCell::new(SurfaceXLut::default());
+}
+
 /// Apply deterministic per-pixel surface effects (vignette, halftone, film grain)
 /// strictly within the cropped bounding box `(bx, by, pw, ph)`.
 pub(super) fn apply_surface_effects_cropped(
@@ -348,7 +418,6 @@ pub(super) fn apply_surface_effects_cropped(
     if w == 0 || h == 0 || (grain <= 0.0 && vignette <= 0.0 && halftone <= 0.0) {
         return;
     }
-    let data = pm.data_mut();
     let vig = vignette.clamp(0.0, 1.0);
     let gr = grain.clamp(0.0, 1.0);
     let has_ht = halftone > 0.0;
@@ -358,29 +427,6 @@ pub(super) fn apply_surface_effects_cropped(
     let grain_ox = (frame_hash & 255) as i32;
     let grain_oy = ((frame_hash >> 8) & 255) as i32;
     let lut = &*GRAIN_LUT_256;
-
-    // Pure-integer fast path when only film grain is active.
-    if vig <= 0.0 && !has_ht && gr > 0.0 {
-        let scale_q8 = (gr * 48.0 * 65536.0 / (127.0 * 255.0)).round() as i32;
-        for y in 0..h {
-            let ty = (((by + y as i32 + grain_oy) & 255) as usize) << 8;
-            let row_base = y * w * 4;
-            for x in 0..w {
-                let idx = row_base + x * 4;
-                let a = data[idx + 3];
-                if a == 0 {
-                    continue;
-                }
-                let tx = ((bx + x as i32 + grain_ox) & 255) as usize;
-                let delta = (lut[ty | tx] as i32 * scale_q8 * (a as i32)) / 65536;
-                let ai = a as i32;
-                data[idx] = (data[idx] as i32 + delta).clamp(0, ai) as u8;
-                data[idx + 1] = (data[idx + 1] as i32 + delta).clamp(0, ai) as u8;
-                data[idx + 2] = (data[idx + 2] as i32 + delta).clamp(0, ai) as u8;
-            }
-        }
-        return;
-    }
 
     let cell = if has_ht {
         if halftone <= 1.0 {
@@ -393,66 +439,93 @@ pub(super) fn apply_surface_effects_cropped(
     };
     let step_uv = 0.707_106_77 / cell;
     let ht_scale = cell * 1.5;
-    let half_w = (w as f32 * 0.5).max(1.0);
-    let half_h = (h as f32 * 0.5).max(1.0);
-    let wx0 = bx as f32 + 0.5;
-    let gr_amp = gr * (48.0 / (127.0 * 255.0));
 
-    for y in 0..h {
-        let ny = (y as f32 + 0.5 - half_h) / half_h;
-        let wyf = (by + y as i32) as f32 + 0.5;
-        let u_row = (wx0 + wyf) * step_uv;
-        let v_row = (wyf - wx0) * step_uv;
-        let ty = (((by + y as i32 + grain_oy) & 255) as usize) << 8;
-        let row_base = y * w * 4;
-        for x in 0..w {
-            let idx = row_base + x * 4;
-            let a = data[idx + 3];
-            if a == 0 {
-                continue;
+    SURFACE_X_LUT.with(|cell_ref| {
+        let mut xlut = cell_ref.borrow_mut();
+        xlut.ensure(w, bx, grain_ox, step_uv);
+        let vx: &[f32] = &xlut.vx;
+        let xstep: &[f32] = &xlut.xstep;
+        let txs: &[usize] = &xlut.txs;
+        let data = pm.data_mut();
+
+        // Pure-integer fast path when only film grain is active.
+        if vig <= 0.0 && !has_ht && gr > 0.0 {
+            let scale_q8 = (gr * 48.0 * 65536.0 / (127.0 * 255.0)).round() as i32;
+            for y in 0..h {
+                let ty = (((by + y as i32 + grain_oy) & 255) as usize) << 8;
+                let row = &mut data[y * w * 4..(y + 1) * w * 4];
+                for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                    let a = px[3];
+                    if a == 0 {
+                        continue;
+                    }
+                    let delta = (lut[ty | txs[x]] as i32 * scale_q8 * (a as i32)) / 65536;
+                    let ai = a as i32;
+                    px[0] = (px[0] as i32 + delta).clamp(0, ai) as u8;
+                    px[1] = (px[1] as i32 + delta).clamp(0, ai) as u8;
+                    px[2] = (px[2] as i32 + delta).clamp(0, ai) as u8;
+                }
             }
-            let af = a as f32;
-            let mut r = data[idx] as f32;
-            let mut g = data[idx + 1] as f32;
-            let mut b = data[idx + 2] as f32;
-
-            if vig > 0.0 {
-                let nx = (x as f32 + 0.5 - half_w) / half_w;
-                let r2 = (nx * nx + ny * ny) * 0.5;
-                let factor = (1.0 - vig * (r2 * 0.75).clamp(0.0, 1.0)).clamp(0.0, 1.0);
-                r *= factor;
-                g *= factor;
-                b *= factor;
-            }
-
-            if has_ht {
-                let xf = x as f32;
-                let u = u_row + xf * step_uv;
-                let v = v_row - xf * step_uv;
-                let fx = u - u.floor() - 0.5;
-                let fy = v - v.floor() - 0.5;
-                let dist = (fx * fx + fy * fy).sqrt() * std::f32::consts::SQRT_2;
-                let luma = ((0.299 * r + 0.587 * g + 0.114 * b) / af).clamp(0.0, 1.0);
-                let dot_r = luma.sqrt() * 0.95;
-                let cov = ((dot_r - dist) * ht_scale + 0.5).clamp(0.15, 1.0);
-                r *= cov;
-                g *= cov;
-                b *= cov;
-            }
-
-            if gr > 0.0 {
-                let tx = ((bx + x as i32 + grain_ox) & 255) as usize;
-                let delta = (lut[ty | tx] as f32) * gr_amp * af;
-                r = (r + delta).clamp(0.0, af);
-                g = (g + delta).clamp(0.0, af);
-                b = (b + delta).clamp(0.0, af);
-            }
-
-            data[idx] = r.round().clamp(0.0, af) as u8;
-            data[idx + 1] = g.round().clamp(0.0, af) as u8;
-            data[idx + 2] = b.round().clamp(0.0, af) as u8;
+            return;
         }
-    }
+
+        let half_h = (h as f32 * 0.5).max(1.0);
+        let wx0 = bx as f32 + 0.5;
+        let gr_amp = gr * (48.0 / (127.0 * 255.0));
+
+        for y in 0..h {
+            let ny = (y as f32 + 0.5 - half_h) / half_h;
+            let ny_sq = ny * ny;
+            let wyf = (by + y as i32) as f32 + 0.5;
+            let u_row = (wx0 + wyf) * step_uv;
+            let v_row = (wyf - wx0) * step_uv;
+            let ty = (((by + y as i32 + grain_oy) & 255) as usize) << 8;
+            let row = &mut data[y * w * 4..(y + 1) * w * 4];
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let a = px[3];
+                if a == 0 {
+                    continue;
+                }
+                let af = a as f32;
+                let mut r = px[0] as f32;
+                let mut g = px[1] as f32;
+                let mut b = px[2] as f32;
+
+                if vig > 0.0 {
+                    let r2 = (vx[x] + ny_sq) * 0.5;
+                    let factor = (1.0 - vig * (r2 * 0.75).clamp(0.0, 1.0)).clamp(0.0, 1.0);
+                    r *= factor;
+                    g *= factor;
+                    b *= factor;
+                }
+
+                if has_ht {
+                    let u = u_row + xstep[x];
+                    let v = v_row - xstep[x];
+                    let fx = u - u.floor() - 0.5;
+                    let fy = v - v.floor() - 0.5;
+                    let dist = (fx * fx + fy * fy).sqrt() * std::f32::consts::SQRT_2;
+                    let luma = ((0.299 * r + 0.587 * g + 0.114 * b) / af).clamp(0.0, 1.0);
+                    let dot_r = luma.sqrt() * 0.95;
+                    let cov = ((dot_r - dist) * ht_scale + 0.5).clamp(0.15, 1.0);
+                    r *= cov;
+                    g *= cov;
+                    b *= cov;
+                }
+
+                if gr > 0.0 {
+                    let delta = (lut[ty | txs[x]] as f32) * gr_amp * af;
+                    r = (r + delta).clamp(0.0, af);
+                    g = (g + delta).clamp(0.0, af);
+                    b = (b + delta).clamp(0.0, af);
+                }
+
+                px[0] = r.round().clamp(0.0, af) as u8;
+                px[1] = g.round().clamp(0.0, af) as u8;
+                px[2] = b.round().clamp(0.0, af) as u8;
+            }
+        }
+    });
 }
 
 /// Perform exact analytical ray-plane inverse homography warp for 2.5D `scale`, `rotate_x`,
