@@ -30,14 +30,31 @@ AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Pr
 <details>
 <summary><strong>Preset Scaling Curve (<code>--crf 18</code>, 60s / 1,800 frames)</strong></summary>
 
+<p align="center">
+  <strong>Render time by preset</strong> (seconds, lower = faster)
+</p>
+
 ```mermaid
 xychart-beta
-    title "Preset vs Render Time (s) & MP4 Size (MB) — 60s 720p30 @ CRF 18"
+    title "Render Time by Preset (seconds) — 60s 720p30 @ CRF 18"
     x-axis [ultrafast, superfast, veryfast, faster, fast, medium]
-    y-axis "Seconds / MB" 0 --> 13
+    y-axis "Render time (s)" 0 --> 13
     line [6.59, 6.79, 8.09, 9.59, 10.27, 11.71]
+```
+
+<p align="center">
+  <strong>MP4 file size by preset</strong> (MB, lower = smaller)
+</p>
+
+```mermaid
+xychart-beta
+    title "MP4 File Size by Preset (MB) — 60s 720p30 @ CRF 18"
+    x-axis [ultrafast, superfast, veryfast, faster, fast, medium]
+    y-axis "File size (MB)" 0 --> 9
     line [7.8, 3.4, 1.9, 2.0, 2.1, 2.2]
 ```
+
+> Measured on `examples/showreel.json`, one run per preset, so differences of a few percent are within run-to-run noise. Read the two charts together: `veryfast` is the best trade-off here — it renders faster than `faster`/`fast`/`medium` **and** produces the smallest file (`1.9 MB`), while `ultrafast`/`superfast` render slightly faster but at a much larger file size.
 
 | Preset | Render Time | Average Speed | MP4 File Size |
 | :--- | :--- | :--- | :--- |
