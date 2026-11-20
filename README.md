@@ -30,6 +30,15 @@ AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Pr
 <details>
 <summary><strong>Preset Scaling Curve (<code>--crf 18</code>, 60s / 1,800 frames)</strong></summary>
 
+```mermaid
+xychart-beta
+    title "Preset vs Render Time (s) & MP4 Size (MB) — 60s 720p30 @ CRF 18"
+    x-axis [ultrafast, superfast, veryfast, faster, fast, medium]
+    y-axis "Render Time (s) [bar]  /  File Size (MB) [line]" 0 --> 13
+    bar [6.59, 6.79, 8.09, 9.59, 10.27, 11.71]
+    line [7.8, 3.4, 1.9, 2.0, 2.1, 2.2]
+```
+
 | Preset | Render Time | Average Speed | MP4 File Size |
 | :--- | :--- | :--- | :--- |
 | `ultrafast` | `6.59s` | `273.1 fps` (`9.10×`) | `7.8 MB` |
