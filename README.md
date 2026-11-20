@@ -16,15 +16,15 @@ AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Pr
 **100% Rust, no browser. `JSON / HTML in → MP4 out.`**
 
 - **Source JSON:** [examples/showreel.json](examples/showreel.json) (`93` root layers, `16` scenes including 2.5D spatial cards, isometric bento, card flips, surface shaders, and finale)
-- **Output MP4:** [assets/showreel.mp4](assets/showreel.mp4) (`1280×720 @ 30fps`, `60.0s` / `1,800` frames, `--crf 18 --preset ultrafast`)
+- **Output MP4:** [assets/showreel.mp4](assets/showreel.mp4) (`1280×720 @ 30fps`, `60.0s` / `1,800` frames, default `--crf 18 --preset medium`)
 - **Hardware:** `8 vCPU` Intel Xeon E5-2630 v4 @ 2.20GHz, `15 GiB` RAM (CPU-only, no GPU)
 
-| Metric | Measured (`examples/showreel.json`) |
+| Metric | Measured (`--preset medium --crf 18`) |
 | :--- | :--- |
-| **Render Time (Wall Clock)** | `6.59s` |
-| **Average Speed** | `273.1 fps` (`9.10×` real-time) |
-| **MP4 File Size** | `7.8 MB` |
-| **Duration / Frame** | `3.66 ms / frame` |
+| **Render Time (Wall Clock)** | `11.71s` *(or `8.09s` on `veryfast`, `6.59s` on `ultrafast`)* |
+| **Average Speed** | `153.7 fps` (`5.12×` real-time) |
+| **MP4 File Size** | `2.2 MB` |
+| **Duration / Frame** | `6.51 ms / frame` |
 | **Frame Dedup Cache Hit** | `66.7%` (`1,200 hits / 600 misses`) |
 
 https://github.com/user-attachments/assets/7089ed1a-c188-4d1b-9f3a-ac08d2ca9e64
