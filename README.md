@@ -27,6 +27,20 @@ AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Pr
 | **Duration / Frame** | `6.51 ms / frame` |
 | **Frame Dedup Cache Hit** | `66.7%` (`1,200 hits / 600 misses`) |
 
+<details>
+<summary><strong>Preset Scaling Curve (<code>--crf 18</code>, 60s / 1,800 frames)</strong></summary>
+
+| Preset | Render Time | Average Speed | MP4 File Size |
+| :--- | :--- | :--- | :--- |
+| `ultrafast` | `6.59s` | `273.1 fps` (`9.10×`) | `7.8 MB` |
+| `superfast` | `6.79s` | `265.1 fps` (`8.84×`) | `3.4 MB` |
+| `veryfast` | `8.09s` | `222.5 fps` (`7.42×`) | `1.9 MB` |
+| `faster` | `9.59s` | `187.7 fps` (`6.26×`) | `2.0 MB` |
+| `fast` | `10.27s` | `175.3 fps` (`5.84×`) | `2.1 MB` |
+| `medium` *(default)* | `11.71s` | `153.7 fps` (`5.12×`) | `2.2 MB` |
+
+</details>
+
 https://github.com/user-attachments/assets/7089ed1a-c188-4d1b-9f3a-ac08d2ca9e64
 
 > Full 60s `1280×720 @ 30fps` MP4: [assets/showreel.mp4](assets/showreel.mp4)
