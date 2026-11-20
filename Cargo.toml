@@ -10,6 +10,7 @@ keywords = ["video", "render", "2d", "json", "ffmpeg"]
 categories = ["multimedia::video", "command-line-utilities"]
 exclude = [
     "assets/showreel.mp4",
+    "assets/showreel.gif",
     "assets/showreel_sheet.png",
     "assets/logo.png",
     "examples/",

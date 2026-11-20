@@ -27,7 +27,9 @@ AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Pr
 | **Duration / Frame** | `4.58 ms / frame` |
 | **Frame Dedup Cache Hit** | `66.7%` (`1,201 hits / 599 misses`) |
 
-<video src="assets/showreel.mp4" controls muted playsinline width="720"></video>
+![Rustren 60s Showreel Preview (4x timelapse)](assets/showreel.gif)
+
+> Full 60s `1280×720 @ 30fps` MP4: [assets/showreel.mp4](assets/showreel.mp4)
 
 ## Zero-Encode Preview (`snapshot` & `layout`) — AI One-Shot Loop
 Unlike traditional video pipelines that force you to encode a full MP4 just to check alignment, `rustren` lets AI agents and developers inspect any timestamp in milliseconds:
