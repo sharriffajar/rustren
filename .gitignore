@@ -28,3 +28,6 @@ hyperframes-catalog/
 crates/rustren-pro/
 examples/showcase_*.html
 examples/components/
+
+# Local experiment / scratch workspaces
+work/
