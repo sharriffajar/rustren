@@ -365,7 +365,7 @@ pub fn render_frame_arc_with_base_profiled(
     let time_sec = frame_idx as f32 / scene.canvas.fps as f32;
     let sig = compute_frame_temporal_signature(scene, time_sec, static_prefix_len);
     if let Some(key) = sig
-        && let Some(cached) = GLOBAL_FRAME_DEDUP_CACHE.read().unwrap().get(&key).cloned() {
+        && let Some(cached) = GLOBAL_FRAME_DEDUP_CACHE.read().unwrap_or_else(|e| e.into_inner()).get(&key).cloned() {
             FRAME_DEDUP_HITS.fetch_add(1, Ordering::Relaxed);
             return Ok((cached, Vec::new()));
         }
@@ -392,7 +392,7 @@ pub fn render_frame_arc_with_base_profiled(
     if let Some(key) = sig {
         let mut drained: Vec<Arc<Vec<u8>>> = Vec::new();
         {
-            let mut guard = GLOBAL_FRAME_DEDUP_CACHE.write().unwrap();
+            let mut guard = GLOBAL_FRAME_DEDUP_CACHE.write().unwrap_or_else(|e| e.into_inner());
             if guard.len() >= MAX_FRAME_DEDUP_CACHE_ENTRIES {
                 drained.extend(guard.drain().map(|(_, v)| v));
             }
@@ -974,7 +974,7 @@ fn render_layer_scoped(
         let key = (sig_hash, pw, ph);
 
         let cached = {
-            let guard = GLOBAL_BLUR_CACHE.read().unwrap();
+            let guard = GLOBAL_BLUR_CACHE.read().unwrap_or_else(|e| e.into_inner());
             guard.get(&key).cloned()
         };
 
@@ -1055,7 +1055,7 @@ fn render_layer_scoped(
             };
             return_fx_scratch_pixmap(layer_pixmap, bounds);
             {
-                let mut guard = GLOBAL_BLUR_CACHE.write().unwrap();
+                let mut guard = GLOBAL_BLUR_CACHE.write().unwrap_or_else(|e| e.into_inner());
                 if guard.len() >= MAX_BLUR_CACHE_ENTRIES {
                     guard.clear();
                 }
@@ -1084,7 +1084,7 @@ fn render_layer_scoped(
                     (eff_scale * 200.0).round() as i32,
                 );
                 let warped_cached = {
-                    let guard = GLOBAL_WARP_CACHE.read().unwrap();
+                    let guard = GLOBAL_WARP_CACHE.read().unwrap_or_else(|e| e.into_inner());
                     guard.get(&wkey).cloned()
                 };
                 let warped_entry = if let Some(hit) = warped_cached {
@@ -1106,7 +1106,7 @@ fn render_layer_scoped(
                     )?
                     .map(|(pm, wx, wy)| (Arc::new(pm), wx, wy));
                     {
-                        let mut guard = GLOBAL_WARP_CACHE.write().unwrap();
+                        let mut guard = GLOBAL_WARP_CACHE.write().unwrap_or_else(|e| e.into_inner());
                         if guard.len() >= MAX_WARP_CACHE_ENTRIES {
                             guard.clear();
                         }
@@ -1216,7 +1216,7 @@ fn render_layer_scoped(
             None
         };
 
-        let cached_sh = silhouette_key.and_then(|k| GLOBAL_SHADOW_CACHE.read().unwrap().get(&k).cloned());
+        let cached_sh = silhouette_key.and_then(|k| GLOBAL_SHADOW_CACHE.read().unwrap_or_else(|e| e.into_inner()).get(&k).cloned());
         let pad = if sh.blur > 0.0 {
             (sh.blur * 1.6).ceil() as i32 + 2
         } else {
@@ -1233,7 +1233,7 @@ fn render_layer_scoped(
                 build_shadow_pixmap_cropped(&layer_pixmap, x0, y0, x1, y1, &sh.color, sh.blur)?;
             let sh_arc = Arc::new(sh_pm);
             if let Some(k) = silhouette_key {
-                let mut guard = GLOBAL_SHADOW_CACHE.write().unwrap();
+                let mut guard = GLOBAL_SHADOW_CACHE.write().unwrap_or_else(|e| e.into_inner());
                 if guard.len() >= MAX_SHADOW_CACHE_ENTRIES {
                     guard.clear();
                 }

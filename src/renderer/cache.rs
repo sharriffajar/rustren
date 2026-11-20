@@ -131,7 +131,7 @@ impl Drop for ScratchPixmap {
 
 #[cfg(feature = "pro")]
 pub fn recycle_frame_buffer(buf: Vec<u8>) {
-    let mut pool = GLOBAL_FRAME_POOL.lock().unwrap();
+    let mut pool = GLOBAL_FRAME_POOL.lock().unwrap_or_else(|e| e.into_inner());
     if pool.len() < 48 {
         pool.push(buf);
     }
@@ -147,7 +147,7 @@ pub(super) fn recycle_rgba_buffer(buf: Vec<u8>) {
 
 #[cfg(feature = "pro")]
 pub(super) fn take_pooled_yuv_buffer(needed: usize) -> Vec<u8> {
-    let mut pool = GLOBAL_FRAME_POOL.lock().unwrap();
+    let mut pool = GLOBAL_FRAME_POOL.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(pos) = pool.iter().position(|b| b.len() == needed) {
         return pool.swap_remove(pos);
     }
@@ -175,14 +175,14 @@ pub fn record_frame_dedup_hits(count: u64) {
 }
 
 pub fn clear_render_caches() {
-    GLOBAL_BLUR_CACHE.write().unwrap().clear();
-    GLOBAL_WARP_CACHE.write().unwrap().clear();
-    GLOBAL_SHADOW_CACHE.write().unwrap().clear();
-    GLOBAL_FRAME_DEDUP_CACHE.write().unwrap().clear();
+    GLOBAL_BLUR_CACHE.write().unwrap_or_else(|e| e.into_inner()).clear();
+    GLOBAL_WARP_CACHE.write().unwrap_or_else(|e| e.into_inner()).clear();
+    GLOBAL_SHADOW_CACHE.write().unwrap_or_else(|e| e.into_inner()).clear();
+    GLOBAL_FRAME_DEDUP_CACHE.write().unwrap_or_else(|e| e.into_inner()).clear();
     THREAD_RGBA_POOL.with(|cell| cell.borrow_mut().clear());
     #[cfg(feature = "pro")]
     {
-        GLOBAL_FRAME_POOL.lock().unwrap().clear();
+        GLOBAL_FRAME_POOL.lock().unwrap_or_else(|e| e.into_inner()).clear();
     }
     text::clear_text_raster_cache();
 }
