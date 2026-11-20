@@ -27,7 +27,7 @@ AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Pr
 | **Duration / Frame** | `4.58 ms / frame` |
 | **Frame Dedup Cache Hit** | `66.7%` (`1,201 hits / 599 misses`) |
 
-![Rustren 60s Showreel Preview (4x timelapse)](assets/showreel.gif)
+https://github.com/user-attachments/assets/7089ed1a-c188-4d1b-9f3a-ac08d2ca9e64
 
 > Full 60s `1280×720 @ 30fps` MP4: [assets/showreel.mp4](assets/showreel.mp4)
 
