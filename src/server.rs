@@ -129,8 +129,8 @@ fn extract_clean_json(raw: &str) -> String {
     }
 
     // Strip markdown code fences or chatbot intro/outro text by extracting outermost {...}
-    if let (Some(start), Some(end)) = (no_bom.find('{'), no_bom.rfind('}')) {
-        if end >= start {
+    if let (Some(start), Some(end)) = (no_bom.find('{'), no_bom.rfind('}'))
+        && end >= start {
             let sliced = &no_bom[start..=end];
             if serde_json::from_str::<serde_json::Value>(sliced).is_ok() {
                 return sliced.to_string();
@@ -140,13 +140,17 @@ fn extract_clean_json(raw: &str) -> String {
                 .replace(['\u{2018}', '\u{2019}'], "'");
             return normalized;
         }
-    }
 
     no_bom.to_string()
 }
 
 fn api_error(status: StatusCode, msg: impl Into<String>) -> Response {
     (status, Json(ErrorResponse { error: msg.into() })).into_response()
+}
+
+fn constant_time_eq_str(a: &str, b: &str) -> bool {
+    use subtle::ConstantTimeEq;
+    a.as_bytes().ct_eq(b.as_bytes()).into()
 }
 
 fn check_auth(headers: &HeaderMap, expected: &Option<String>) -> Result<(), Response> {
@@ -157,11 +161,11 @@ fn check_auth(headers: &HeaderMap, expected: &Option<String>) -> Result<(), Resp
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "))
-        .is_some_and(|t| t == secret);
+        .is_some_and(|t| constant_time_eq_str(t, secret));
     let header_ok = headers
         .get("x-api-key")
         .and_then(|v| v.to_str().ok())
-        .is_some_and(|t| t == secret);
+        .is_some_and(|t| constant_time_eq_str(t, secret));
 
     if bearer_ok || header_ok {
         Ok(())
@@ -170,10 +174,26 @@ fn check_auth(headers: &HeaderMap, expected: &Option<String>) -> Result<(), Resp
     }
 }
 
+const MAX_RATE_LIMIT_IPS: usize = 10_000;
+
 async fn check_rate_limit(state: &AppState, ip: IpAddr) -> Result<(), Response> {
     let mut map = state.rate_limits.write().await;
     let now = Instant::now();
     let window = Duration::from_secs(60);
+
+    if map.len() >= MAX_RATE_LIMIT_IPS && !map.contains_key(&ip) {
+        map.retain(|_, ts| {
+            ts.retain(|t| now.duration_since(*t) < window);
+            !ts.is_empty()
+        });
+        if map.len() >= MAX_RATE_LIMIT_IPS {
+            return Err(api_error(
+                StatusCode::TOO_MANY_REQUESTS,
+                "Rate limit table full, please retry later",
+            ));
+        }
+    }
+
     let timestamps = map.entry(ip).or_default();
     timestamps.retain(|t| now.duration_since(*t) < window);
     if timestamps.len() >= state.config.rate_limit_per_min {
@@ -278,11 +298,10 @@ async fn submit_job(
             composition,
             webhook_url,
         } => {
-            if let Some(comp_name) = composition {
-                if let Err(e) = scene.apply_profile(&comp_name) {
+            if let Some(comp_name) = composition
+                && let Err(e) = scene.apply_profile(&comp_name) {
                     return api_error(StatusCode::BAD_REQUEST, e.to_string());
                 }
-            }
             (scene, webhook_url)
         }
         SubmitJobPayload::Direct(scene) => (scene, None),
@@ -294,11 +313,10 @@ async fn submit_job(
     if let Err(e) = validate_scene_for_service(&scene, &state.config.limits) {
         return api_error(StatusCode::BAD_REQUEST, e.to_string());
     }
-    if let Some(ref url) = webhook_url {
-        if let Err(e) = validate_remote_url(url) {
+    if let Some(ref url) = webhook_url
+        && let Err(e) = validate_remote_url(url) {
             return api_error(StatusCode::BAD_REQUEST, format!("Invalid webhook_url: {e}"));
         }
-    }
 
     let warnings = collect_lint_warnings(&scene);
     let job_id = Uuid::new_v4().to_string();
@@ -493,6 +511,14 @@ async fn cleanup_loop(state: AppState) {
         }
         for path in to_delete {
             let _ = tokio::fs::remove_file(path).await;
+        }
+        {
+            let window = Duration::from_secs(60);
+            let mut rl = state.rate_limits.write().await;
+            rl.retain(|_, ts| {
+                ts.retain(|t| now.duration_since(*t) < window);
+                !ts.is_empty()
+            });
         }
     }
 }

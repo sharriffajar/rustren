@@ -174,11 +174,11 @@ fn collect_diagnostics_for_siblings(
             });
         }
 
-        if let Some(p) = parent {
-            if child.x < p.x - 1.5
+        if let Some(p) = parent
+            && (child.x < p.x - 1.5
                 || child.y < p.y - 1.5
                 || child.x + child.w > p.x + p.w + 1.5
-                || child.y + child.h > p.y + p.h + 1.5
+                || child.y + child.h > p.y + p.h + 1.5)
             {
                 out.push(LayoutDiagnostic {
                     kind: LayoutDiagnosticKind::ContainerOverflow,
@@ -195,20 +195,18 @@ fn collect_diagnostics_for_siblings(
                     h: child.h,
                 });
             }
-        }
 
-        if child.layer_type == "text" {
-            if let Some(tm) = &child.text_measured {
-                if tm.line_count > 1 {
-                    if let Some(layer) = find_layer_by_path(scene, &child.path) {
-                        if let LayerKind::Text {
+        if child.layer_type == "text"
+            && let Some(tm) = &child.text_measured
+                && tm.line_count > 1
+                    && let Some(layer) = find_layer_by_path(scene, &child.path)
+                        && let LayerKind::Text {
                             content,
                             dynamic,
                             max_width,
                             ..
                         } = &layer.kind
-                        {
-                            if dynamic.is_none() && !content.contains('\n') && max_width.is_none() {
+                            && dynamic.is_none() && !content.contains('\n') && max_width.is_none() {
                                 out.push(LayoutDiagnostic {
                                     kind: LayoutDiagnosticKind::UnexpectedTextWrap,
                                     path: child.path.clone(),
@@ -223,11 +221,6 @@ fn collect_diagnostics_for_siblings(
                                     h: child.h,
                                 });
                             }
-                        }
-                    }
-                }
-            }
-        }
 
         if !child.children.is_empty() {
             collect_diagnostics_for_siblings(
@@ -698,8 +691,8 @@ fn inspect_layer_layout(
             for (((idx, child), cbox), c_time) in children
                 .iter()
                 .enumerate()
-                .zip(child_boxes.into_iter())
-                .zip(child_timelines.into_iter())
+                .zip(child_boxes)
+                .zip(child_timelines)
             {
                 let Some((ct, cdur, skip_win)) = c_time else {
                     continue;

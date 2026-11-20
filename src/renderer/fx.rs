@@ -299,7 +299,7 @@ pub(super) fn build_shadow_pixmap_cropped(
         let d_off = ((pad as usize + row) * dw + (pad as usize)) * 4;
         let s_row = &src_data[s_off..s_off + (content_w as usize) * 4];
         let d_row = &mut dst_data[d_off..d_off + (content_w as usize) * 4];
-        for (s, d) in s_row.chunks_exact(4).zip(d_row.chunks_exact_mut(4)) {
+        for (s, d) in s_row.as_chunks::<4>().0.iter().zip(d_row.chunks_exact_mut(4)) {
             let a = (s[3] as f32 / 255.0) * sa;
             if a > 0.0 {
                 d[0] = (sr * a * 255.0).round().clamp(0.0, 255.0) as u8;
@@ -431,7 +431,7 @@ pub(super) fn apply_surface_effects_cropped(
                 let v = v_row - xf * step_uv;
                 let fx = u - u.floor() - 0.5;
                 let fy = v - v.floor() - 0.5;
-                let dist = (fx * fx + fy * fy).sqrt() * 1.414_213_5;
+                let dist = (fx * fx + fy * fy).sqrt() * std::f32::consts::SQRT_2;
                 let luma = ((0.299 * r + 0.587 * g + 0.114 * b) / af).clamp(0.0, 1.0);
                 let dot_r = luma.sqrt() * 0.95;
                 let cov = ((dot_r - dist) * ht_scale + 0.5).clamp(0.15, 1.0);

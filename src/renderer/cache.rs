@@ -62,11 +62,7 @@ thread_local! {
 pub(super) fn take_scratch_rgba(needed: usize, zeroed: bool) -> Vec<u8> {
     let reused = THREAD_RGBA_POOL.with(|cell| {
         let mut pool = cell.borrow_mut();
-        if let Some(pos) = pool.iter().position(|b| b.capacity() >= needed) {
-            Some(pool.swap_remove(pos))
-        } else {
-            None
-        }
+        pool.iter().position(|b| b.capacity() >= needed).map(|pos| pool.swap_remove(pos))
     });
     match reused {
         Some(mut buf) => {
@@ -223,11 +219,10 @@ pub fn get_frame_dedup_stats() -> (u64, u64) {
 }
 
 pub(super) fn take_fx_scratch_pixmap(pw: u32, ph: u32) -> Result<Pixmap> {
-    if let Some(pm) = THREAD_FX_SCRATCH.with(|c| c.borrow_mut().take()) {
-        if pm.width() == pw && pm.height() == ph {
+    if let Some(pm) = THREAD_FX_SCRATCH.with(|c| c.borrow_mut().take())
+        && pm.width() == pw && pm.height() == ph {
             return Ok(pm);
         }
-    }
     Pixmap::new(pw, ph)
         .ok_or_else(|| anyhow!("Failed to allocate layer fx pixmap {}x{}", pw, ph))
 }

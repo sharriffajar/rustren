@@ -289,8 +289,8 @@ fn test_conformance_rich_text_and_letter_spacing() {
         ]
     }"##;
     let buf = render_json_frame(json, 0);
-    let has_red = buf.chunks_exact(4).any(|p| p[0] > 180 && p[1] < 50);
-    let has_green = buf.chunks_exact(4).any(|p| p[1] > 180 && p[0] < 50);
+    let has_red = buf.as_chunks::<4>().0.iter().any(|p| p[0] > 180 && p[1] < 50);
+    let has_green = buf.as_chunks::<4>().0.iter().any(|p| p[1] > 180 && p[0] < 50);
     assert!(has_red && has_green, "expected both red and green rich text spans");
 }
 
@@ -582,8 +582,8 @@ fn test_schema_md_examples_parse_and_validate() {
         };
         let block = after[..end].trim();
         rest = &after[end + 3..];
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(block) {
-            if val.get("canvas").is_some() && val.get("layers").is_some() {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(block)
+            && val.get("canvas").is_some() && val.get("layers").is_some() {
                 crate::lint::validate_no_unknown_fields(block)
                     .unwrap_or_else(|e| panic!("SCHEMA.md example #{checked} has unknown field: {e}\n{block}"));
                 let scene: crate::schema::Scene = serde_json::from_value(val)
@@ -592,7 +592,6 @@ fn test_schema_md_examples_parse_and_validate() {
                     .unwrap_or_else(|e| panic!("SCHEMA.md example #{checked} failed capability validation: {e}"));
                 checked += 1;
             }
-        }
     }
     assert!(checked >= 1, "Expected at least 1 complete scene JSON example in SCHEMA.md");
 }
@@ -1072,8 +1071,8 @@ fn test_all_examples_compile_and_validate() {
             }
             let doc = scraper::Html::parse_document(&content);
             let sel = scraper::Selector::parse("html[data-composition-variables]").unwrap();
-            if let Some(el) = doc.select(&sel).next() {
-                if let Some(vars_attr) = el.value().attr("data-composition-variables") {
+            if let Some(el) = doc.select(&sel).next()
+                && let Some(vars_attr) = el.value().attr("data-composition-variables") {
                     let detected_vars: Vec<serde_json::Value> = serde_json::from_str(vars_attr).unwrap();
                     for dv in &detected_vars {
                         if let (Some(id), Some(def)) = (dv.get("id").and_then(|v| v.as_str()), dv.get("default")) {
@@ -1087,7 +1086,6 @@ fn test_all_examples_compile_and_validate() {
                         }
                     }
                 }
-            }
             let scene = crate::compilers::html::parse_html_scene_with_base(&content, path.parent())
                 .unwrap_or_else(|e| panic!("Failed to parse {:?}: {}", path, e));
             crate::capabilities::validate_scene_capabilities(&scene)

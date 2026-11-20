@@ -72,11 +72,10 @@ pub(super) fn resolve_dynamic_text<'a>(
             let total_chars = text.chars().count();
             let take_n = ((total_chars as f32) * p).round() as usize;
             let mut out: String = text.chars().take(take_n).collect();
-            if let Some(cur) = cursor {
-                if p < 1.0 || ((time_sec * 2.0) as u32).is_multiple_of(2) {
+            if let Some(cur) = cursor
+                && (p < 1.0 || ((time_sec * 2.0) as u32).is_multiple_of(2)) {
                     out.push_str(cur);
                 }
-            }
             std::borrow::Cow::Owned(out)
         }
         DynamicTextSpec::Counter {
@@ -132,16 +131,10 @@ fn is_emoji_char(c: char) -> bool {
 }
 
 fn find_color_emoji_family(font_system: &FontSystem) -> Option<&'static str> {
-    for candidate in ["Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji"] {
-        if font_system
+    ["Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji"].into_iter().find(|&candidate| font_system
             .db()
             .faces()
-            .any(|f| f.families.iter().any(|(name, _)| name == candidate))
-        {
-            return Some(candidate);
-        }
-    }
-    None
+            .any(|f| f.families.iter().any(|(name, _)| name == candidate))).map(|v| v as _)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -875,8 +868,8 @@ pub(super) fn render_text_layer(
                 );
             }
 
-            if let Some(grad) = gradient {
-                if let Some(shader) =
+            if let Some(grad) = gradient
+                && let Some(shader) =
                     build_gradient_shader(grad, pad as f32, pad as f32, bw, mh, raster_op)?
                 {
                     let mut gp = Paint {
@@ -889,7 +882,6 @@ pub(super) fn render_text_layer(
                         fill_pm.fill_rect(r, &gp, Transform::identity(), None);
                     }
                 }
-            }
 
             let final_pm = if let Some(out_spec) = outline.as_ref().filter(|o| o.width > 0.0) {
                 let oc = parse_hex_color(&out_spec.color, raster_op)?;

@@ -346,11 +346,10 @@ pub fn eval_property(animations: &[Animation], prop: AnimProperty, time_sec: f32
     let Some(first) = matching.peek().copied() else {
         return default;
     };
-    if let Some(expr_str) = &first.expr {
-        if let Ok(v) = eval_math_expression(expr_str, time_sec, default) {
+    if let Some(expr_str) = &first.expr
+        && let Ok(v) = eval_math_expression(expr_str, time_sec, default) {
             return v;
         }
-    }
     if !first.keyframes.is_empty() {
         if time_sec <= first.keyframes[0].time {
             return match first.keyframes[0].value {
@@ -367,21 +366,19 @@ pub fn eval_property(animations: &[Animation], prop: AnimProperty, time_sec: f32
 
     let mut result = default;
     for anim in matching {
-        if let Some(expr_str) = &anim.expr {
-            if let Ok(v) = eval_math_expression(expr_str, time_sec, result) {
+        if let Some(expr_str) = &anim.expr
+            && let Ok(v) = eval_math_expression(expr_str, time_sec, result) {
                 result = v;
                 continue;
             }
-        }
         if !anim.keyframes.is_empty() {
             if time_sec < anim.keyframes[0].time {
                 break;
             }
-            if let Some((k0, k1, eased_t)) = eval_keyframes_step(&anim.keyframes, time_sec) {
-                if let (AnimValue::Number(v0), AnimValue::Number(v1)) = (&k0.value, &k1.value) {
+            if let Some((k0, k1, eased_t)) = eval_keyframes_step(&anim.keyframes, time_sec)
+                && let (AnimValue::Number(v0), AnimValue::Number(v1)) = (&k0.value, &k1.value) {
                     result = *v0 + (*v1 - *v0) * eased_t;
                 }
-            }
             continue;
         }
         if time_sec < anim.start_sec {
@@ -455,8 +452,8 @@ pub fn eval_color_property(
             if time_sec < anim.keyframes[0].time {
                 break;
             }
-            if let Some((k0, k1, eased_t)) = eval_keyframes_step(&anim.keyframes, time_sec) {
-                if let (AnimValue::Color(c0s), AnimValue::Color(c1s)) = (&k0.value, &k1.value) {
+            if let Some((k0, k1, eased_t)) = eval_keyframes_step(&anim.keyframes, time_sec)
+                && let (AnimValue::Color(c0s), AnimValue::Color(c1s)) = (&k0.value, &k1.value) {
                     if let (Some(c0), Some(c1)) = (parse_rgba_u8(c0s), parse_rgba_u8(c1s)) {
                         let lerp = |a: u8, b: u8| -> u8 {
                             ((a as f32) + ((b as f32) - (a as f32)) * eased_t)
@@ -474,7 +471,6 @@ pub fn eval_color_property(
                         result = Some(c1s.clone());
                     }
                 }
-            }
             continue;
         }
         if time_sec < anim.start_sec {

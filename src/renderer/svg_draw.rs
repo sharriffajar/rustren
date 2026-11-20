@@ -35,11 +35,10 @@ pub(super) fn build_progress_stroke_dash(
     dash_offset: Option<f32>,
     custom_dash: Option<&[f32]>,
 ) -> Option<StrokeDash> {
-    if let Some(arr) = custom_dash {
-        if !arr.is_empty() {
+    if let Some(arr) = custom_dash
+        && !arr.is_empty() {
             return StrokeDash::new(arr.to_vec(), dash_offset.unwrap_or(0.0));
         }
-    }
     let p = progress.clamp(0.0, 1.0);
     if p >= 1.0 - 1e-5 && dash_offset.is_none() {
         return None;
@@ -207,17 +206,16 @@ pub(super) fn render_usvg_group_animated(
                     continue;
                 }
                 let xform = root_xform.pre_concat(path.abs_transform());
-                if let Some(fill) = path.fill() {
-                    if let Some(p) = usvg_paint_to_tiny_paint(fill.paint(), fill.opacity().get()) {
+                if let Some(fill) = path.fill()
+                    && let Some(p) = usvg_paint_to_tiny_paint(fill.paint(), fill.opacity().get()) {
                         let rule = match fill.rule() {
                             resvg::usvg::FillRule::NonZero => FillRule::Winding,
                             resvg::usvg::FillRule::EvenOdd => FillRule::EvenOdd,
                         };
                         pixmap.fill_path(path.data(), &p, rule, xform, None);
                     }
-                }
-                if let Some(stroke) = path.stroke() {
-                    if let Some(p) = usvg_paint_to_tiny_paint(stroke.paint(), stroke.opacity().get()) {
+                if let Some(stroke) = path.stroke()
+                    && let Some(p) = usvg_paint_to_tiny_paint(stroke.paint(), stroke.opacity().get()) {
                         let path_len = compute_path_length(path.data());
                         let dash = build_progress_stroke_dash(path_len, progress, dash_offset, custom_dash);
                         let skia_stroke = Stroke {
@@ -227,7 +225,6 @@ pub(super) fn render_usvg_group_animated(
                         };
                         pixmap.stroke_path(path.data(), &p, &skia_stroke, xform, None);
                     }
-                }
             }
             _ => {}
         }
@@ -316,8 +313,8 @@ pub(super) fn draw_styled_path(
         pixmap.fill_path(path, &paint, FillRule::Winding, transform, None);
     }
 
-    if let Some(b_hex) = border_color {
-        if border_width > 0.0 {
+    if let Some(b_hex) = border_color
+        && border_width > 0.0 {
             let mut paint = Paint::default();
             paint.set_color(parse_hex_color(b_hex, opacity)?);
             paint.anti_alias = true;
@@ -328,6 +325,5 @@ pub(super) fn draw_styled_path(
             };
             pixmap.stroke_path(path, &paint, &stroke, transform, None);
         }
-    }
     Ok(())
 }

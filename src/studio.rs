@@ -117,11 +117,9 @@ async fn handle_studio_ws(
             .and_then(|el| el.value().attr("data-composition-variables"))
             .map(serde_json::from_str::<Vec<serde_json::Value>>)
             .transpose()
-        {
-            if let Some(dv) = doc {
+            && let Some(dv) = doc {
                 detected_vars = dv;
             }
-        }
 
         for dv in &detected_vars {
             if let (Some(id), Some(def)) = (dv.get("id").and_then(|v| v.as_str()), dv.get("default")) {

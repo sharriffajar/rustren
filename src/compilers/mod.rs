@@ -28,14 +28,14 @@ pub fn detect(path: &Path) -> Result<Box<dyn Compiler>> {
     let ext = path
         .extension()
         .and_then(|s| s.to_str())
-        .ok_or_else(|| anyhow::anyhow!("File tidak punya extension: {:?}", path))?;
+        .ok_or_else(|| anyhow::anyhow!("File has no extension: {:?}", path))?;
 
     match ext.to_lowercase().as_str() {
         "json" => Ok(Box::new(json::JsonCompiler)),
         "html" | "htm" => Ok(Box::new(html::HtmlCompiler)),
         // "tsx" | "jsx" => Ok(Box::new(tsx::TsxCompiler::new()?)),  // Sprint 7
         other => Err(anyhow::anyhow!(
-            "Format tidak didukung: .{}\nSupported: .json (Sprint 5), .html (Sprint 6), .tsx (Sprint 7)",
+            "Unsupported format: .{}\nSupported: .json (Sprint 5), .html (Sprint 6), .tsx (Sprint 7)",
             other
         )),
     }

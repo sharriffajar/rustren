@@ -23,7 +23,7 @@ pub struct JsonCompiler;
 impl Compiler for JsonCompiler {
     fn compile(&self, path: &Path) -> Result<CompiledScene> {
         let content = std::fs::read_to_string(path)
-            .with_context(|| format!("Gagal membaca file JSON: {:?}", path))?;
+            .with_context(|| format!("Failed to read JSON file: {:?}", path))?;
 
         let scene = parse_json_scene_with_base(&content, path.parent(), path)?;
         Ok(CompiledScene::Static(scene))
@@ -41,7 +41,7 @@ pub fn parse_json_scene_with_base(
 ) -> Result<Scene> {
     let mut root: Value = serde_json::from_str(content).map_err(|e| {
         anyhow::anyhow!(
-            "JSON syntax error di {:?} (line {}, column {}): {}",
+            "JSON syntax error in {:?} (line {}, column {}): {}",
             source_path,
             e.line(),
             e.column(),
@@ -55,7 +55,7 @@ pub fn parse_json_scene_with_base(
     }
 
     let scene: Scene = serde_json::from_value(root).map_err(|e| {
-        anyhow::anyhow!("JSON schema error di {:?}: {}", source_path, e)
+        anyhow::anyhow!("JSON schema error in {:?}: {}", source_path, e)
     })?;
     Ok(scene)
 }
@@ -93,7 +93,7 @@ fn expand_json_layers(
                 None => Path::new(src).to_path_buf(),
             };
             let inc_raw = std::fs::read_to_string(&inc_path).with_context(|| {
-                format!("Gagal membaca file JSON include '{}' ({:?})", src, inc_path)
+                format!("Failed to read included JSON file '{}' ({:?})", src, inc_path)
             })?;
 
             let mut child_vars = parent_vars.clone();
@@ -121,7 +121,7 @@ fn expand_json_layers(
 
             let inc_val: Value = serde_json::from_str(&resolved).map_err(|e| {
                 anyhow::anyhow!(
-                    "JSON syntax error di included file {:?} (line {}, column {}): {}",
+                    "JSON syntax error in included file {:?} (line {}, column {}): {}",
                     inc_path,
                     e.line(),
                     e.column(),
@@ -135,7 +135,7 @@ fn expand_json_layers(
                 arr.clone()
             } else {
                 anyhow::bail!(
-                    "Included JSON file {:?} harus berupa array layers atau object dengan field 'layers'",
+                    "Included JSON file {:?} must be an array of layers or an object with a 'layers' field",
                     inc_path
                 );
             };

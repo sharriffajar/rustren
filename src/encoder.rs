@@ -43,7 +43,7 @@ fn probe_hw_encoder(encoder: &str) -> bool {
 /// encoder name (`h264_nvenc`, `h264_videotoolbox`, `h264_qsv`).
 fn detect_video_encoder() -> &'static str {
     static CACHED: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
-    *CACHED.get_or_init(|| {
+    CACHED.get_or_init(|| {
         let mode = std::env::var("RUSTREN_HW_ENCODER").unwrap_or_default();
         let mode_trim = mode.trim();
         if mode_trim == "0"
@@ -331,7 +331,7 @@ pub fn detect_audio_beats(audio_path: &Path, sensitivity: f32) -> Result<Vec<f32
     }
 
     let mut samples = Vec::with_capacity(output.stdout.len() / 4);
-    for chunk in output.stdout.chunks_exact(4) {
+    for chunk in output.stdout.as_chunks::<4>().0 {
         samples.push(f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
     }
 

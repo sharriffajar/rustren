@@ -481,11 +481,10 @@ fn serialize_svg_element_without_animate(elem: &ElementRef, strip_anim_props: bo
         match child.value() {
             scraper::Node::Text(t) => out.push_str(t.text.as_ref()),
             scraper::Node::Element(_) => {
-                if let Some(c_el) = ElementRef::wrap(child) {
-                    if !matches!(c_el.value().name(), "animate" | "animation") {
+                if let Some(c_el) = ElementRef::wrap(child)
+                    && !matches!(c_el.value().name(), "animate" | "animation") {
                         out.push_str(&serialize_svg_element_without_animate(&c_el, false));
                     }
-                }
             }
             _ => {}
         }
@@ -528,7 +527,7 @@ pub fn substitute_variables(template: &str, vars: &HashMap<String, String>) -> S
 impl Compiler for HtmlCompiler {
     fn compile(&self, path: &Path) -> Result<CompiledScene> {
         let content = std::fs::read_to_string(path)
-            .with_context(|| format!("Gagal membaca file HTML: {:?}", path))?;
+            .with_context(|| format!("Failed to read HTML file: {:?}", path))?;
 
         let scene = parse_html_scene_with_base(&content, path.parent())?;
         Ok(CompiledScene::Static(scene))
@@ -571,7 +570,7 @@ fn parse_html_scene_internal(
         .next()
         .or_else(|| document.select(&comp_sel).next())
         .or_else(|| document.select(&body_sel).next())
-        .ok_or_else(|| anyhow::anyhow!("Tag <scene>, <component>, atau <body> tidak ditemukan di dokumen HTML"))?;
+        .ok_or_else(|| anyhow::anyhow!("Missing <scene>, <component>, or <body> root tag in HTML document"))?;
 
     // 1. Canvas
     let width = get_attr_f32(&root_elem, "width").unwrap_or(1280.0) as u32;
@@ -723,7 +722,7 @@ fn parse_children_layers(
                     None => Path::new(&src).to_path_buf(),
                 };
                 let inc_content = std::fs::read_to_string(&inc_path).with_context(|| {
-                    format!("Gagal membaca file <include src=\"{}\"> ({:?})", src, inc_path)
+                    format!("Failed to read <include src=\"{}\"> ({:?})", src, inc_path)
                 })?;
 
                 let mut child_vars = parent_vars.clone();
@@ -748,14 +747,13 @@ fn parse_children_layers(
 
                 continue;
             }
-            if tag == "svg" {
-                if let Some(svg_layers) =
+            if tag == "svg"
+                && let Some(svg_layers) =
                     try_parse_animated_svg_layers(&el, base_dir, depth, parent_vars, is_inside_container)?
                 {
                     layers.extend(svg_layers);
                     continue;
                 }
-            }
             if let Some(layer) = parse_layer_element(&el, base_dir, depth, parent_vars, is_inside_container)? {
                 layers.push(layer);
             }
@@ -925,15 +923,14 @@ fn parse_common_layer_meta(
     };
     let mut matte_layer = None;
     for c in elem.children() {
-        if let Some(c_el) = ElementRef::wrap(c) {
-            if c_el.value().name() == "matte" {
+        if let Some(c_el) = ElementRef::wrap(c)
+            && c_el.value().name() == "matte" {
                 let matte_children = parse_children_layers(&c_el, base_dir, depth, vars, false)?;
                 if let Some(first) = matte_children.into_iter().next() {
                     matte_layer = Some(Box::new(first));
                 }
                 break;
             }
-        }
     }
     let skew_y = get_attr_f32(elem, "skew-y")
         .or_else(|| get_attr_f32(elem, "skew_y"))
@@ -1687,7 +1684,7 @@ fn parse_animation_elem(a_elem: &ElementRef) -> Result<Animation> {
         .or_else(|| get_attr_f32(a_elem, "dur"));
     let end_sec = get_attr_f32(a_elem, "end")
         .or_else(|| get_attr_f32(a_elem, "end-sec"))
-        .unwrap_or_else(|| {
+        .unwrap_or({
             if let Some(d) = duration {
                 start_sec + d
             } else {

@@ -78,23 +78,21 @@ fn lint_layers(
 ) {
     for (i, layer) in layers.iter().enumerate() {
         let path = format!("{prefix}[{i}]");
-        if let Some(end) = layer.end_sec {
-            if end > duration_secs + 1e-3 {
+        if let Some(end) = layer.end_sec
+            && end > duration_secs + 1e-3 {
                 groups.entry("end_sec").or_default().push(format!(
                     "{path} end_sec ({end}) > canvas.duration_secs ({duration_secs})"
                 ));
             }
-        }
 
-        if let Some((lx, ly, lw, lh)) = static_layer_bounds(layer) {
-            if !has_xy_animation(layer)
+        if let Some((lx, ly, lw, lh)) = static_layer_bounds(layer)
+            && !has_xy_animation(layer)
                 && (lx + lw <= 0.0 || ly + lh <= 0.0 || lx >= canvas_w || ly >= canvas_h)
             {
                 groups.entry("out_of_canvas").or_default().push(format!(
                     "{path} outside canvas bounds ({lx:.0},{ly:.0} {lw:.0}x{lh:.0})"
                 ));
             }
-        }
 
         match &layer.kind {
             LayerKind::Text {
@@ -117,8 +115,8 @@ fn lint_layers(
                         .or_default()
                         .push(format!("{path} text inside container missing max_width"));
                 }
-                if *opacity >= 0.2 {
-                    if let Some(fg) = parse_rgb(color) {
+                if *opacity >= 0.2
+                    && let Some(fg) = parse_rgb(color) {
                         let t_check = (layer.start_sec + 0.05).min(
                             layer.end_sec.unwrap_or(duration_secs).max(layer.start_sec),
                         );
@@ -130,7 +128,6 @@ fn lint_layers(
                             ));
                         }
                     }
-                }
             }
             LayerKind::Container { children, .. } => {
                 lint_layers(
@@ -260,13 +257,10 @@ fn find_effective_bg_at(
                 ..
             } => {
                 if *opacity >= 0.85 && px >= *x && px <= *x + *width && py >= *y && py <= *y + *height
-                {
-                    if let Some(c) = parse_rgb(color) {
-                        if c.3 >= 0.85 {
+                    && let Some(c) = parse_rgb(color)
+                        && c.3 >= 0.85 {
                             return c;
                         }
-                    }
-                }
             }
             LayerKind::Circle {
                 cx,
@@ -287,13 +281,11 @@ fn find_effective_bg_at(
                     .unwrap_or(*r);
                 let dx = px - *cx;
                 let dy = py - *cy;
-                if *opacity >= 0.85 && (dx * dx + dy * dy) <= eff_r * eff_r {
-                    if let Some(c) = parse_rgb(color) {
-                        if c.3 >= 0.85 {
+                if *opacity >= 0.85 && (dx * dx + dy * dy) <= eff_r * eff_r
+                    && let Some(c) = parse_rgb(color)
+                        && c.3 >= 0.85 {
                             return c;
                         }
-                    }
-                }
             }
             LayerKind::Container {
                 x,
@@ -301,8 +293,8 @@ fn find_effective_bg_at(
                 children,
                 opacity,
                 ..
-            } => {
-                if *opacity >= 0.85 {
+            }
+                if *opacity >= 0.85 => {
                     let inner = find_effective_bg_at(
                         children,
                         children.len(),
@@ -315,7 +307,6 @@ fn find_effective_bg_at(
                         return inner;
                     }
                 }
-            }
             _ => {}
         }
     }

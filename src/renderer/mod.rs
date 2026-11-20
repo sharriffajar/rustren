@@ -142,11 +142,10 @@ fn is_layer_fully_static(layer: &Layer, scene_duration: f32) -> bool {
     let end = layer
         .end_sec
         .or_else(|| layer.duration_secs.map(|d| layer.start_sec + d));
-    if let Some(e) = end {
-        if e < scene_duration - 1e-5 {
+    if let Some(e) = end
+        && e < scene_duration - 1e-5 {
             return false;
         }
-    }
     match &layer.kind {
         LayerKind::Video { .. }
         | LayerKind::Waveform { .. }
@@ -280,7 +279,7 @@ fn hash_active_layer_state(layer: &Layer, time_sec: f32, parent_dur: f32, h: &mu
                 *stagger_secs,
                 children,
             );
-            for (cidx, (child, c_time)) in children.iter().zip(child_timelines.into_iter()).enumerate() {
+            for (cidx, (child, c_time)) in children.iter().zip(child_timelines).enumerate() {
                 let Some((ct, cdur, skip_win)) = c_time else {
                     continue;
                 };
@@ -365,12 +364,11 @@ pub fn render_frame_arc_with_base_profiled(
 ) -> Result<(Arc<Vec<u8>>, Vec<u64>)> {
     let time_sec = frame_idx as f32 / scene.canvas.fps as f32;
     let sig = compute_frame_temporal_signature(scene, time_sec, static_prefix_len);
-    if let Some(key) = sig {
-        if let Some(cached) = GLOBAL_FRAME_DEDUP_CACHE.read().unwrap().get(&key).cloned() {
+    if let Some(key) = sig
+        && let Some(cached) = GLOBAL_FRAME_DEDUP_CACHE.read().unwrap().get(&key).cloned() {
             FRAME_DEDUP_HITS.fetch_add(1, Ordering::Relaxed);
             return Ok((cached, Vec::new()));
         }
-    }
     FRAME_DEDUP_MISSES.fetch_add(1, Ordering::Relaxed);
     let (bytes, layer_ns) = render_frame_at_time_with_base_profile(
         scene,
@@ -676,9 +674,8 @@ fn draw_rgba_frame(
                     }
                     if let Ok(mut dst_img) =
                         Image::from_slice_u8(dst_w, dst_h, &mut scratch[..needed], PixelType::U8x4)
-                    {
-                        if resizer.resize(&src_img, &mut dst_img, Some(&opts)).is_ok() {
-                            if let Some(resized_ref) =
+                        && resizer.resize(&src_img, &mut dst_img, Some(&opts)).is_ok()
+                            && let Some(resized_ref) =
                                 tiny_skia::PixmapRef::from_bytes(&scratch[..needed], dst_w, dst_h)
                             {
                                 let blit_paint = PixmapPaint {
@@ -696,8 +693,6 @@ fn draw_rgba_frame(
                                 );
                                 return true;
                             }
-                        }
-                    }
                     false
                 });
                 if ok {
@@ -763,8 +758,8 @@ fn render_layer(
     layout_override: Option<LayoutBox>,
     parent_opacity: f32,
 ) -> Result<()> {
-    if let Some(echo) = layer.echo {
-        if echo.count > 0 {
+    if let Some(echo) = layer.echo
+        && echo.count > 0 {
             let mut echo_layer = layer.clone();
             echo_layer.echo = None;
             for i in (1..=echo.count).rev() {
@@ -784,10 +779,9 @@ fn render_layer(
                 )?;
             }
         }
-    }
 
-    if layer.track_matte != TrackMatteMode::None {
-        if let Some(ref matte) = layer.matte_layer {
+    if layer.track_matte != TrackMatteMode::None
+        && let Some(ref matte) = layer.matte_layer {
             let w = pixmap.width();
             let h = pixmap.height();
             let mut layer_pm = cache::ScratchPixmap::new(w, h)
@@ -823,7 +817,7 @@ fn render_layer(
             let layer_data = layer_pm.data_mut();
             let matte_data = matte_pm.data();
             for (lp, mp) in layer_data
-                .chunks_exact_mut(4)
+                .as_chunks_mut::<4>().0.iter_mut()
                 .zip(matte_data.chunks_exact(4))
             {
                 let factor = match layer.track_matte {
@@ -859,7 +853,6 @@ fn render_layer(
             );
             return Ok(());
         }
-    }
 
     render_layer_scoped(
         layer,
@@ -957,7 +950,7 @@ fn render_layer_scoped(
             let _ = write!(
                 &mut *buf,
                 "{:?}|{:?}|{:?}|{:.3}|{:.3}|{:.3}|{:?}|{:.3}|{:.3}|{}|{:x}|",
-                &layer.kind,
+                layer.kind,
                 layer.position,
                 layer.anchor,
                 layer.skew_x,
@@ -1495,8 +1488,8 @@ fn render_layer_inner(
                 paint.anti_alias = true;
                 pixmap.fill_path(&path, &paint, FillRule::Winding, Transform::identity(), None);
 
-                if let Some(b_hex) = eff_border_color.as_deref() {
-                    if *border_width > 0.0 {
+                if let Some(b_hex) = eff_border_color.as_deref()
+                    && *border_width > 0.0 {
                         let mut b_paint = Paint::default();
                         b_paint.set_color(parse_hex_color(b_hex, op)?);
                         b_paint.anti_alias = true;
@@ -1514,7 +1507,6 @@ fn render_layer_inner(
                             None,
                         );
                     }
-                }
             }
         }
         LayerKind::Text { .. } => {
@@ -1718,13 +1710,13 @@ fn render_layer_inner(
             let svg_key = (hash_bytes_fnv1a(svg_bytes), svg_bytes.len());
             THREAD_SVG_CACHE.with(|cell| -> Result<()> {
                 let mut cache = cell.borrow_mut();
-                if !cache.contains_key(&svg_key) {
+                if let std::collections::hash_map::Entry::Vacant(e) = cache.entry(svg_key) {
                     let parsed = resvg::usvg::Tree::from_data(
                         svg_bytes,
                         &resvg::usvg::Options::default(),
                     )
                     .context("Failed to parse SVG")?;
-                    cache.insert(svg_key, parsed);
+                    e.insert(parsed);
                 }
                 let tree = cache.get(&svg_key).unwrap();
 
@@ -2043,8 +2035,8 @@ fn render_layer_inner(
 
             let eff_radius =
                 eval_property(&layer.animations, AnimProperty::Radius, time_sec, *radius).max(0.0);
-            if eff_bg.is_some() || gradient.is_some() || eff_border.is_some() {
-                if let Some(path) = build_rounded_rect(cx, cy, cw, ch, eff_radius) {
+            if (eff_bg.is_some() || gradient.is_some() || eff_border.is_some())
+                && let Some(path) = build_rounded_rect(cx, cy, cw, ch, eff_radius) {
                     draw_styled_path(
                         pixmap,
                         &path,
@@ -2061,7 +2053,6 @@ fn render_layer_inner(
                         xform,
                     )?;
                 }
-            }
 
             let container_end = effective_end_sec(layer, scene_duration);
             let child_timelines = resolve_child_timelines(
@@ -2075,8 +2066,8 @@ fn render_layer_inner(
             );
             let mut active_children: Vec<(&Layer, LayoutBox, f32, f32, f32)> = children
                 .iter()
-                .zip(child_boxes.into_iter())
-                .zip(child_timelines.into_iter())
+                .zip(child_boxes)
+                .zip(child_timelines)
                 .filter_map(|((child, cbox), c_time)| {
                     c_time.map(|(ct, cdur, _skip_win)| {
                         let z = eval_property(&child.animations, AnimProperty::ZIndex, ct, child.z_index);
@@ -2116,14 +2107,12 @@ fn render_layer_inner(
                         if *cascade_opacity { op } else { 1.0 },
                     )?;
                 }
-                if *clip {
-                    if let Some(mask_path) = build_rounded_rect(0.0, 0.0, cw, ch, eff_radius) {
-                        if let Some(mut mask) = Mask::new(pw, ph) {
+                if *clip
+                    && let Some(mask_path) = build_rounded_rect(0.0, 0.0, cw, ch, eff_radius)
+                        && let Some(mut mask) = Mask::new(pw, ph) {
                             mask.fill_path(&mask_path, FillRule::Winding, true, Transform::identity());
                             child_pixmap.apply_mask(&mask);
                         }
-                    }
-                }
                 let paint = PixmapPaint {
                     opacity: 1.0,
                     quality: FilterQuality::Bilinear,

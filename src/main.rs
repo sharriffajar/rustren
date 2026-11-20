@@ -510,8 +510,8 @@ fn collect_video_audio_tracks(
                 muted,
                 ..
             } if !*muted && *volume > 0.0 => {
-                if let Some(va) = assets.videos.get(src) {
-                    if va.has_audio {
+                if let Some(va) = assets.videos.get(src)
+                    && va.has_audio {
                         let effective_trim_end = trim_end_sec.or_else(|| {
                             Some(trim_start_sec + layer_dur * playback_rate.max(0.1))
                         });
@@ -530,7 +530,6 @@ fn collect_video_audio_tracks(
                             va.path.clone(),
                         ));
                     }
-                }
             }
             schema::LayerKind::Container {
                 timeline: child_tl,
@@ -764,7 +763,7 @@ pub fn render_scene_to_file_with_profile(
 }
 
 pub(crate) fn premul_to_rgba_image(w: u32, h: u32, mut data: Vec<u8>) -> Result<image::RgbaImage> {
-    for px in data.chunks_exact_mut(4) {
+    for px in data.as_chunks_mut::<4>().0 {
         let a = px[3];
         if a > 0 && a < 255 {
             let af = 255.0 / a as f32;
@@ -800,11 +799,10 @@ fn render_snapshots(
     }
 
     if !sheet && frames.len() == 1 {
-        if let Some(parent) = output.parent() {
-            if !parent.as_os_str().is_empty() {
+        if let Some(parent) = output.parent()
+            && !parent.as_os_str().is_empty() {
                 fs::create_dir_all(parent)?;
             }
-        }
         frames[0].1.save(output)?;
         return Ok(());
     }
@@ -864,11 +862,10 @@ fn render_snapshots(
         let oy = pad + row * (th + pad);
         image::imageops::overlay(&mut canvas, &thumb, ox as i64, oy as i64);
     }
-    if let Some(parent) = output.parent() {
-        if !parent.as_os_str().is_empty() {
+    if let Some(parent) = output.parent()
+        && !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent)?;
         }
-    }
     canvas.save(output)?;
     Ok(())
 }
@@ -891,11 +888,10 @@ fn render_preview_once(
     let assets = AssetStore::load_for_scene(scene, cache_dir)?;
     let rgba = renderer::render_frame_at_time(scene, &assets, t)?;
     let img = premul_to_rgba_image(scene.canvas.width, scene.canvas.height, rgba)?;
-    if let Some(parent) = output.parent() {
-        if !parent.as_os_str().is_empty() {
+    if let Some(parent) = output.parent()
+        && !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent)?;
         }
-    }
     img.save(output)?;
     let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
     println!(
@@ -1031,11 +1027,10 @@ fn run_diff(
     let changed_pct = (diff_pixels as f64) * 100.0 / ((img_base.width() as f64) * (img_base.height() as f64));
 
     if let Some(out_path) = out {
-        if let Some(parent) = out_path.parent() {
-            if !parent.as_os_str().is_empty() {
+        if let Some(parent) = out_path.parent()
+            && !parent.as_os_str().is_empty() {
                 fs::create_dir_all(parent)?;
             }
-        }
         diff_img.save(out_path)?;
     }
 

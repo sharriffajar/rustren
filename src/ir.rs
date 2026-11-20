@@ -47,7 +47,7 @@ impl Clone for CompiledScene {
         match self {
             CompiledScene::Static(scene) => CompiledScene::Static(scene.clone()),
             CompiledScene::Dynamic { .. } => {
-                panic!("Dynamic scene cloning belum diimplementasi (Sprint 7)")
+                panic!("Dynamic scene cloning is not implemented yet")
             }
         }
     }
@@ -59,7 +59,7 @@ impl CompiledScene {
         match self {
             CompiledScene::Static(s) => s,
             CompiledScene::Dynamic { .. } => {
-                panic!("Dynamic scene evaluation belum diimplementasi (Sprint 7)")
+                panic!("Dynamic scene evaluation is not implemented yet")
             }
         }
     }
@@ -69,7 +69,7 @@ impl CompiledScene {
         match self {
             CompiledScene::Static(s) => s,
             CompiledScene::Dynamic { .. } => {
-                panic!("Dynamic scene evaluation belum diimplementasi (Sprint 7)")
+                panic!("Dynamic scene evaluation is not implemented yet")
             }
         }
     }
