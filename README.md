@@ -34,8 +34,8 @@ AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Pr
 xychart-beta
     title "Preset vs Render Time (s) & MP4 Size (MB) — 60s 720p30 @ CRF 18"
     x-axis [ultrafast, superfast, veryfast, faster, fast, medium]
-    y-axis "Render Time (s) [bar]  /  File Size (MB) [line]" 0 --> 13
-    bar [6.59, 6.79, 8.09, 9.59, 10.27, 11.71]
+    y-axis "Seconds / MB" 0 --> 13
+    line [6.59, 6.79, 8.09, 9.59, 10.27, 11.71]
     line [7.8, 3.4, 1.9, 2.0, 2.1, 2.2]
 ```
 
