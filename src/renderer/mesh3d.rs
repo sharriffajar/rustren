@@ -1,7 +1,8 @@
 //! Software 3D Mesh Rasterizer (CPU-only, deterministic)
 //!
 //! Provides procedural mesh generation, perspective projection, view-space backface
-//! culling, barycentric triangle rasterization with a z-buffer, and half-Lambert shading.
+//! culling, signed-area (barycentric) triangle rasterization with a z-buffer,
+//! anti-aliased supersampling, and half-Lambert shading.
 
 #[cfg(feature = "exp-3d")]
 use glam::{Mat4, Vec3, Vec4};
@@ -284,34 +285,6 @@ fn project_vertex(
     }
 }
 
-#[cfg(feature = "exp-3d")]
-fn barycentric(p: (f32, f32), a: (f32, f32), b: (f32, f32), c: (f32, f32)) -> (f32, f32, f32) {
-    let (px, py) = p;
-    let (ax, ay) = a;
-    let (bx, by) = b;
-    let (cx, cy) = c;
-
-    let v0 = (bx - ax, by - ay);
-    let v1 = (cx - ax, cy - ay);
-    let v2 = (px - ax, py - ay);
-
-    let d00 = v0.0 * v0.0 + v0.1 * v0.1;
-    let d01 = v0.0 * v1.0 + v0.1 * v1.1;
-    let d11 = v1.0 * v1.0 + v1.1 * v1.1;
-    let d20 = v2.0 * v0.0 + v2.1 * v0.1;
-    let d21 = v2.0 * v1.0 + v2.1 * v1.1;
-
-    let denom = d00 * d11 - d01 * d01;
-    if denom.abs() < 1e-10 {
-        return (0.0, 0.0, 0.0);
-    }
-
-    let v = (d11 * d20 - d01 * d21) / denom;
-    let w = (d00 * d21 - d01 * d20) / denom;
-    let u = 1.0 - v - w;
-
-    (u, v, w)
-}
 
 #[cfg(feature = "exp-3d")]
 #[allow(clippy::too_many_arguments)]
@@ -383,17 +356,44 @@ pub fn render_mesh3d_to_pixmap(
         projected.push(project_vertex(vertex, mvp, normal_matrix, light_view, ambient));
     }
 
-    // Convert NDC [-1,1] to screen coordinates [x, x+width] x [y, y+height]
+    // Destination region in pixmap space. Fractional coordinates are truncated the
+    // same way the layout does, so the mesh always lands on whole pixels.
+    let x0 = x as i32;
+    let y0 = y as i32;
+    let region_w = ((x + width) as i32 - x0).max(0) as usize;
+    let region_h = ((y + height) as i32 - y0).max(0) as usize;
+    if region_w == 0 || region_h == 0 {
+        return;
+    }
+
+    // Supersampling: rasterize into a higher-resolution offscreen buffer and
+    // box-downsample it, which anti-aliases both triangle silhouettes and
+    // wireframe lines. Samples per axis are chosen as the largest that keeps the
+    // offscreen buffer bounded, which is deterministic for a given rect size.
+    let mut ss = 1usize;
+    for candidate in [4usize, 3, 2] {
+        let budget = region_w * candidate * region_h * candidate;
+        if budget <= 4_000_000 {
+            ss = candidate;
+            break;
+        }
+    }
+    let sw = region_w * ss;
+    let sh = region_h * ss;
+
+    // Convert NDC [-1,1] to offscreen screen coordinates [0, sw] x [0, sh].
     // NDC: x in [-1,1] (left to right), y in [-1,1] (bottom to top)
-    // Screen: x in [x, x+width] (left to right), y in [y, y+height] (top to bottom)
+    // Screen: y flipped so it grows top to bottom.
     for v in &mut projected {
-        v.x = (v.x + 1.0) * 0.5 * width + x;
-        v.y = (1.0 - v.y) * 0.5 * height + y;
+        v.x = (v.x + 1.0) * 0.5 * sw as f32;
+        v.y = (1.0 - v.y) * 0.5 * sh as f32;
         // z remains in NDC depth range for z-buffer
     }
 
+    // Premultiplied RGBA accumulation buffer (source over) at supersample resolution.
+    let mut color_buffer = vec![[0.0f32; 4]; sw * sh];
     // Z-buffer
-    let mut z_buffer = vec![f32::INFINITY; (width as usize) * (height as usize)];
+    let mut z_buffer = vec![f32::INFINITY; sw * sh];
 
     // Rasterize triangles
     for tri in mesh.indices.chunks(3) {
@@ -431,17 +431,13 @@ pub fn render_mesh3d_to_pixmap(
             }
         }
 
-        // Bounding box in screen coordinates
-        let min_x = v0.x.min(v1.x).min(v2.x).ceil() as i32;
-        let max_x = v0.x.max(v1.x).max(v2.x).floor() as i32;
-        let min_y = v0.y.min(v1.y).min(v2.y).ceil() as i32;
-        let max_y = v0.y.max(v1.y).max(v2.y).floor() as i32;
-
-        // Clamp to mesh bounds (local coordinates within mesh area)
-        let min_x = min_x.max(x as i32).min((x + width) as i32);
-        let max_x = max_x.max(x as i32).min((x + width) as i32);
-        let min_y = min_y.max(y as i32).min((y + height) as i32);
-        let max_y = max_y.max(y as i32).min((y + height) as i32);
+        // Bounding box in supersampled screen coordinates. Bounds are expanded by
+        // half a sample so pixel-center samples that straddle the silhouette are
+        // not clipped away (the barycentric test rejects anything truly outside).
+        let min_x = ((v0.x.min(v1.x).min(v2.x) - 0.5).floor() as i32).max(0);
+        let max_x = ((v0.x.max(v1.x).max(v2.x) + 0.5).ceil() as i32).min(sw as i32 - 1);
+        let min_y = ((v0.y.min(v1.y).min(v2.y) - 0.5).floor() as i32).max(0);
+        let max_y = ((v0.y.max(v1.y).max(v2.y) + 0.5).ceil() as i32).min(sh as i32 - 1);
 
         if min_x > max_x || min_y > max_y {
             continue;
@@ -454,68 +450,137 @@ pub fn render_mesh3d_to_pixmap(
 
         if wireframe {
             // Draw wireframe edges
-            draw_line(pixmap, &mut z_buffer, v0, v1, base_color, opacity, width as usize, x as i32, y as i32);
-            draw_line(pixmap, &mut z_buffer, v1, v2, base_color, opacity, width as usize, x as i32, y as i32);
-            draw_line(pixmap, &mut z_buffer, v2, v0, base_color, opacity, width as usize, x as i32, y as i32);
+            draw_line(&mut color_buffer, &mut z_buffer, v0, v1, base_color, opacity, sw);
+            draw_line(&mut color_buffer, &mut z_buffer, v1, v2, base_color, opacity, sw);
+            draw_line(&mut color_buffer, &mut z_buffer, v2, v0, base_color, opacity, sw);
         } else {
-            // Filled triangle
+            // Filled triangle. Sample at pixel centers so the box downsample
+            // produces proper coverage-based anti-aliasing.
+            let alpha = (base_color[3] * opacity).clamp(0.0, 1.0);
+            let abs_cross = cross_z.abs();
+
+            // Cracks between triangles that share an edge are otherwise visible as
+            // hairline background gaps (the sphere developed a dark seam and
+            // speckles at 2x). Expand every edge outward by half a subsample in
+            // barycentric units; the z-buffer resolves the overlapping slivers.
+            let tol_u = 0.5 * ((c.0 - b.0).powi(2) + (c.1 - b.1).powi(2)).sqrt() / abs_cross;
+            let tol_v = 0.5 * ((a.0 - c.0).powi(2) + (a.1 - c.1).powi(2)).sqrt() / abs_cross;
+            let tol_w = 0.5 * ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt() / abs_cross;
+
+            // Incremental signed-area rasterization: the three barycentric weights
+            // are seeded once per scanline and advanced by a constant step per
+            // sample, so the inner loop needs no divisions or re-evaluated cross
+            // products. This is the classic signed-area (barycentric) formulation.
+            let inv_cross = 1.0 / cross_z;
+            let (ax, ay) = a;
+            let (bx, by) = b;
+            let (cx, cy) = c;
+            let sxf = min_x as f32 + 0.5;
+            let syf = min_y as f32 + 0.5;
+
+            // d(weight)/d(px) and d(weight)/d(py), normalized by twice the area.
+            let du_dx = (by - cy) * inv_cross;
+            let du_dy = (cx - bx) * inv_cross;
+            let dv_dx = (cy - ay) * inv_cross;
+            let dv_dy = (ax - cx) * inv_cross;
+
+            let mut row_u = (bx * cy - by * cx + sxf * (by - cy) + syf * (cx - bx)) * inv_cross;
+            let mut row_v = (cx * ay - cy * ax + sxf * (cy - ay) + syf * (ax - cx)) * inv_cross;
+
             for py in min_y..=max_y {
+                let row_start = (py as usize) * sw;
+                let mut u = row_u;
+                let mut v = row_v;
                 for px in min_x..=max_x {
-                    let (u, v, w) = barycentric((px as f32, py as f32), a, b, c);
+                    let w = 1.0 - u - v;
 
-                    if u >= -0.01 && v >= -0.01 && w >= -0.01 {
-                        // Interpolate depth
+                    if u >= -tol_u && v >= -tol_v && w >= -tol_w {
+                        let idx = row_start + (px as usize);
                         let depth = u * v0.z + v * v1.z + w * v2.z;
-
-                        // Z-buffer test - use LOCAL coordinates within mesh area
-                        let local_px = px - x as i32;
-                        let local_py = py - y as i32;
-                        let idx = (local_py as usize) * (width as usize) + (local_px as usize);
-                        if idx < z_buffer.len() && depth < z_buffer[idx] {
+                        if depth < z_buffer[idx] {
                             z_buffer[idx] = depth;
 
-                            // Interpolate light intensity
-                            let intensity = u * v0.light_intensity + v * v1.light_intensity + w * v2.light_intensity;
+                            let intensity = (u * v0.light_intensity
+                                + v * v1.light_intensity
+                                + w * v2.light_intensity)
+                                .clamp(0.0, 1.0);
 
-                            // Apply color
-                            let r = (base_color[0] * intensity * 255.0) as u8;
-                            let g = (base_color[1] * intensity * 255.0) as u8;
-                            let b = (base_color[2] * intensity * 255.0) as u8;
-                            let a = (base_color[3] * opacity * 255.0) as u8;
-
-                            // Blend with existing pixel - direct buffer access (alpha over)
-                            let pix_idx = (py as usize * pixmap.width() as usize + px as usize) * 4;
-                            let data = pixmap.data_mut();
-                            if pix_idx + 3 < data.len() {
-                                // Source color (non-premultiplied)
-                                let src_r = r as f32 / 255.0;
-                                let src_g = g as f32 / 255.0;
-                                let src_b = b as f32 / 255.0;
-                                let src_a = a as f32 / 255.0;
-
-                                // Destination color (from buffer, premultiplied)
-                                let dst_r = data[pix_idx] as f32 / 255.0;
-                                let dst_g = data[pix_idx + 1] as f32 / 255.0;
-                                let dst_b = data[pix_idx + 2] as f32 / 255.0;
-                                let dst_a = data[pix_idx + 3] as f32 / 255.0;
-
-                                // Alpha over blending
-                                let out_a = src_a + dst_a * (1.0 - src_a);
-                                if out_a > 0.0 {
-                                    let out_r = (src_r * src_a + dst_r * dst_a * (1.0 - src_a)) / out_a;
-                                    let out_g = (src_g * src_a + dst_g * dst_a * (1.0 - src_a)) / out_a;
-                                    let out_b = (src_b * src_a + dst_b * dst_a * (1.0 - src_a)) / out_a;
-
-                                    data[pix_idx] = (out_r * out_a * 255.0).round().clamp(0.0, 255.0) as u8;
-                                    data[pix_idx + 1] = (out_g * out_a * 255.0).round().clamp(0.0, 255.0) as u8;
-                                    data[pix_idx + 2] = (out_b * out_a * 255.0).round().clamp(0.0, 255.0) as u8;
-                                    data[pix_idx + 3] = (out_a * 255.0).round().clamp(0.0, 255.0) as u8;
-                                }
-                            }
+                            // Store premultiplied source so downsampling and the
+                            // final composite stay correct.
+                            color_buffer[idx] = [
+                                base_color[0] * intensity * alpha,
+                                base_color[1] * intensity * alpha,
+                                base_color[2] * intensity * alpha,
+                                alpha,
+                              ];
                         }
                     }
+                    u += du_dx;
+                    v += dv_dx;
+                }
+                row_u += du_dy;
+                row_v += dv_dy;
+            }
+        }
+    }
+
+    // Box downsample the supersampled buffer and alpha-over it onto the pixmap.
+    let samples = (ss * ss) as f32;
+    let pixmap_w = pixmap.width() as usize;
+    let pixmap_h = pixmap.height() as usize;
+    let data = pixmap.data_mut();
+
+    for ry in 0..region_h {
+        for rx in 0..region_w {
+            let mut sum = [0.0f32; 4];
+            for sy in 0..ss {
+                let row = (ry * ss + sy) * sw;
+                for sx in 0..ss {
+                    let s = color_buffer[row + rx * ss + sx];
+                    sum[0] += s[0];
+                    sum[1] += s[1];
+                    sum[2] += s[2];
+                    sum[3] += s[3];
                 }
             }
+            let src = [
+                sum[0] / samples,
+                sum[1] / samples,
+                sum[2] / samples,
+                sum[3] / samples,
+            ];
+            if src[3] <= 0.0 {
+                continue;
+            }
+
+            let px = x0 + rx as i32;
+            let py = y0 + ry as i32;
+            if px < 0 || py < 0 || px as usize >= pixmap_w || py as usize >= pixmap_h {
+                continue;
+            }
+
+            let pix_idx = (py as usize * pixmap_w + px as usize) * 4;
+            if pix_idx + 3 >= data.len() {
+                continue;
+            }
+
+            // Destination is premultiplied; composite premultiplied source over it.
+            let dst_a = data[pix_idx + 3] as f32 / 255.0;
+            let keep = 1.0 - src[3];
+            let out_a = src[3] + dst_a * keep;
+            let out = [
+                src[0] + data[pix_idx] as f32 / 255.0 * keep,
+                src[1] + data[pix_idx + 1] as f32 / 255.0 * keep,
+                src[2] + data[pix_idx + 2] as f32 / 255.0 * keep,
+                out_a,
+            ];
+
+            // Premultiplied channels can never exceed alpha; clamp anyway to
+            // absorb float rounding so tiny-skia stays consistent.
+            data[pix_idx] = (out[0].min(out_a) * 255.0).round().clamp(0.0, 255.0) as u8;
+            data[pix_idx + 1] = (out[1].min(out_a) * 255.0).round().clamp(0.0, 255.0) as u8;
+            data[pix_idx + 2] = (out[2].min(out_a) * 255.0).round().clamp(0.0, 255.0) as u8;
+            data[pix_idx + 3] = (out_a * 255.0).round().clamp(0.0, 255.0) as u8;
         }
     }
 }
@@ -523,15 +588,13 @@ pub fn render_mesh3d_to_pixmap(
 #[cfg(feature = "exp-3d")]
 #[allow(clippy::too_many_arguments)]
 fn draw_line(
-    pixmap: &mut PixmapMut,
+    color_buffer: &mut [[f32; 4]],
     z_buffer: &mut [f32],
     v0: &ProjectedVertex,
     v1: &ProjectedVertex,
     base_color: [f32; 4],
     opacity: f32,
     stride: usize,
-    offset_x: i32,
-    offset_y: i32,
 ) {
     let x0 = v0.x.round() as i32;
     let y0 = v0.y.round() as i32;
@@ -547,55 +610,29 @@ fn draw_line(
     let mut x = x0;
     let mut y = y0;
 
+    let alpha = (base_color[3] * opacity).clamp(0.0, 1.0);
+    let rows = z_buffer.len() / stride;
+
     let mut t = 0.0;
     let steps = dx.max(dy) as f32;
     if steps > 0.0 {
         loop {
-            if x >= 0 && y >= 0 && (x as u32) < pixmap.width() && (y as u32) < pixmap.height() {
-                // Convert screen coords to local z_buffer coords
-                let local_x = x - offset_x;
-                let local_y = y - offset_y;
-                if local_x >= 0 && local_y >= 0 {
-                    let idx = (local_y as usize) * stride + (local_x as usize);
-                    if idx < z_buffer.len() {
-                        let depth = v0.z + t * (v1.z - v0.z);
-                        if depth < z_buffer[idx] {
-                            z_buffer[idx] = depth;
-                            let intensity = v0.light_intensity + t * (v1.light_intensity - v0.light_intensity);
-                            let r = (base_color[0] * intensity * 255.0) as u8;
-                            let g = (base_color[1] * intensity * 255.0) as u8;
-                            let b = (base_color[2] * intensity * 255.0) as u8;
-                            let a = (base_color[3] * opacity * 255.0) as u8;
-
-                            let pix_idx = (y as usize * pixmap.width() as usize + x as usize) * 4;
-                            let data = pixmap.data_mut();
-                            if pix_idx + 3 < data.len() {
-                                // Source color (non-premultiplied)
-                                let src_r = r as f32 / 255.0;
-                                let src_g = g as f32 / 255.0;
-                                let src_b = b as f32 / 255.0;
-                                let src_a = a as f32 / 255.0;
-
-                                // Destination color (from buffer, premultiplied)
-                                let dst_r = data[pix_idx] as f32 / 255.0;
-                                let dst_g = data[pix_idx + 1] as f32 / 255.0;
-                                let dst_b = data[pix_idx + 2] as f32 / 255.0;
-                                let dst_a = data[pix_idx + 3] as f32 / 255.0;
-
-                                // Alpha over blending
-                                let out_a = src_a + dst_a * (1.0 - src_a);
-                                if out_a > 0.0 {
-                                    let out_r = (src_r * src_a + dst_r * dst_a * (1.0 - src_a)) / out_a;
-                                    let out_g = (src_g * src_a + dst_g * dst_a * (1.0 - src_a)) / out_a;
-                                    let out_b = (src_b * src_a + dst_b * dst_a * (1.0 - src_a)) / out_a;
-
-                                    data[pix_idx] = (out_r * out_a * 255.0).round().clamp(0.0, 255.0) as u8;
-                                    data[pix_idx + 1] = (out_g * out_a * 255.0).round().clamp(0.0, 255.0) as u8;
-                                    data[pix_idx + 2] = (out_b * out_a * 255.0).round().clamp(0.0, 255.0) as u8;
-                                    data[pix_idx + 3] = (out_a * 255.0).round().clamp(0.0, 255.0) as u8;
-                                }
-                            }
-                        }
+            if x >= 0 && y >= 0 && (x as usize) < stride && (y as usize) < rows {
+                let idx = (y as usize) * stride + (x as usize);
+                if idx < z_buffer.len() {
+                    let depth = v0.z + t * (v1.z - v0.z);
+                    if depth < z_buffer[idx] {
+                        z_buffer[idx] = depth;
+                        let intensity = (v0.light_intensity
+                            + t * (v1.light_intensity - v0.light_intensity))
+                            .clamp(0.0, 1.0);
+                        // Premultiplied source, same convention as triangle fills.
+                        color_buffer[idx] = [
+                            base_color[0] * intensity * alpha,
+                            base_color[1] * intensity * alpha,
+                            base_color[2] * intensity * alpha,
+                            alpha,
+                        ];
                     }
                 }
             }

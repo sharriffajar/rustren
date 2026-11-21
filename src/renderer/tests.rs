@@ -466,6 +466,89 @@ mod exp_3d_tests {
     }
 
     #[test]
+    fn test_mesh3d_anti_aliasing_produces_partial_coverage() {
+        // Anti-aliasing (supersample + box downsample) must produce partially
+        // covered pixels along the silhouette instead of hard 1-bit edges.
+        let mut pixmap = Pixmap::new(200, 200).unwrap();
+        let mesh = Mesh::sphere(16, 32);
+
+        render_mesh3d_to_pixmap(
+            &mut pixmap.as_mut(),
+            &mesh,
+            20.0, 20.0,
+            160.0, 160.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            20.0, 30.0, 0.0,
+        );
+
+        let data = pixmap.data();
+        let mut opaque = 0;
+        let mut partial = 0;
+        for chunk in data.chunks_exact(4) {
+            match chunk[3] {
+                255 => opaque += 1,
+                1..=254 => partial += 1,
+                _ => {}
+            }
+        }
+
+        assert!(opaque > 500, "solid interior expected, got {}", opaque);
+        // A 2x supersample can only ever yield alpha multiples of 64, and a
+        // 160px sphere has ~500 edge pixels, so a healthy number is expected.
+        assert!(
+            partial > 100,
+            "silhouette should be anti-aliased, got {} partial pixels",
+            partial
+        );
+    }
+
+    #[test]
+    fn test_mesh3d_no_cracks_inside_silhouette() {
+        // Regression: at 2x supersampling, shared triangle edges used to leave
+        // 1px background seams inside the body (visible as speckles on the sphere).
+        let mut pixmap = Pixmap::new(200, 200).unwrap();
+        let mesh = Mesh::sphere(16, 32);
+
+        render_mesh3d_to_pixmap(
+            &mut pixmap.as_mut(),
+            &mesh,
+            20.0, 20.0,
+            160.0, 160.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            20.0, 30.0, 0.0,
+        );
+
+        // Interior box is comfortably inside the projected silhouette, so every
+        // pixel there must be covered.
+        let data = pixmap.data();
+        let w = pixmap.width() as usize;
+        let mut holes = Vec::new();
+        for y in 80..120 {
+            for x in 80..120 {
+                let idx = (y * w + x) * 4;
+                if data[idx + 3] == 0 {
+                    holes.push((x, y));
+                }
+            }
+        }
+        assert!(
+            holes.is_empty(),
+            "background holes inside the sphere body: {:?}",
+            &holes[..holes.len().min(8)]
+        );
+    }
+
+    #[test]
     fn test_mesh3d_wireframe_renders() {
         let mut pixmap = Pixmap::new(200, 200).unwrap();
         let mesh = Mesh::cube();
