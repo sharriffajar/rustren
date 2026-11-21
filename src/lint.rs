@@ -215,6 +215,8 @@ fn static_layer_bounds(layer: &Layer) -> Option<(f32, f32, f32, f32)> {
             height: Some(h),
             ..
         } => Some((*x, *y, *w, *h)),
+        #[cfg(feature = "exp-3d")]
+        LayerKind::Mesh3d { x, y, width, height, .. } => Some((*x, *y, *width, *height)),
         LayerKind::Text {
             x,
             y,
@@ -307,6 +309,8 @@ fn find_effective_bg_at(
                         return inner;
                     }
                 }
+            #[cfg(feature = "exp-3d")]
+            LayerKind::Mesh3d { .. } => {}
             _ => {}
         }
     }

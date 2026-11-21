@@ -656,6 +656,37 @@ pub enum LayerKind {
         #[serde(default)]
         children: Vec<Layer>,
     },
+    #[cfg(feature = "exp-3d")]
+    Mesh3d {
+        #[serde(default)]
+        x: f32,
+        #[serde(default)]
+        y: f32,
+        width: f32,
+        height: f32,
+        #[serde(default = "default_mesh3d_primitive")]
+        primitive: Mesh3dPrimitive,
+        #[serde(default)]
+        src: Option<String>,
+        #[serde(default = "default_opacity")]
+        opacity: f32,
+        #[serde(default = "default_scale")]
+        scale: f32,
+        #[serde(default)]
+        rotate_x: f32,
+        #[serde(default)]
+        rotate_y: f32,
+        #[serde(default)]
+        rotate_z: f32,
+        #[serde(default = "default_mesh3d_fov")]
+        fov: f32,
+        #[serde(default = "default_mesh3d_color")]
+        color: String,
+        #[serde(default)]
+        light_dir: Option<[f32; 3]>,
+        #[serde(default)]
+        wireframe: bool,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -735,6 +766,32 @@ pub enum ParticleShapeSpec {
     Circle,
     Rect,
     Confetti,
+}
+
+#[cfg(feature = "exp-3d")]
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Mesh3dPrimitive {
+    #[default]
+    Cube,
+    Sphere,
+    Pyramid,
+    Torus,
+}
+
+#[cfg(feature = "exp-3d")]
+fn default_mesh3d_primitive() -> Mesh3dPrimitive {
+    Mesh3dPrimitive::Cube
+}
+
+#[cfg(feature = "exp-3d")]
+fn default_mesh3d_fov() -> f32 {
+    45.0
+}
+
+#[cfg(feature = "exp-3d")]
+fn default_mesh3d_color() -> String {
+    "#38BDF8".to_string()
 }
 
 fn default_true() -> bool {
@@ -901,6 +958,7 @@ pub enum AnimProperty {
     SkewY,
     RotateX,
     RotateY,
+    RotateZ,
     Perspective,
     #[serde(alias = "z")]
     ZIndex,

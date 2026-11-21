@@ -47,6 +47,8 @@ pub struct ElementCapabilities {
     pub video: bool,
     pub waveform: bool,
     pub lottie: bool,
+    #[cfg(feature = "exp-3d")]
+    pub mesh3d: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -121,6 +123,8 @@ impl CapabilityRegistry {
                     video: true,
                     waveform: true,
                     lottie: true,
+                    #[cfg(feature = "exp-3d")]
+                    mesh3d: true,
                 },
                 styles: StyleCapabilities {
                     solid_color: true,

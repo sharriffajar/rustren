@@ -1,0 +1,94 @@
+<!--
+  rustren Experimental 3D Showcase
+  Demonstrates Mesh3d layer with procedural 3D primitives rendered via software rasterizer
+-->
+<scene width="1280" height="720" fps="30" duration="4.0" background="#070B14">
+    <profiles>
+        <profile name="portrait" width="1080" height="1920" />
+        <profile name="square" width="720" height="720" />
+    </profiles>
+
+    <!-- Background grid with glow -->
+    <svg x="0" y="0" width="1280" height="720" opacity="0.35" viewBox="0 0 1280 720">
+        <defs>
+            <pattern id="grid" width="64" height="64" patternUnits="userSpaceOnUse">
+                <path d="M64 0H0V64" fill="none" stroke="#1E293B" stroke-width="1"/>
+            </pattern>
+            <radialGradient id="glow1" cx="18%" cy="22%" r="55%">
+                <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="glow2" cx="82%" cy="78%" r="55%">
+                <stop offset="0%" stop-color="#A855F7" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#A855F7" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="glow3" cx="50%" cy="45%" r="40%">
+                <stop offset="0%" stop-color="#22D3EE" stop-opacity="0.14"/>
+                <stop offset="100%" stop-color="#22D3EE" stop-opacity="0"/>
+            </radialGradient>
+        </defs>
+        <rect width="1280" height="720" fill="url(#grid)"/>
+        <rect width="1280" height="720" fill="url(#glow1)"/>
+        <rect width="1280" height="720" fill="url(#glow2)"/>
+        <rect width="1280" height="720" fill="url(#glow3)"/>
+    </svg>
+
+    <!-- Title -->
+    <text x="0" y="38" content="rustren exp-3d · Software 3D Rasterizer" font-size="28" color="#F8FAFC" text-align="center" max-width="1280" font-weight="bold" />
+
+    <text x="0" y="76" content="CPU-only • deterministic • zero-GPU • tiny-skia + glam" font-size="16" color="#94A3B8" text-align="center" max-width="1280" />
+
+    <!-- Solid primitives (top row) -->
+    <mesh3d x="40" y="120" width="260" height="260" primitive="cube" color="#38BDF8" fov="50" wireframe="false" light-dir="0.45, 0.8, 0.5">
+        <animate property="rotate_x" from="24" to="744" start="0" end="4" easing="linear" repeat="infinite" />
+        <animate property="rotate_y" from="32" to="392" start="0" end="4" easing="linear" repeat="infinite" />
+        <animate property="rotate_z" from="10" to="190" start="0" end="4" easing="linear" repeat="infinite" />
+    </mesh3d>
+    <text x="40" y="408" content="Cube" font-size="22" color="#38BDF8" text-align="center" max-width="260" font-weight="bold" />
+
+    <mesh3d x="350" y="120" width="260" height="260" primitive="sphere" color="#22D3EE" fov="50" wireframe="false" light-dir="0.4, 0.9, 0.5">
+        <animate property="rotate_x" from="0" to="360" start="0" end="4" easing="linear" repeat="infinite" />
+        <animate property="rotate_y" from="20" to="740" start="0" end="4" easing="linear" repeat="infinite" />
+    </mesh3d>
+    <text x="350" y="408" content="Sphere" font-size="22" color="#22D3EE" text-align="center" max-width="260" font-weight="bold" />
+
+    <mesh3d x="660" y="120" width="260" height="260" primitive="pyramid" color="#FBBF24" fov="50" wireframe="false" light-dir="0.45, 0.85, 0.4">
+        <animate property="rotate_x" from="20" to="200" start="0" end="4" easing="linear" repeat="infinite" />
+        <animate property="rotate_y" from="28" to="748" start="0" end="4" easing="linear" repeat="infinite" />
+        <animate property="rotate_z" from="0" to="360" start="0" end="4" easing="linear" repeat="infinite" />
+    </mesh3d>
+    <text x="660" y="408" content="Pyramid" font-size="22" color="#FBBF24" text-align="center" max-width="260" font-weight="bold" />
+
+    <mesh3d x="970" y="120" width="260" height="260" primitive="torus" color="#A855F7" fov="50" wireframe="false" light-dir="0.4, 0.9, 0.5">
+        <animate property="rotate_x" from="24" to="744" start="0" end="4" easing="linear" repeat="infinite" />
+        <animate property="rotate_z" from="0" to="360" start="0" end="4" easing="linear" repeat="infinite" />
+    </mesh3d>
+    <text x="970" y="408" content="Torus" font-size="22" color="#A855F7" text-align="center" max-width="260" font-weight="bold" />
+
+    <!-- Wireframe variants (bottom row) -->
+    <mesh3d x="140" y="452" width="200" height="200" primitive="cube" color="#38BDF8" fov="50" wireframe="true" light-dir="0.5, 0.9, 0.5" opacity="0.9">
+        <animate property="rotate_y" from="30" to="750" start="0" end="4" easing="linear" repeat="infinite" />
+    </mesh3d>
+    <text x="140" y="660" content="Wireframe Cube" font-size="16" color="#38BDF8" text-align="center" max-width="200" opacity="0.8" />
+
+    <mesh3d x="400" y="452" width="200" height="200" primitive="sphere" color="#22D3EE" fov="50" wireframe="true" light-dir="0.4, 0.9, 0.5" opacity="0.9">
+        <animate property="rotate_x" from="0" to="360" start="0" end="4" easing="linear" repeat="infinite" />
+    </mesh3d>
+    <text x="400" y="660" content="Wireframe Sphere" font-size="16" color="#22D3EE" text-align="center" max-width="200" opacity="0.8" />
+
+    <mesh3d x="660" y="452" width="200" height="200" primitive="pyramid" color="#FBBF24" fov="50" wireframe="true" light-dir="0.45, 0.85, 0.4" opacity="0.9">
+        <animate property="rotate_y" from="35" to="755" start="0" end="4" easing="linear" repeat="infinite" />
+    </mesh3d>
+    <text x="660" y="660" content="Wireframe Pyramid" font-size="16" color="#FBBF24" text-align="center" max-width="200" opacity="0.8" />
+
+    <mesh3d x="920" y="452" width="200" height="200" primitive="torus" color="#A855F7" fov="50" wireframe="true" light-dir="0.4, 0.9, 0.5" opacity="0.9">
+        <animate property="rotate_z" from="20" to="740" start="0" end="4" easing="linear" repeat="infinite" />
+    </mesh3d>
+    <text x="920" y="660" content="Wireframe Torus" font-size="16" color="#A855F7" text-align="center" max-width="200" opacity="0.8" />
+
+    <!-- Footer -->
+    <rect x="0" y="688" width="1280" height="32" fill="#0B1220" opacity="0.85" />
+    <text x="0" y="697" content="Procedural geometry, z-buffered and shaded entirely on the CPU — no GPU, no browser" font-size="14" color="#64748B" text-align="center" max-width="1280">
+        <animate property="opacity" from="0" to="0.8" start="2.0" end="2.5" easing="ease_out" />
+    </text>
+</scene>

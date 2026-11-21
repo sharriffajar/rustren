@@ -2,6 +2,7 @@ mod cache;
 mod fx;
 pub mod inspect;
 mod layout;
+mod mesh3d;
 mod svg_draw;
 mod text;
 #[cfg(test)]
@@ -50,6 +51,8 @@ use crate::schema::{
     AnimProperty, BlendModeSpec, FitSpec, Layer, LayerKind, ParticleShapeSpec, Scene,
     TrackMatteMode,
 };
+#[cfg(feature = "exp-3d")]
+use crate::schema::Mesh3dPrimitive;
 
 use self::fx::{
     apply_surface_effects_cropped, build_shadow_pixmap_cropped, can_use_blur_cache,
@@ -58,6 +61,8 @@ use self::fx::{
     layer_base_opacity, layer_pose_offset_and_scale, map_blend_mode, set_layer_base_scale,
     set_layer_opacity, splitmix64, warp_perspective_3d_cropped,
 };
+#[cfg(feature = "exp-3d")]
+use self::mesh3d::{render_mesh3d_to_pixmap, Mesh};
 use self::layout::{
     apply_anchor, build_pivot_transform_with_skew, compute_flex_layout, effective_end_sec,
     resolve_child_timelines, resolve_xy, LayoutBox,
@@ -870,6 +875,19 @@ fn render_layer(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn is_mesh3d_layer(layer: &Layer) -> bool {
+    #[cfg(feature = "exp-3d")]
+    {
+        matches!(layer.kind, LayerKind::Mesh3d { .. })
+    }
+    #[cfg(not(feature = "exp-3d"))]
+    {
+        let _ = layer;
+        false
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn render_layer_scoped(
     layer: &Layer,
     scene_duration: f32,
@@ -897,7 +915,7 @@ fn render_layer_scoped(
         time_sec,
         layer.perspective,
     );
-    let has_3d = rot_x.abs() > 1e-4 || rot_y.abs() > 1e-4;
+    let has_3d = (rot_x.abs() > 1e-4 || rot_y.abs() > 1e-4) && !is_mesh3d_layer(layer);
     if has_3d && !layer.backface_visible {
         let n_z = rot_x.to_radians().cos() * rot_y.to_radians().cos();
         if n_z <= 1e-5 {
@@ -2172,6 +2190,70 @@ fn render_layer_inner(
                     )?;
                 }
             }
+        }
+        #[cfg(feature = "exp-3d")]
+        LayerKind::Mesh3d {
+            x,
+            y,
+            width,
+            height,
+            primitive,
+            src: _,
+            opacity,
+            scale,
+            rotate_x,
+            rotate_y,
+            rotate_z,
+            fov,
+            color,
+            light_dir,
+            wireframe,
+        } => {
+            let (rx, ry) = resolve_xy(layer, layout_override, *x, *y, time_sec);
+            let op = eval_property(&layer.animations, AnimProperty::Opacity, time_sec, *opacity)
+                .clamp(0.0, 1.0)
+                * parent_opacity;
+            let s = eval_property(&layer.animations, AnimProperty::Scale, time_sec, *scale);
+            let w = *width * s;
+            let h = *height * s;
+
+            let rot_x = eval_property(&layer.animations, AnimProperty::RotateX, time_sec, *rotate_x);
+            let rot_y = eval_property(&layer.animations, AnimProperty::RotateY, time_sec, *rotate_y);
+            let rot_z = eval_property(&layer.animations, AnimProperty::RotateZ, time_sec, *rotate_z);
+
+            if op <= 0.0 || w <= 0.0 || h <= 0.0 {
+                return Ok(());
+            }
+
+            let (rx, ry) = apply_anchor(rx, ry, w, h, layer.anchor);
+
+            // Select mesh based on primitive type
+            let mesh = match primitive {
+                Mesh3dPrimitive::Cube => Mesh::cube(),
+                Mesh3dPrimitive::Sphere => Mesh::sphere(16, 32),
+                Mesh3dPrimitive::Pyramid => Mesh::pyramid(),
+                Mesh3dPrimitive::Torus => Mesh::torus(0.5, 0.2, 24, 16),
+            };
+
+            let light_dir = light_dir.unwrap_or([0.5, -1.0, 0.5]);
+
+            render_mesh3d_to_pixmap(
+                &mut pixmap.as_mut(),
+                &mesh,
+                rx,
+                ry,
+                w,
+                h,
+                *fov,
+                color,
+                light_dir,
+                *wireframe,
+                op,
+                s,
+                rot_x,
+                rot_y,
+                rot_z,
+            );
         }
     }
 

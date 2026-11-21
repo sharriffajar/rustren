@@ -48,7 +48,7 @@ fn expand_self_closing_tags(input: &str) -> String {
                 let tag_name = &input[tag_start..j];
                 let is_custom_tag = matches!(
                     tag_name,
-                    "rect" | "circle" | "text" | "image" | "svg" | "waveform" | "lottie" | "video"
+                    "rect" | "circle" | "text" | "image" | "svg" | "mesh3d" | "waveform" | "lottie" | "video"
                     | "particles" | "container" | "div" | "section" | "p" | "span" | "h1" | "h2" | "h3" | "img"
                     | "animate" | "animation" | "include" | "matte" | "profile" | "font" | "audio"
                     | "path" | "line" | "polygon" | "polyline" | "ellipse" | "g"
@@ -1607,6 +1607,61 @@ fn parse_layer_element(
                 children,
             }
         }
+        #[cfg(feature = "exp-3d")]
+        "mesh3d" => {
+            let x = get_attr_f32(elem, "x").unwrap_or(0.0);
+            let y = get_attr_f32(elem, "y").unwrap_or(0.0);
+            let width = get_attr_f32(elem, "width").unwrap_or(200.0);
+            let height = get_attr_f32(elem, "height").unwrap_or(200.0);
+            let primitive = match get_attr_str(elem, "primitive").as_deref() {
+                Some("sphere") => crate::schema::Mesh3dPrimitive::Sphere,
+                Some("pyramid") => crate::schema::Mesh3dPrimitive::Pyramid,
+                Some("torus") => crate::schema::Mesh3dPrimitive::Torus,
+                _ => crate::schema::Mesh3dPrimitive::Cube,
+            };
+            let src = get_attr_str(elem, "src");
+            let opacity = get_attr_f32(elem, "opacity").unwrap_or(1.0);
+            let scale = get_attr_f32(elem, "scale").unwrap_or(1.0);
+            let rotate_x = get_attr_f32(elem, "rotate-x").unwrap_or(0.0);
+            let rotate_y = get_attr_f32(elem, "rotate-y").unwrap_or(0.0);
+            let rotate_z = get_attr_f32(elem, "rotate-z").unwrap_or(0.0);
+            let fov = get_attr_f32(elem, "fov").unwrap_or(45.0);
+            let color = get_attr_str(elem, "color").unwrap_or_else(|| "#38BDF8".to_string());
+            let light_dir = get_attr_str(elem, "light-dir")
+                .or_else(|| get_attr_str(elem, "light_dir"))
+                .and_then(|s| {
+                    let parts: Vec<f32> = s.split(|c: char| c == ',' || c.is_whitespace())
+                        .filter(|p| !p.is_empty())
+                        .filter_map(|p| p.parse::<f32>().ok())
+                        .collect();
+                    if parts.len() == 3 {
+                        Some([parts[0], parts[1], parts[2]])
+                    } else {
+                        None
+                    }
+                });
+            let wireframe = get_attr_str(elem, "wireframe")
+                .map(|s| s.trim().to_lowercase() == "true")
+                .unwrap_or(false);
+
+            LayerKind::Mesh3d {
+                x,
+                y,
+                width,
+                height,
+                primitive,
+                src,
+                opacity,
+                scale,
+                rotate_x,
+                rotate_y,
+                rotate_z,
+                fov,
+                color,
+                light_dir,
+                wireframe,
+            }
+        }
         _ => return Ok(None),
     };
 
@@ -1658,6 +1713,7 @@ fn parse_animation_elem(a_elem: &ElementRef) -> Result<Animation> {
         "skew_y" | "skew-y" => AnimProperty::SkewY,
         "rotate_x" | "rotate-x" => AnimProperty::RotateX,
         "rotate_y" | "rotate-y" => AnimProperty::RotateY,
+        "rotate_z" | "rotate-z" => AnimProperty::RotateZ,
         "perspective" => AnimProperty::Perspective,
         "z" | "z_index" | "z-index" => AnimProperty::ZIndex,
         "cx" => AnimProperty::Cx,

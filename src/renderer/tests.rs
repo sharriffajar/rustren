@@ -340,3 +340,235 @@ fn test_shadow_container_fx_cache_hits() {
         hits_after - hits_before
     );
 }
+
+#[cfg(feature = "exp-3d")]
+mod exp_3d_tests {
+    use crate::renderer::mesh3d::{Mesh, render_mesh3d_to_pixmap};
+    use crate::compilers::html::parse_html_scene;
+    use crate::assets::AssetStore;
+    use std::collections::HashMap;
+    use tiny_skia::Pixmap;
+
+    #[test]
+    fn test_mesh3d_primitives_generate_geometry() {
+        let cube = Mesh::cube();
+        assert_eq!(cube.vertices.len(), 24);
+        assert_eq!(cube.indices.len(), 36);
+        assert_eq!(cube.indices.len() % 3, 0);
+
+        let sphere = Mesh::sphere(12, 24);
+        assert!(sphere.vertices.len() > 0);
+        assert!(sphere.indices.len() > 0);
+        assert_eq!(sphere.indices.len() % 3, 0);
+
+        let pyramid = Mesh::pyramid();
+        assert_eq!(pyramid.vertices.len(), 18);
+        assert_eq!(pyramid.indices.len(), 18);
+
+        let torus = Mesh::torus(0.5, 0.2, 16, 12);
+        assert!(torus.vertices.len() > 0);
+        assert!(torus.indices.len() > 0);
+        assert_eq!(torus.indices.len() % 3, 0);
+    }
+
+    #[test]
+    fn test_mesh3d_renders_non_empty_pixels() {
+        let mut pixmap = Pixmap::new(200, 200).unwrap();
+        let mesh = Mesh::cube();
+
+        render_mesh3d_to_pixmap(
+            &mut pixmap.as_mut(),
+            &mesh,
+            50.0, 50.0,
+            100.0, 100.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            0.0, 0.0, 0.0,
+        );
+
+        // Check that some pixels were drawn (non-transparent)
+        let data = pixmap.data();
+        let mut non_zero = 0;
+        for chunk in data.chunks_exact(4) {
+            if chunk[3] > 0 {
+                non_zero += 1;
+            }
+        }
+        assert!(non_zero > 100, "Expected many non-transparent pixels, got {}", non_zero);
+    }
+
+    #[test]
+    fn test_mesh3d_deterministic_render() {
+        let mesh = Mesh::cube();
+
+        let mut pixmap1 = Pixmap::new(200, 200).unwrap();
+        render_mesh3d_to_pixmap(
+            &mut pixmap1.as_mut(),
+            &mesh,
+            50.0, 50.0,
+            100.0, 100.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            45.0, 30.0, 15.0,
+        );
+
+        let mut pixmap2 = Pixmap::new(200, 200).unwrap();
+        render_mesh3d_to_pixmap(
+            &mut pixmap2.as_mut(),
+            &mesh,
+            50.0, 50.0,
+            100.0, 100.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            45.0, 30.0, 15.0,
+        );
+
+        assert_eq!(pixmap1.data(), pixmap2.data(), "Two renders with same params must be byte-for-byte identical");
+    }
+
+    #[test]
+    fn test_mesh3d_deterministic_full_pipeline() {
+        let html = r##"
+        <scene width="320" height="240" fps="30" duration="2.0" background="#000000">
+            <mesh3d x="80" y="40" width="160" height="160" primitive="cube" color="#38BDF8" fov="50" wireframe="false" light-dir="0.5, -1.0, 0.5">
+                <animate property="rotate_x" from="0" to="720" start="0" end="2" easing="linear" repeat="infinite" />
+                <animate property="rotate_y" from="0" to="360" start="0" end="2" easing="linear" repeat="infinite" />
+            </mesh3d>
+        </scene>
+        "##;
+
+        let scene = parse_html_scene(html).unwrap();
+        let assets = AssetStore {
+            fonts: vec![],
+            images: HashMap::new(),
+            videos: HashMap::new(),
+            svgs: HashMap::new(),
+            audio_paths: vec![],
+        };
+
+        // Render same frame twice
+        let frame1 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
+        let frame2 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
+
+        assert_eq!(frame1, frame2, "Full pipeline render must be deterministic");
+    }
+
+    #[test]
+    fn test_mesh3d_wireframe_renders() {
+        let mut pixmap = Pixmap::new(200, 200).unwrap();
+        let mesh = Mesh::cube();
+
+        render_mesh3d_to_pixmap(
+            &mut pixmap.as_mut(),
+            &mesh,
+            50.0, 50.0,
+            100.0, 100.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            true, // wireframe
+            1.0,
+            1.0,
+            0.0, 0.0, 0.0,
+        );
+
+        let data = pixmap.data();
+        let mut non_zero = 0;
+        for chunk in data.chunks_exact(4) {
+            if chunk[3] > 0 {
+                non_zero += 1;
+            }
+        }
+        assert!(non_zero > 10, "Wireframe should render some pixels");
+    }
+
+    #[test]
+    fn test_mesh3d_different_primitives_render() {
+        for prim_name in ["cube", "sphere", "pyramid", "torus"] {
+            let html = format!(r##"
+            <scene width="200" height="200" fps="30" duration="1.0" background="#000000">
+                <mesh3d x="50" y="50" width="100" height="100" primitive="{}" color="#38BDF8" />
+            </scene>
+            "##, prim_name);
+
+            let scene = parse_html_scene(&html).unwrap();
+            let assets = AssetStore {
+                fonts: vec![],
+                images: HashMap::new(),
+                videos: HashMap::new(),
+                svgs: HashMap::new(),
+                audio_paths: vec![],
+            };
+
+            let frame = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
+
+            let data = &frame;
+            let mut non_zero = 0;
+            for chunk in data.chunks_exact(4) {
+                if chunk[3] > 0 {
+                    non_zero += 1;
+                }
+            }
+            assert!(non_zero > 0, "Primitive '{}' should render pixels", prim_name);
+        }
+    }
+
+    #[test]
+    fn test_mesh3d_self_closing_siblings_all_render() {
+        // Regression: `<mesh3d ... />` must behave like any other self-closing tag,
+        // so following sibling layers are not swallowed as its children.
+        let html = r##"
+        <scene width="640" height="240" fps="30" duration="1.0" background="#000000">
+            <mesh3d x="20" y="20" width="200" height="200" primitive="cube" color="#FF0000" />
+            <mesh3d x="220" y="20" width="200" height="200" primitive="sphere" color="#00FF00" />
+            <mesh3d x="420" y="20" width="200" height="200" primitive="torus" color="#0000FF" />
+        </scene>
+        "##;
+        let scene = parse_html_scene(html).unwrap();
+        assert_eq!(scene.layers.len(), 3, "all three sibling mesh3d layers must survive parsing");
+    }
+
+    #[test]
+    fn test_mesh3d_rotated_geometry_is_not_dropped() {
+        // Regression: rotations at/after 90 degrees used to trip the generic
+        // backface check for image-like layers and skip the whole mesh.
+        for angle in [0.0, 90.0, 180.0, 270.0] {
+            let html = format!(
+                r##"
+                <scene width="200" height="200" fps="30" duration="1.0" background="#000000">
+                    <mesh3d x="20" y="20" width="160" height="160" primitive="cube" color="#38BDF8" rotate-y="{}" />
+                </scene>
+                "##,
+                angle
+            );
+            let scene = parse_html_scene(&html).unwrap();
+            let assets = AssetStore {
+                fonts: vec![],
+                images: HashMap::new(),
+                videos: HashMap::new(),
+                svgs: HashMap::new(),
+                audio_paths: vec![],
+            };
+            let frame = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
+            let non_zero = frame.chunks_exact(4).filter(|c| c[3] > 0).count();
+            assert!(
+                non_zero > 0,
+                "mesh3d rotated by {} degrees must still render pixels, got {}",
+                angle,
+                non_zero
+            );
+        }
+    }
+}
