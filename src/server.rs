@@ -251,13 +251,18 @@ async fn get_index(State(state): State<AppState>) -> Response {
         .filter(|s| !s.is_empty())
         .map(|s| format!("\n> **Note:** {s}\n"))
         .unwrap_or_default();
+    let base_url = std::env::var("RUSTREN_PUBLIC_BASE_URL")
+        .ok()
+        .map(|s| s.trim().trim_end_matches('/').to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| format!("http://localhost:{}", state.config.port));
     let limits = &state.config.limits;
     let body = format!(
         r##"# Rustren Video Rendering API (v{version})
 {notice_block}
 Headless, programmatic MP4 video rendering API. Submit a JSON scene description and download the rendered MP4 video.
 
-All endpoint paths below are relative to this base URL (e.g. if you fetched `https://example.com/rustren/`, call `https://example.com/rustren/jobs`).
+**Base URL:** `{base_url}` (e.g. `GET {base_url}/health`, `POST {base_url}/snapshot`, `POST {base_url}/jobs`).
 
 ## Authentication
 {auth_note}
@@ -295,15 +300,17 @@ All endpoint paths below are relative to this base URL (e.g. if you fetched `htt
 ## Minimal Example
 ```bash
 # 1. Submit a 3-second test video
-curl -sS -X POST "$BASE_URL/jobs" \
+curl -sS -X POST "{base_url}/jobs" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{{
-    "width": 1280,
-    "height": 720,
-    "fps": 30,
-    "duration": 3.0,
-    "background": "#0f172a",
+    "canvas": {{
+      "width": 1280,
+      "height": 720,
+      "fps": 30,
+      "duration_secs": 3.0,
+      "background": "#0f172a"
+    }},
     "layers": [
       {{
         "type": "text",
@@ -312,20 +319,21 @@ curl -sS -X POST "$BASE_URL/jobs" \
         "y": 360,
         "font_size": 64,
         "color": "#ffffff",
-        "align": "center"
+        "anchor": "center"
       }}
     ]
   }}'
 
 # 2. Poll status
-curl -sS -H "Authorization: Bearer $API_KEY" "$BASE_URL/jobs/$JOB_ID"
+curl -sS -H "Authorization: Bearer $API_KEY" "{base_url}/jobs/$JOB_ID"
 
 # 3. Download MP4
-curl -sS -H "Authorization: Bearer $API_KEY" "$BASE_URL/jobs/$JOB_ID/video" -o out.mp4
+curl -sS -H "Authorization: Bearer $API_KEY" "{base_url}/jobs/$JOB_ID/video" -o out.mp4
 ```
 "##,
         version = version,
         notice_block = notice_block,
+        base_url = base_url,
         auth_note = auth_note,
         max_w = limits.max_width,
         max_h = limits.max_height,
