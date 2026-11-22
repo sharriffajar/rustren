@@ -277,29 +277,5 @@ cargo test --release
 
 *(Note: Previous releases `v0.1.0`–`v0.3.1` remain under their original Apache-2.0 license.)*
 
-
----
-
-## v0.4.0 Features (AI-First DX, Auto-Fix, Full Engine by Default & `exp-3d`)
-
-- **Auto-Repair Scenes (`rustren validate --fix`)**: Automatically fixes common AI-generated mistakes in both JSON and HTML scenes (stripping numeric units like `px`, expanding shorthand hex `#RGB` colors, normalizing named colors, moving invalid `position` values into `anchor`). Use `--in-place` to rewrite the file directly.
-  ```bash
-  rustren validate scene.html --fix --in-place
-  ```
-- **Structured Agent Diagnostics (`--error-format json`)**: Emits machine-readable JSON diagnostics with exact source line, column, and field paths across `validate`, `render`, `snapshot`, `layout`, and `diff`.
-- **Built-in Examples Explorer (`rustren examples`)**: List and inspect bundled showcase scenes directly from the CLI (`rustren examples list`, `rustren examples show <name>`).
-- **Full Engine Enabled by Default**: `cargo install rustren` now ships with the complete Turbo pipeline (Planar YUV420p, temporal frame dedup, buffer pooling), SIMD `fast_image_resize` for all image/video fit modes, automatic 1-frame GPU hardware encoder probing, 18 bundled Allo font weights, plus `serve`, `mcp`, and `studio`.
-- **SDK Parity Generator**: `scripts/gen_sdk.py` + `tests/sdk_parity.rs` keep `schema.json`, `sdk/python/rustren_types.py`, and `sdk/typescript/rustren.d.ts` strictly synchronized.
-- **Experimental CPU 3D (`--features exp-3d`)**: Opt-in software 3D rasterizer (`<mesh3d>`) with procedural primitives, `.glb`/`.gltf` model loading, UV texture mapping, anti-aliasing, and Blinn-Phong specular/rim lighting.
-
-## v0.3.0 Features (Studio UI, Beats & MCP)
-
-- **Web Studio UI (`rustren studio [file]` / `rustren preview <file>`)**:
-  - Auto-opens default browser on Windows/macOS/Linux.
-  - Drag & Drop `.json` / `.html` files directly into the browser.
-  - Direct Canvas Manipulation: Drag to move, Mouse Wheel to scale, `Shift + Drag` to rotate.
-  - Clickable Diamond Keyframes (`◆`) on timeline tracks & background **Render MP4** export.
-- **Audio Beat Detection (`rustren beats <audio.mp3>`)**:
-  - Extracts beat timestamps in seconds as JSON for beat-sync automation.
-- **MCP Server (`rustren mcp <scene.json>`)**:
-  - Stdio JSON-RPC 2.0 server exposing `get_scene_summary`, `add_layer`, `remove_layer`, `add_animation`, and `detect_beats` for AI agents.
+## Changelog
+See [CHANGELOG.md](CHANGELOG.md) for full release history (`v0.3.0`, `v0.3.1`, `v0.4.0`).
