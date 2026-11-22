@@ -2,8 +2,8 @@
 name: rustren
 description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for 3D, live streaming, or editing existing video timelines frame-by-frame in a GUI.
 metadata:
-  skill_version: "1.1.4"
-  rustren_version: "0.3.1"
+  skill_version: "1.2.0"
+  rustren_version: "0.4.0"
   schema_version: "1.1"
   renderer_version: "1.1"
 ---
@@ -288,6 +288,7 @@ errors point at the offending tag (`line 2, column 3: <include> is missing a src
 
 ## Changelog
 
+- **1.2.0** (rustren 0.4.0, schema 1.1): v0.4.0 release — dual AGPL-3.0-only / Commercial license, full engine enabled by default (`default = ["pro"]`), `rustren fix`, source maps, structured JSON diagnostics, `rustren examples`, SDK parity generator, shorthand hex colors, and opt-in `--features exp-3d` (glTF/GLB + UV texture + Blinn-Phong).
 - **1.1.4** (rustren 0.3.1, schema 1.1, experimental): `exp-3d` Phase 2. `Mesh3d` layers can now
   load a local `.glb`/`.gltf` model via `src` (`Texture`/UV via `texture`), with `Mesh::from_gltf_bytes`
   extracting positions, `TEXCOORD_0` UVs and indices, synthesising smooth normals when the file has
