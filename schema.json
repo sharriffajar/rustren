@@ -24,7 +24,11 @@
         "width": { "type": "integer", "minimum": 1, "description": "Canvas width in px" },
         "height": { "type": "integer", "minimum": 1, "description": "Canvas height in px" },
         "fps": { "type": "integer", "minimum": 1, "description": "Frame per second" },
-        "duration_secs": { "type": "number", "exclusiveMinimum": 0, "description": "Total video duration in seconds" },
+        "duration_secs": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Total video duration in seconds"
+        },
         "background": { "$ref": "#/$defs/HexColor", "default": "#000000" }
       }
     },
@@ -62,7 +66,18 @@
           "volume": { "type": "number", "minimum": 0, "default": 1.0 },
           "trim_start_sec": { "type": "number", "minimum": 0 },
           "trim_end_sec": { "type": "number", "minimum": 0 },
-          "playback_rate": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "description": "Audio playback speed (1.0 = normal)" }
+          "playback_rate": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "default": 1.0,
+            "description": "Audio playback speed (1.0 = normal)"
+          },
+          "fade_in_secs": { "type": "number", "minimum": 0, "default": 0.0 },
+          "fade_out_secs": { "type": "number", "minimum": 0, "default": 0.0 },
+          "animations": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/Animation" }
+          }
         }
       }
     },
@@ -73,15 +88,36 @@
     }
   },
   "$defs": {
-    "HexColor": {
-      "type": "string",
-      "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+    "HexColor": { "type": "string", "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$" },
+    "Easing": {
+      "enum": [
+        "linear",
+        "ease_in",
+        "ease_out",
+        "ease_in_out",
+        "ease_in_quad",
+        "ease_out_quad",
+        "ease_in_out_quad",
+        "ease_in_expo",
+        "ease_out_expo",
+        "ease_in_out_expo",
+        "ease_in_back",
+        "ease_out_back",
+        "ease_in_out_back",
+        "ease_out_bounce",
+        "cubic_bezier",
+        "spring"
+      ],
+      "default": "linear"
     },
     "LinearGradient": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "type": { "enum": ["linear", "radial"], "default": "linear" },
+        "type": {
+          "enum": ["linear", "radial"],
+          "default": "linear"
+        },
         "from": { "$ref": "#/$defs/HexColor" },
         "to": { "$ref": "#/$defs/HexColor" },
         "stops": {
@@ -103,17 +139,59 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "direction": { "enum": ["row", "column"], "default": "row" },
-        "justify_content": { "enum": ["start", "center", "end", "space_between", "space_around", "stretch", "flex_start", "flex_end"] },
-        "align_items": { "enum": ["start", "center", "end", "space_between", "space_around", "stretch", "flex_start", "flex_end"] },
+        "direction": {
+          "enum": ["row", "column"],
+          "default": "row"
+        },
+        "justify_content": {
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "space_between",
+            "space_around",
+            "stretch",
+            "flex_start",
+            "flex_end"
+          ]
+        },
+        "align_items": {
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "space_between",
+            "space_around",
+            "stretch",
+            "flex_start",
+            "flex_end"
+          ]
+        },
         "gap": { "type": "number", "default": 0.0 },
-        "padding": { "type": "number", "default": 0.0 }
+        "padding": { "type": "number", "default": 0.0 },
+        "flex_wrap": { "type": "boolean", "default": false },
+        "row_gap": { "type": "number" },
+        "column_gap": { "type": "number" },
+        "padding_top": { "type": "number" },
+        "padding_right": { "type": "number" },
+        "padding_bottom": { "type": "number" },
+        "padding_left": { "type": "number" }
       }
     },
     "BlendMode": {
       "enum": [
-        "normal", "multiply", "screen", "overlay", "darken", "lighten",
-        "color_dodge", "color_burn", "hard_light", "soft_light", "difference", "exclusion"
+        "normal",
+        "multiply",
+        "screen",
+        "overlay",
+        "darken",
+        "lighten",
+        "color_dodge",
+        "color_burn",
+        "hard_light",
+        "soft_light",
+        "difference",
+        "exclusion"
       ],
       "default": "normal"
     },
@@ -134,7 +212,9 @@
       "properties": {
         "text": { "type": "string" },
         "color": { "$ref": "#/$defs/HexColor" },
-        "font_weight": { "enum": ["normal", "bold"] },
+        "font_weight": {
+          "enum": ["normal", "bold"]
+        },
         "font_family": { "type": "string" },
         "font_size": { "type": "number", "exclusiveMinimum": 0 }
       }
@@ -155,19 +235,49 @@
       "properties": {
         "property": {
           "enum": [
-            "x", "y", "width", "height", "opacity", "scale", "rotation", "skew_x", "skew_y",
-            "rotate_x", "rotate_y", "perspective", "z_index",
-            "cx", "cy", "r", "radius",
-            "color", "background", "border_color", "path_progress", "stroke_dashoffset", "volume"
+            "x",
+            "y",
+            "width",
+            "height",
+            "opacity",
+            "scale",
+            "rotation",
+            "skew_x",
+            "skew_y",
+            "rotate_x",
+            "rotate_y",
+            "perspective",
+            "z",
+            "rotate_z",
+            "z_index",
+            "cx",
+            "cy",
+            "r",
+            "radius",
+            "color",
+            "background",
+            "border_color",
+            "path_progress",
+            "stroke_dashoffset",
+            "volume"
           ],
           "description": "Animatable layer property."
         },
-        "expr": { "type": "string", "description": "Mathematical expression evaluated per frame (e.g. 'sin(t*2.0)*50 + val')" },
+        "expr": {
+          "type": "string",
+          "description": "Mathematical expression evaluated per frame (e.g. 'sin(t*2.0)*50 + val')"
+        },
         "from": {
-          "oneOf": [{ "type": "number" }, { "$ref": "#/$defs/HexColor" }]
+          "oneOf": [
+            { "type": "number" },
+            { "$ref": "#/$defs/HexColor" }
+          ]
         },
         "to": {
-          "oneOf": [{ "type": "number" }, { "$ref": "#/$defs/HexColor" }]
+          "oneOf": [
+            { "type": "number" },
+            { "$ref": "#/$defs/HexColor" }
+          ]
         },
         "start_sec": { "type": "number", "minimum": 0, "description": "Global video time (seconds)" },
         "end_sec": { "type": "number", "minimum": 0, "description": "Global video time (seconds)" },
@@ -179,22 +289,23 @@
             "required": ["time", "value"],
             "properties": {
               "time": { "type": "number", "minimum": 0 },
-              "value": { "oneOf": [{ "type": "number" }, { "$ref": "#/$defs/HexColor" }] },
-              "easing": { "type": "string" },
-              "bezier": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 }
+              "value": {
+                "oneOf": [
+                  { "type": "number" },
+                  { "$ref": "#/$defs/HexColor" }
+                ]
+              },
+              "easing": { "$ref": "#/$defs/Easing" },
+              "bezier": {
+                "type": "array",
+                "items": { "type": "number" },
+                "minItems": 4,
+                "maxItems": 4
+              }
             }
           }
         },
-        "easing": {
-          "enum": [
-            "linear", "ease_in", "ease_out", "ease_in_out",
-            "ease_in_quad", "ease_out_quad", "ease_in_out_quad",
-            "ease_in_expo", "ease_out_expo", "ease_in_out_expo",
-            "ease_in_back", "ease_out_back", "ease_in_out_back",
-            "ease_out_bounce", "cubic_bezier", "spring"
-          ],
-          "default": "linear"
-        },
+        "easing": { "$ref": "#/$defs/Easing" },
         "bezier": {
           "type": "array",
           "items": { "type": "number" },
@@ -204,10 +315,17 @@
         },
         "spring": { "$ref": "#/$defs/SpringConfig" },
         "repeat": {
-          "oneOf": [{ "type": "integer", "minimum": 0 }, { "const": "infinite" }],
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "const": "infinite" }
+          ],
           "description": "Number of animation cycle repeats or infinite"
         },
-        "yoyo": { "type": "boolean", "default": false, "description": "If true, odd cycles reverse direction (to -> from)" }
+        "yoyo": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, odd cycles reverse direction (to -> from)"
+        }
       }
     },
     "Layer": {
@@ -220,7 +338,10 @@
         { "$ref": "#/$defs/ImageLayer" },
         { "$ref": "#/$defs/VideoLayer" },
         { "$ref": "#/$defs/WaveformLayer" },
-        { "$ref": "#/$defs/LottieLayer" }
+        { "$ref": "#/$defs/LottieLayer" },
+        { "$ref": "#/$defs/ParticlesLayer" },
+        { "$ref": "#/$defs/Mesh3dLayer" },
+        { "$ref": "#/$defs/IncludeLayer" }
       ]
     },
     "ContainerLayer": {
@@ -230,11 +351,23 @@
       "properties": {
         "name": { "type": "string" },
         "type": { "const": "container" },
-        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "position": {
+          "enum": ["relative", "absolute"],
+          "default": "relative"
+        },
         "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
         "end_sec": { "type": "number", "minimum": 0 },
-        "duration_secs": { "type": "number", "minimum": 0, "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)" },
-        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Backward overlap in container timeline series mode" },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)"
+        },
+        "overlap_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "Backward overlap in container timeline series mode"
+        },
         "flex_grow": { "type": "number" },
         "margin": { "type": "number" },
         "blend_mode": { "$ref": "#/$defs/BlendMode" },
@@ -248,22 +381,105 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
         "scale": { "type": "number", "exclusiveMinimum": 0, "default": 1.0 },
         "rotation": { "type": "number", "default": 0.0, "description": "Clockwise rotation in degrees" },
-        "anchor": { "enum": ["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"], "default": "top_left" },
+        "anchor": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
-        "track_matte": { "type": "string", "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"], "default": "none" },
+        "track_matte": {
+          "type": "string",
+          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "default": "none"
+        },
         "matte_layer": { "$ref": "#/$defs/Layer" },
-        "clip": { "type": "boolean", "default": false, "description": "If true, children are clipped to container bounds and radius (overflow: hidden)" },
-        "cascade_opacity": { "type": "boolean", "default": false, "description": "If true, container opacity multiplies into children" },
-        "timeline": { "enum": ["global", "local", "series"], "default": "global", "description": "global = canvas time; local = relative to container start_sec; series = sequential children" },
-        "stagger_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Progressive delay between children in seconds" },
+        "clip": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, children are clipped to container bounds and radius (overflow: hidden)"
+        },
+        "cascade_opacity": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, container opacity multiplies into children"
+        },
+        "timeline": {
+          "enum": ["global", "local", "series"],
+          "default": "global",
+          "description": "global = canvas time; local = relative to container start_sec; series = sequential children"
+        },
+        "stagger_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "Progressive delay between children in seconds"
+        },
         "background": { "$ref": "#/$defs/HexColor" },
         "gradient": { "$ref": "#/$defs/LinearGradient" },
         "border_color": { "$ref": "#/$defs/HexColor" },
         "border_width": { "type": "number", "default": 0.0 },
         "layout": { "$ref": "#/$defs/Layout" },
-        "children": { "type": "array", "items": { "$ref": "#/$defs/Layer" } },
-        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Layer" }
+        },
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        },
+        "margin_top": { "type": "number" },
+        "margin_right": { "type": "number" },
+        "margin_bottom": { "type": "number" },
+        "margin_left": { "type": "number" },
+        "rotate_y": { "type": "number", "default": 0.0 },
+        "rotate_x": { "type": "number", "default": 0.0 },
+        "perspective": {
+          "type": "number",
+          "default": 800.0,
+          "description": "Focal distance (px) for 2.5D ray-plane homography"
+        },
+        "backface_visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cull the layer when it faces away from the camera"
+        },
+        "z_index": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Painter's depth sort order within root or parent container"
+        },
+        "z": { "type": "number", "description": "Alias of z_index" },
+        "grain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Deterministic film grain intensity (0.0 - 1.0)"
+        },
+        "vignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Radial edge darkening (0.0 - 1.0)"
+        },
+        "halftone": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "45-degree halftone dot screen intensity"
+        },
+        "echo": { "$ref": "#/$defs/Echo" }
       }
     },
     "RectLayer": {
@@ -273,11 +489,23 @@
       "properties": {
         "name": { "type": "string" },
         "type": { "const": "rect" },
-        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "position": {
+          "enum": ["relative", "absolute"],
+          "default": "relative"
+        },
         "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
         "end_sec": { "type": "number", "minimum": 0 },
-        "duration_secs": { "type": "number", "minimum": 0, "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)" },
-        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Backward overlap in container timeline series mode" },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)"
+        },
+        "overlap_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "Backward overlap in container timeline series mode"
+        },
         "flex_grow": { "type": "number" },
         "margin": { "type": "number" },
         "blend_mode": { "$ref": "#/$defs/BlendMode" },
@@ -295,9 +523,82 @@
         "gradient": { "$ref": "#/$defs/LinearGradient" },
         "border_color": { "$ref": "#/$defs/HexColor" },
         "border_width": { "type": "number", "default": 0.0 },
-        "path_progress": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0, "description": "Border stroke animation progress (0.0 - 1.0)" },
+        "path_progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "Border stroke animation progress (0.0 - 1.0)"
+        },
         "stroke_dashoffset": { "type": "number", "description": "Stroke dash offset (px)" },
-        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        },
+        "margin_top": { "type": "number" },
+        "margin_right": { "type": "number" },
+        "margin_bottom": { "type": "number" },
+        "margin_left": { "type": "number" },
+        "anchor": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
+        "skew_x": { "type": "number", "default": 0.0 },
+        "skew_y": { "type": "number", "default": 0.0 },
+        "rotate_y": { "type": "number", "default": 0.0 },
+        "rotate_x": { "type": "number", "default": 0.0 },
+        "perspective": {
+          "type": "number",
+          "default": 800.0,
+          "description": "Focal distance (px) for 2.5D ray-plane homography"
+        },
+        "backface_visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cull the layer when it faces away from the camera"
+        },
+        "z_index": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Painter's depth sort order within root or parent container"
+        },
+        "z": { "type": "number", "description": "Alias of z_index" },
+        "grain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Deterministic film grain intensity (0.0 - 1.0)"
+        },
+        "vignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Radial edge darkening (0.0 - 1.0)"
+        },
+        "halftone": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "45-degree halftone dot screen intensity"
+        },
+        "track_matte": {
+          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "default": "none"
+        },
+        "matte_layer": { "$ref": "#/$defs/Layer" },
+        "echo": { "$ref": "#/$defs/Echo" }
       }
     },
     "CircleLayer": {
@@ -307,11 +608,23 @@
       "properties": {
         "name": { "type": "string" },
         "type": { "const": "circle" },
-        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "position": {
+          "enum": ["relative", "absolute"],
+          "default": "relative"
+        },
         "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
         "end_sec": { "type": "number", "minimum": 0 },
-        "duration_secs": { "type": "number", "minimum": 0, "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)" },
-        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Backward overlap in container timeline series mode" },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)"
+        },
+        "overlap_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "Backward overlap in container timeline series mode"
+        },
         "flex_grow": { "type": "number" },
         "margin": { "type": "number" },
         "blend_mode": { "$ref": "#/$defs/BlendMode" },
@@ -323,11 +636,88 @@
         "color": { "$ref": "#/$defs/HexColor" },
         "border_color": { "$ref": "#/$defs/HexColor" },
         "border_width": { "type": "number", "default": 0.0 },
-        "path_progress": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0, "description": "Border stroke animation progress (0.0 - 1.0)" },
+        "path_progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "Border stroke animation progress (0.0 - 1.0)"
+        },
         "stroke_dashoffset": { "type": "number", "description": "Stroke dash offset (px)" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
-        "scale": { "type": "number", "default": 1.0, "description": "Circle radius scale factor (pivoted at cx, cy)" },
-        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+        "scale": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Circle radius scale factor (pivoted at cx, cy)"
+        },
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        },
+        "margin_top": { "type": "number" },
+        "margin_right": { "type": "number" },
+        "margin_bottom": { "type": "number" },
+        "margin_left": { "type": "number" },
+        "anchor": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
+        "skew_x": { "type": "number", "default": 0.0 },
+        "skew_y": { "type": "number", "default": 0.0 },
+        "rotate_y": { "type": "number", "default": 0.0 },
+        "rotate_x": { "type": "number", "default": 0.0 },
+        "perspective": {
+          "type": "number",
+          "default": 800.0,
+          "description": "Focal distance (px) for 2.5D ray-plane homography"
+        },
+        "backface_visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cull the layer when it faces away from the camera"
+        },
+        "z_index": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Painter's depth sort order within root or parent container"
+        },
+        "z": { "type": "number", "description": "Alias of z_index" },
+        "grain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Deterministic film grain intensity (0.0 - 1.0)"
+        },
+        "vignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Radial edge darkening (0.0 - 1.0)"
+        },
+        "halftone": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "45-degree halftone dot screen intensity"
+        },
+        "track_matte": {
+          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "default": "none"
+        },
+        "matte_layer": { "$ref": "#/$defs/Layer" },
+        "echo": { "$ref": "#/$defs/Echo" }
       }
     },
     "TextLayer": {
@@ -337,36 +727,92 @@
       "properties": {
         "name": { "type": "string" },
         "type": { "const": "text" },
-        "position": { "enum": ["relative", "absolute"], "default": "relative", "description": "absolute = explicit position relative to canvas or parent container" },
+        "position": {
+          "enum": ["relative", "absolute"],
+          "default": "relative",
+          "description": "absolute = explicit position relative to canvas or parent container"
+        },
         "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-        "end_sec": { "type": "number", "minimum": 0, "description": "Inclusive end time (seconds); omitted = end of video" },
-        "duration_secs": { "type": "number", "minimum": 0, "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)" },
-        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Backward overlap in container timeline series mode" },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Inclusive end time (seconds); omitted = end of video"
+        },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)"
+        },
+        "overlap_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "Backward overlap in container timeline series mode"
+        },
         "flex_grow": { "type": "number" },
         "margin": { "type": "number" },
         "blend_mode": { "$ref": "#/$defs/BlendMode" },
         "blur": { "type": "number", "minimum": 0, "default": 0.0 },
         "shadow": { "$ref": "#/$defs/Shadow" },
         "x": { "type": "number", "default": 0.0, "description": "Horizontal top-left position in px" },
-        "y": { "type": "number", "default": 0.0, "description": "Vertical top position of text box in px" },
+        "y": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Vertical top position of text box in px"
+        },
         "content": { "type": "string" },
         "dynamic": {
           "type": "object",
           "description": "Declarative dynamic text: typewriter, counter, or timecode mode"
         },
-        "anchor": { "enum": ["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"], "default": "top_left" },
+        "anchor": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
-        "track_matte": { "type": "string", "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"], "default": "none" },
+        "track_matte": {
+          "type": "string",
+          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "default": "none"
+        },
         "matte_layer": { "$ref": "#/$defs/Layer" },
-        "spans": { "type": "array", "items": { "$ref": "#/$defs/TextSpan" }, "description": "Rich text spans (overrides content when provided)" },
+        "spans": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/TextSpan" },
+          "description": "Rich text spans (overrides content when provided)"
+        },
         "font_size": { "type": "number", "exclusiveMinimum": 0, "default": 48.0 },
         "line_height": { "type": "number", "exclusiveMinimum": 0 },
-        "letter_spacing": { "type": "number", "default": 0.0, "description": "Extra spacing between characters in px" },
+        "letter_spacing": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Extra spacing between characters in px"
+        },
         "font_family": { "type": "string" },
-        "font_weight": { "enum": ["normal", "bold"], "default": "normal" },
-        "text_align": { "enum": ["left", "center", "right", "start", "end"], "default": "left" },
-        "direction": { "enum": ["auto", "ltr", "rtl"], "default": "auto", "description": "Text layout direction for RTL/BiDi shaping (Arabic, Hebrew)" },
+        "font_weight": {
+          "enum": ["normal", "bold"],
+          "default": "normal"
+        },
+        "text_align": {
+          "enum": ["left", "center", "right", "start", "end"],
+          "default": "left"
+        },
+        "direction": {
+          "enum": ["auto", "ltr", "rtl"],
+          "default": "auto",
+          "description": "Text layout direction for RTL/BiDi shaping (Arabic, Hebrew)"
+        },
         "color": { "$ref": "#/$defs/HexColor", "default": "#FFFFFF" },
         "gradient": { "$ref": "#/$defs/LinearGradient" },
         "outline": {
@@ -378,9 +824,62 @@
           }
         },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
-        "scale": { "type": "number", "default": 1.0, "description": "Scale factor for font_size and line_height" },
-        "max_width": { "type": "number", "description": "Text wrapping max width (px); recommended inside containers" },
-        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+        "scale": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Scale factor for font_size and line_height"
+        },
+        "max_width": {
+          "type": "number",
+          "description": "Text wrapping max width (px); recommended inside containers"
+        },
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        },
+        "margin_top": { "type": "number" },
+        "margin_right": { "type": "number" },
+        "margin_bottom": { "type": "number" },
+        "margin_left": { "type": "number" },
+        "rotate_y": { "type": "number", "default": 0.0 },
+        "rotate_x": { "type": "number", "default": 0.0 },
+        "perspective": {
+          "type": "number",
+          "default": 800.0,
+          "description": "Focal distance (px) for 2.5D ray-plane homography"
+        },
+        "backface_visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cull the layer when it faces away from the camera"
+        },
+        "z_index": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Painter's depth sort order within root or parent container"
+        },
+        "z": { "type": "number", "description": "Alias of z_index" },
+        "grain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Deterministic film grain intensity (0.0 - 1.0)"
+        },
+        "vignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Radial edge darkening (0.0 - 1.0)"
+        },
+        "halftone": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "45-degree halftone dot screen intensity"
+        },
+        "echo": { "$ref": "#/$defs/Echo" }
       }
     },
     "SvgLayer": {
@@ -390,11 +889,23 @@
       "properties": {
         "name": { "type": "string" },
         "type": { "const": "svg" },
-        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "position": {
+          "enum": ["relative", "absolute"],
+          "default": "relative"
+        },
         "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
         "end_sec": { "type": "number", "minimum": 0 },
-        "duration_secs": { "type": "number", "minimum": 0, "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)" },
-        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Backward overlap in container timeline series mode" },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)"
+        },
+        "overlap_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "Backward overlap in container timeline series mode"
+        },
         "flex_grow": { "type": "number" },
         "margin": { "type": "number" },
         "blend_mode": { "$ref": "#/$defs/BlendMode" },
@@ -405,12 +916,89 @@
         "width": { "type": "number" },
         "height": { "type": "number" },
         "src": { "type": "string", "description": "Local path, URL, or inline <svg>...</svg>" },
-        "path_progress": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0, "description": "SVG path/stroke draw progress (0.0 - 1.0)" },
+        "path_progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "SVG path/stroke draw progress (0.0 - 1.0)"
+        },
         "stroke_dashoffset": { "type": "number", "description": "SVG stroke dash offset (px)" },
-        "stroke_dasharray": { "type": "array", "items": { "type": "number", "minimum": 0 }, "description": "Custom SVG stroke dash pattern" },
+        "stroke_dasharray": {
+          "type": "array",
+          "items": { "type": "number", "minimum": 0 },
+          "description": "Custom SVG stroke dash pattern"
+        },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
         "rotation": { "type": "number", "default": 0.0 },
-        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        },
+        "margin_top": { "type": "number" },
+        "margin_right": { "type": "number" },
+        "margin_bottom": { "type": "number" },
+        "margin_left": { "type": "number" },
+        "anchor": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
+        "skew_x": { "type": "number", "default": 0.0 },
+        "skew_y": { "type": "number", "default": 0.0 },
+        "rotate_y": { "type": "number", "default": 0.0 },
+        "rotate_x": { "type": "number", "default": 0.0 },
+        "perspective": {
+          "type": "number",
+          "default": 800.0,
+          "description": "Focal distance (px) for 2.5D ray-plane homography"
+        },
+        "backface_visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cull the layer when it faces away from the camera"
+        },
+        "z_index": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Painter's depth sort order within root or parent container"
+        },
+        "z": { "type": "number", "description": "Alias of z_index" },
+        "grain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Deterministic film grain intensity (0.0 - 1.0)"
+        },
+        "vignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Radial edge darkening (0.0 - 1.0)"
+        },
+        "halftone": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "45-degree halftone dot screen intensity"
+        },
+        "track_matte": {
+          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "default": "none"
+        },
+        "matte_layer": { "$ref": "#/$defs/Layer" },
+        "echo": { "$ref": "#/$defs/Echo" }
       }
     },
     "ImageLayer": {
@@ -420,11 +1008,23 @@
       "properties": {
         "name": { "type": "string" },
         "type": { "const": "image" },
-        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "position": {
+          "enum": ["relative", "absolute"],
+          "default": "relative"
+        },
         "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
         "end_sec": { "type": "number", "minimum": 0 },
-        "duration_secs": { "type": "number", "minimum": 0, "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)" },
-        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Backward overlap in container timeline series mode" },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Layer duration (alternative to end_sec = start_sec + duration_secs)"
+        },
+        "overlap_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "Backward overlap in container timeline series mode"
+        },
         "flex_grow": { "type": "number" },
         "margin": { "type": "number" },
         "blend_mode": { "$ref": "#/$defs/BlendMode" },
@@ -435,11 +1035,81 @@
         "width": { "type": "number" },
         "height": { "type": "number" },
         "src": { "type": "string", "description": "Local path or image URL" },
-        "fit": { "enum": ["fill", "cover", "contain"], "default": "fill" },
+        "fit": {
+          "enum": ["fill", "cover", "contain"],
+          "default": "fill"
+        },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
         "rotation": { "type": "number", "default": 0.0 },
         "scale": { "type": "number", "default": 1.0, "description": "Image scale factor from center" },
-        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        },
+        "margin_top": { "type": "number" },
+        "margin_right": { "type": "number" },
+        "margin_bottom": { "type": "number" },
+        "margin_left": { "type": "number" },
+        "anchor": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
+        "skew_x": { "type": "number", "default": 0.0 },
+        "skew_y": { "type": "number", "default": 0.0 },
+        "rotate_y": { "type": "number", "default": 0.0 },
+        "rotate_x": { "type": "number", "default": 0.0 },
+        "perspective": {
+          "type": "number",
+          "default": 800.0,
+          "description": "Focal distance (px) for 2.5D ray-plane homography"
+        },
+        "backface_visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cull the layer when it faces away from the camera"
+        },
+        "z_index": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Painter's depth sort order within root or parent container"
+        },
+        "z": { "type": "number", "description": "Alias of z_index" },
+        "grain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Deterministic film grain intensity (0.0 - 1.0)"
+        },
+        "vignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Radial edge darkening (0.0 - 1.0)"
+        },
+        "halftone": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "45-degree halftone dot screen intensity"
+        },
+        "track_matte": {
+          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "default": "none"
+        },
+        "matte_layer": { "$ref": "#/$defs/Layer" },
+        "echo": { "$ref": "#/$defs/Echo" }
       }
     },
     "VideoLayer": {
@@ -449,31 +1119,146 @@
       "properties": {
         "name": { "type": "string" },
         "type": { "const": "video" },
-        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "position": {
+          "enum": ["relative", "absolute"],
+          "default": "relative"
+        },
         "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
         "end_sec": { "type": "number", "minimum": 0 },
         "flex_grow": { "type": "number" },
         "margin": { "type": "number" },
         "blend_mode": { "$ref": "#/$defs/BlendMode" },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0, "description": "Gaussian blur radius in px" },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "Gaussian blur radius in px"
+        },
         "shadow": { "$ref": "#/$defs/Shadow" },
         "duration_secs": { "type": "number", "minimum": 0, "description": "Active duration for series sequencing" },
-        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0, "description": "Overlap with previous element in series (seconds)" },
+        "overlap_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "Overlap with previous element in series (seconds)"
+        },
         "x": { "type": "number", "description": "Explicit X position (optional inside flexbox layout)" },
         "y": { "type": "number", "description": "Explicit Y position (optional inside flexbox layout)" },
-        "width": { "type": "number", "minimum": 0, "description": "Video width (default: source video width)" },
-        "height": { "type": "number", "minimum": 0, "description": "Video height (default: source video height)" },
-        "src": { "type": "string", "minLength": 1, "description": "Local path or video URL (MP4/MOV/WEBM)" },
-        "fit": { "enum": ["fill", "cover", "contain"], "default": "fill" },
-        "trim_start_sec": { "type": "number", "minimum": 0, "default": 0.0, "description": "Video trim start point (seconds)" },
-        "trim_end_sec": { "type": "number", "minimum": 0, "description": "Video trim end point (seconds, optional)" },
-        "playback_rate": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "description": "Video and audio playback speed (1.0 = normal)" },
-        "volume": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0, "description": "Audio volume of video clip (0.0 - 1.0)" },
+        "width": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Video width (default: source video width)"
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Video height (default: source video height)"
+        },
+        "src": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Local path or video URL (MP4/MOV/WEBM)"
+        },
+        "fit": {
+          "enum": ["fill", "cover", "contain"],
+          "default": "fill"
+        },
+        "trim_start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "Video trim start point (seconds)"
+        },
+        "trim_end_sec": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Video trim end point (seconds, optional)"
+        },
+        "playback_rate": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.0,
+          "description": "Video and audio playback speed (1.0 = normal)"
+        },
+        "volume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "Audio volume of video clip (0.0 - 1.0)"
+        },
         "muted": { "type": "boolean", "default": false, "description": "Mute audio from video clip" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
         "rotation": { "type": "number", "default": 0.0, "description": "Rotation angle in degrees" },
         "scale": { "type": "number", "default": 1.0, "description": "Video scale factor from center" },
-        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        },
+        "margin_top": { "type": "number" },
+        "margin_right": { "type": "number" },
+        "margin_bottom": { "type": "number" },
+        "margin_left": { "type": "number" },
+        "anchor": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
+        "skew_x": { "type": "number", "default": 0.0 },
+        "skew_y": { "type": "number", "default": 0.0 },
+        "rotate_y": { "type": "number", "default": 0.0 },
+        "rotate_x": { "type": "number", "default": 0.0 },
+        "perspective": {
+          "type": "number",
+          "default": 800.0,
+          "description": "Focal distance (px) for 2.5D ray-plane homography"
+        },
+        "backface_visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cull the layer when it faces away from the camera"
+        },
+        "z_index": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Painter's depth sort order within root or parent container"
+        },
+        "z": { "type": "number", "description": "Alias of z_index" },
+        "grain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Deterministic film grain intensity (0.0 - 1.0)"
+        },
+        "vignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Radial edge darkening (0.0 - 1.0)"
+        },
+        "halftone": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "45-degree halftone dot screen intensity"
+        },
+        "track_matte": {
+          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "default": "none"
+        },
+        "matte_layer": { "$ref": "#/$defs/Layer" },
+        "echo": { "$ref": "#/$defs/Echo" }
       }
     },
     "WaveformLayer": {
@@ -483,7 +1268,10 @@
       "properties": {
         "name": { "type": "string" },
         "type": { "const": "waveform" },
-        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "position": {
+          "enum": ["relative", "absolute"],
+          "default": "relative"
+        },
         "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
         "end_sec": { "type": "number", "minimum": 0 },
         "duration_secs": { "type": "number", "minimum": 0 },
@@ -493,10 +1281,27 @@
         "blend_mode": { "$ref": "#/$defs/BlendMode" },
         "blur": { "type": "number", "minimum": 0, "default": 0.0 },
         "shadow": { "$ref": "#/$defs/Shadow" },
-        "anchor": { "enum": ["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"], "default": "top_left" },
+        "anchor": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
-        "track_matte": { "type": "string", "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"], "default": "none" },
+        "track_matte": {
+          "type": "string",
+          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "default": "none"
+        },
         "matte_layer": { "$ref": "#/$defs/Layer" },
         "x": { "type": "number", "default": 0.0 },
         "y": { "type": "number", "default": 0.0 },
@@ -510,7 +1315,53 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
         "rotation": { "type": "number", "default": 0.0 },
         "scale": { "type": "number", "default": 1.0 },
-        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        },
+        "margin_top": { "type": "number" },
+        "margin_right": { "type": "number" },
+        "margin_bottom": { "type": "number" },
+        "margin_left": { "type": "number" },
+        "rotate_y": { "type": "number", "default": 0.0 },
+        "rotate_x": { "type": "number", "default": 0.0 },
+        "perspective": {
+          "type": "number",
+          "default": 800.0,
+          "description": "Focal distance (px) for 2.5D ray-plane homography"
+        },
+        "backface_visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cull the layer when it faces away from the camera"
+        },
+        "z_index": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Painter's depth sort order within root or parent container"
+        },
+        "z": { "type": "number", "description": "Alias of z_index" },
+        "grain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Deterministic film grain intensity (0.0 - 1.0)"
+        },
+        "vignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Radial edge darkening (0.0 - 1.0)"
+        },
+        "halftone": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "45-degree halftone dot screen intensity"
+        },
+        "echo": { "$ref": "#/$defs/Echo" }
       }
     },
     "LottieLayer": {
@@ -520,7 +1371,10 @@
       "properties": {
         "name": { "type": "string" },
         "type": { "const": "lottie" },
-        "position": { "enum": ["relative", "absolute"], "default": "relative" },
+        "position": {
+          "enum": ["relative", "absolute"],
+          "default": "relative"
+        },
         "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
         "end_sec": { "type": "number", "minimum": 0 },
         "duration_secs": { "type": "number", "minimum": 0 },
@@ -530,10 +1384,27 @@
         "blend_mode": { "$ref": "#/$defs/BlendMode" },
         "blur": { "type": "number", "minimum": 0, "default": 0.0 },
         "shadow": { "$ref": "#/$defs/Shadow" },
-        "anchor": { "enum": ["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"], "default": "top_left" },
+        "anchor": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
-        "track_matte": { "type": "string", "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"], "default": "none" },
+        "track_matte": {
+          "type": "string",
+          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "default": "none"
+        },
         "matte_layer": { "$ref": "#/$defs/Layer" },
         "x": { "type": "number", "default": 0.0 },
         "y": { "type": "number", "default": 0.0 },
@@ -545,7 +1416,305 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
         "rotation": { "type": "number", "default": 0.0 },
         "scale": { "type": "number", "default": 1.0 },
-        "animations": { "type": "array", "items": { "$ref": "#/$defs/Animation" } }
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        },
+        "margin_top": { "type": "number" },
+        "margin_right": { "type": "number" },
+        "margin_bottom": { "type": "number" },
+        "margin_left": { "type": "number" },
+        "rotate_y": { "type": "number", "default": 0.0 },
+        "rotate_x": { "type": "number", "default": 0.0 },
+        "perspective": {
+          "type": "number",
+          "default": 800.0,
+          "description": "Focal distance (px) for 2.5D ray-plane homography"
+        },
+        "backface_visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cull the layer when it faces away from the camera"
+        },
+        "z_index": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Painter's depth sort order within root or parent container"
+        },
+        "z": { "type": "number", "description": "Alias of z_index" },
+        "grain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Deterministic film grain intensity (0.0 - 1.0)"
+        },
+        "vignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Radial edge darkening (0.0 - 1.0)"
+        },
+        "halftone": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "45-degree halftone dot screen intensity"
+        },
+        "echo": { "$ref": "#/$defs/Echo" }
+      }
+    },
+    "Echo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "count": { "type": "integer", "minimum": 0, "default": 5 },
+        "step_sec": { "type": "number", "default": 0.03 },
+        "decay": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.65 }
+      }
+    },
+    "ParticlesLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "const": "particles" },
+        "position": {
+          "enum": ["relative", "absolute"],
+          "default": "relative"
+        },
+        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "end_sec": { "type": "number", "minimum": 0 },
+        "duration_secs": { "type": "number", "minimum": 0 },
+        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0 },
+        "flex_grow": { "type": "number" },
+        "margin": { "type": "number" },
+        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
+        "shadow": { "$ref": "#/$defs/Shadow" },
+        "x": { "type": "number", "default": 0.0 },
+        "y": { "type": "number", "default": 0.0 },
+        "width": { "type": "number", "default": 400.0 },
+        "height": { "type": "number", "default": 400.0 },
+        "count": { "type": "integer", "minimum": 0, "default": 40 },
+        "seed": { "type": "integer", "default": 42 },
+        "speed": { "type": "number", "default": 1.0 },
+        "gravity": { "type": "number", "default": 120.0 },
+        "spread": { "type": "number", "default": 360.0 },
+        "angle": { "type": "number", "default": -90.0 },
+        "size": { "type": "number", "default": 8.0 },
+        "color": { "$ref": "#/$defs/HexColor", "default": "#FFFFFF" },
+        "colors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/HexColor" },
+          "description": "Palette override for particle colors"
+        },
+        "shape": {
+          "enum": ["circle", "rect", "confetti"],
+          "default": "circle"
+        },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "rotation": { "type": "number", "default": 0.0 },
+        "scale": { "type": "number", "default": 1.0 },
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        },
+        "margin_top": { "type": "number" },
+        "margin_right": { "type": "number" },
+        "margin_bottom": { "type": "number" },
+        "margin_left": { "type": "number" },
+        "anchor": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
+        "skew_x": { "type": "number", "default": 0.0 },
+        "skew_y": { "type": "number", "default": 0.0 },
+        "rotate_y": { "type": "number", "default": 0.0 },
+        "rotate_x": { "type": "number", "default": 0.0 },
+        "perspective": {
+          "type": "number",
+          "default": 800.0,
+          "description": "Focal distance (px) for 2.5D ray-plane homography"
+        },
+        "backface_visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cull the layer when it faces away from the camera"
+        },
+        "z_index": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Painter's depth sort order within root or parent container"
+        },
+        "z": { "type": "number", "description": "Alias of z_index" },
+        "grain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Deterministic film grain intensity (0.0 - 1.0)"
+        },
+        "vignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Radial edge darkening (0.0 - 1.0)"
+        },
+        "halftone": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "45-degree halftone dot screen intensity"
+        },
+        "track_matte": {
+          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "default": "none"
+        },
+        "matte_layer": { "$ref": "#/$defs/Layer" },
+        "echo": { "$ref": "#/$defs/Echo" }
+      }
+    },
+    "Mesh3dLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "description": "experimental (build with the exp-3d feature)",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "const": "mesh3d" },
+        "position": {
+          "enum": ["relative", "absolute"],
+          "default": "relative"
+        },
+        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "end_sec": { "type": "number", "minimum": 0 },
+        "duration_secs": { "type": "number", "minimum": 0 },
+        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0 },
+        "flex_grow": { "type": "number" },
+        "margin": { "type": "number" },
+        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
+        "shadow": { "$ref": "#/$defs/Shadow" },
+        "x": { "type": "number", "default": 0.0 },
+        "y": { "type": "number", "default": 0.0 },
+        "width": { "type": "number", "minimum": 1 },
+        "height": { "type": "number", "minimum": 1 },
+        "primitive": {
+          "enum": ["cube", "sphere", "pyramid", "torus"],
+          "default": "cube"
+        },
+        "src": { "type": "string" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "scale": { "type": "number", "default": 1.0 },
+        "rotation": { "type": "number", "default": 0.0 },
+        "rotate_x": { "type": "number", "default": 0.0 },
+        "rotate_y": { "type": "number", "default": 0.0 },
+        "rotate_z": { "type": "number", "default": 0.0 },
+        "fov": { "type": "number", "default": 45.0 },
+        "color": { "$ref": "#/$defs/HexColor", "default": "#38BDF8" },
+        "light_dir": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "wireframe": { "type": "boolean", "default": false },
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        },
+        "margin_top": { "type": "number" },
+        "margin_right": { "type": "number" },
+        "margin_bottom": { "type": "number" },
+        "margin_left": { "type": "number" },
+        "anchor": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
+        "skew_x": { "type": "number", "default": 0.0 },
+        "skew_y": { "type": "number", "default": 0.0 },
+        "perspective": {
+          "type": "number",
+          "default": 800.0,
+          "description": "Focal distance (px) for 2.5D ray-plane homography"
+        },
+        "backface_visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cull the layer when it faces away from the camera"
+        },
+        "z_index": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Painter's depth sort order within root or parent container"
+        },
+        "z": { "type": "number", "description": "Alias of z_index" },
+        "grain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Deterministic film grain intensity (0.0 - 1.0)"
+        },
+        "vignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.0,
+          "description": "Radial edge darkening (0.0 - 1.0)"
+        },
+        "halftone": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "45-degree halftone dot screen intensity"
+        },
+        "track_matte": {
+          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "default": "none"
+        },
+        "matte_layer": { "$ref": "#/$defs/Layer" },
+        "echo": { "$ref": "#/$defs/Echo" }
+      }
+    },
+    "IncludeLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "src"],
+      "description": "Reusable component: expands another JSON file's layers",
+      "properties": {
+        "type": { "const": "include" },
+        "src": { "type": "string", "minLength": 1 },
+        "vars": { "type": "object", "additionalProperties": true },
+        "variables": { "type": "object", "additionalProperties": true },
+        "animations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Animation" }
+        }
       }
     }
   }

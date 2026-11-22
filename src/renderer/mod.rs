@@ -73,6 +73,16 @@ use self::svg_draw::{
 
 pub fn parse_hex_color(hex: &str, opacity_override: f32) -> Result<Color> {
     let trimmed = hex.trim();
+    // Accept the CSS named colors that LLM-authored scenes tend to produce,
+    // so `color="white"` renders instead of failing during the render pass.
+    let owned;
+    let trimmed = match crate::fix::named_color_to_hex(trimmed) {
+        Some(hex) => {
+            owned = hex;
+            owned
+        }
+        None => trimmed,
+    };
     if let Some(inner) = trimmed
         .strip_prefix("rgba(")
         .or_else(|| trimmed.strip_prefix("rgb("))

@@ -54,10 +54,193 @@ pub fn parse_json_scene_with_base(
         *layers = expanded;
     }
 
-    let scene: Scene = serde_json::from_value(root).map_err(|e| {
-        anyhow::anyhow!("JSON schema error in {:?}: {}", source_path, e)
-    })?;
+    let scene: Scene = {
+        let mut track = serde_path_to_error::Track::new();
+        let de = serde_path_to_error::Deserializer::new(root.clone(), &mut track);
+        use serde::Deserialize;
+        Scene::deserialize(de).map_err(|e| {
+            let path = track.path().to_string();
+            // Best-effort line/column: locate the offending path in the source
+            // text by re-parsing the raw JSON with a position-tracking pass.
+            let loc = json_value_position(content, &path)
+                .map(|(line, col)| format!(" (line {line}, column {col})"))
+                .unwrap_or_default();
+            anyhow::anyhow!(
+                "JSON schema error in {:?} at `{}`{}: {}",
+                source_path,
+                path,
+                loc,
+                e
+            )
+        })?
+    };
     Ok(scene)
+}
+
+/// Find the `line`/`column` of the value at a serde path such as
+/// `layers[0].x` or `canvas.width` by scanning the raw JSON text.
+///
+/// Returns `None` when the path cannot be resolved (for example when an
+/// `<include>` expansion changed the shape of the document).
+fn json_value_position(content: &str, path: &str) -> Option<(usize, usize)> {
+    // Walk the raw text once, tracking the byte offset of every key/value the
+    // same way serde_path_to_error names them.
+    let bytes = content.as_bytes();
+    let mut offsets: Vec<(String, usize)> = Vec::new();
+
+    fn skip_ws(bytes: &[u8], mut i: usize) -> usize {
+        while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        i
+    }
+
+    // Recursive descent that records `path -> value offset` for scalars.
+    fn walk(
+        bytes: &[u8],
+        i: &mut usize,
+        path: &mut String,
+        offsets: &mut Vec<(String, usize)>,
+    ) -> Option<()> {
+        *i = skip_ws(bytes, *i);
+        offsets.push((path.clone(), *i));
+        match *bytes.get(*i)? {
+            b'{' => {
+                *i += 1;
+                loop {
+                    *i = skip_ws(bytes, *i);
+                    match *bytes.get(*i)? {
+                        b'}' => {
+                            *i += 1;
+                            return Some(());
+                        }
+                        b',' => {
+                            *i += 1;
+                            continue;
+                        }
+                        b'"' => {
+                            let key = scan_string(bytes, i)?;
+                            *i = skip_ws(bytes, *i);
+                            // ':'
+                            *i += 1;
+                            let saved = path.len();
+                            if path.is_empty() {
+                                path.push_str(&key);
+                            } else {
+                                path.push('.');
+                                path.push_str(&key);
+                            }
+                            walk(bytes, i, path, offsets)?;
+                            path.truncate(saved);
+                        }
+                        _ => return Some(()),
+                    }
+                    *i = skip_ws(bytes, *i);
+                }
+            }
+            b'[' => {
+                *i += 1;
+                let mut index = 0usize;
+                loop {
+                    *i = skip_ws(bytes, *i);
+                    match *bytes.get(*i)? {
+                        b']' => {
+                            *i += 1;
+                            return Some(());
+                        }
+                        b',' => {
+                            *i += 1;
+                            continue;
+                        }
+                        _ => {
+                            let saved = path.len();
+                            path.push('[');
+                            path.push_str(&index.to_string());
+                            path.push(']');
+                            walk(bytes, i, path, offsets)?;
+                            path.truncate(saved);
+                            index += 1;
+                        }
+                    }
+                    *i = skip_ws(bytes, *i);
+                }
+            }
+            _ => {
+                skip_scalar(bytes, i)?;
+                Some(())
+            }
+        }
+    }
+
+    fn scan_string(bytes: &[u8], i: &mut usize) -> Option<String> {
+        let q = *bytes.get(*i)?;
+        if q != b'"' {
+            return None;
+        }
+        *i += 1;
+        let mut out = String::new();
+        while let Some(&b) = bytes.get(*i) {
+            match b {
+                b'"' => {
+                    *i += 1;
+                    return Some(out);
+                }
+                b'\\' => {
+                    out.push('\\');
+                    *i += 1;
+                    if let Some(&esc) = bytes.get(*i) {
+                        out.push(esc as char);
+                        *i += 1;
+                    }
+                }
+                _ => {
+                    out.push(b as char);
+                    *i += 1;
+                }
+            }
+        }
+        None
+    }
+
+    fn skip_scalar(bytes: &[u8], i: &mut usize) -> Option<()> {
+        match *bytes.get(*i)? {
+            b'"' => {
+                scan_string(bytes, i)?;
+                Some(())
+            }
+            _ => {
+                while let Some(&b) = bytes.get(*i) {
+                    if b == b',' || b == b'}' || b == b']' || b.is_ascii_whitespace() {
+                        break;
+                    }
+                    *i += 1;
+                }
+                Some(())
+            }
+        }
+    }
+
+    let mut i = 0usize;
+    let mut p = String::new();
+    walk(bytes, &mut i, &mut p, &mut offsets)?;
+
+    let target = offsets
+        .iter()
+        .find(|(k, _)| k == path)
+        .or_else(|| offsets.iter().find(|(k, _)| k.starts_with(path)))?;
+    let offset = target.1;
+
+    let mut line = 1usize;
+    let mut col = 1usize;
+    for b in &bytes[..offset.min(bytes.len())] {
+        if *b == b'\n' {
+            line += 1;
+            col = 1;
+        } else {
+            col += 1;
+        }
+    }
+    Some((line, col))
 }
 
 fn expand_json_layers(
@@ -210,5 +393,24 @@ mod tests {
         }
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn json_value_position_reports_line_and_column() {
+        let src = "{\"canvas\": {\"width\": 640},\n \"layers\": [{\"x\": 10}]}";
+        assert_eq!(json_value_position(src, "canvas.width"), Some((1, 22)));
+        assert_eq!(json_value_position(src, "layers[0].x"), Some((2, 19)));
+        assert_eq!(json_value_position(src, "canvas"), Some((1, 12)));
+        assert_eq!(json_value_position(src, "missing.path"), None);
+    }
+
+    #[test]
+    fn schema_error_for_typed_field_carries_path_and_location() {
+        let source = std::path::Path::new("scene.json");
+        let content = "{\"canvas\":{\"width\":\"640\",\"height\":360,\"fps\":30,\"duration_secs\":1},\"layers\":[]}";
+        let err = parse_json_scene_with_base(content, None, source).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("`canvas.width`"), "{msg}");
+        assert!(msg.contains("line 1, column 20"), "{msg}");
     }
 }

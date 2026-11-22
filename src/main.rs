@@ -6,8 +6,11 @@ mod compilers;
 #[cfg(test)]
 mod conformance_tests;
 mod encoder;
+mod examples_cmd;
+mod fix;
 mod ir;
 mod lint;
+mod source_map;
 #[cfg(feature = "pro")]
 mod mcp;
 mod renderer;
@@ -73,6 +76,21 @@ enum Commands {
         /// Name of composition profile to apply (e.g. "portrait", "square", "4k")
         #[arg(long)]
         composition: Option<String>,
+        /// Emit machine-readable JSON instead of plain text
+        #[arg(long, value_enum, default_value_t = ErrorFormat::Text)]
+        error_format: ErrorFormat,
+        /// Do not fail on unknown fields/JSON-schema errors (warn only)
+        #[arg(long, default_value_t = false)]
+        ignore_unknown: bool,
+        /// Also verify that local asset paths referenced by the scene exist
+        #[arg(long, default_value_t = true)]
+        check_assets: bool,
+        /// Print a fixed version of the scene to stdout instead of validating it
+        #[arg(long, default_value_t = false)]
+        fix: bool,
+        /// With --fix, rewrite the input file in place instead of printing to stdout
+        #[arg(short = 'i', long, default_value_t = false)]
+        in_place: bool,
     },
     /// Render one or more timestamp frames to PNG (or a contact sheet)
     Snapshot {
@@ -116,6 +134,17 @@ enum Commands {
     },
     /// Print supported renderer and schema capabilities as JSON
     Capabilities,
+    /// List built-in copy-ready scene examples, or print one to stdout
+    Examples {
+        /// Example name (omit to list every example)
+        name: Option<String>,
+        /// Only list examples carrying this tag
+        #[arg(long)]
+        tag: Option<String>,
+        /// Emit a machine-readable JSON listing instead of plain text
+        #[arg(long, value_enum, default_value_t = ErrorFormat::Text)]
+        error_format: ErrorFormat,
+    },
     /// Start the HTTP render service and job queue (Phase 3 VPS API)
     #[cfg(feature = "pro")]
     Serve {
@@ -244,6 +273,31 @@ enum Commands {
     },
 }
 
+#[derive(clap::ValueEnum, Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum ErrorFormat {
+    #[default]
+    Text,
+    Json,
+}
+
+fn emit_validate_error(format: &ErrorFormat, message: &str) -> Result<()> {
+    emit_error(format, "invalid_scene", message)
+}
+
+fn emit_error(format: &ErrorFormat, code: &str, message: &str) -> Result<()> {
+    match format {
+        ErrorFormat::Json => {
+            let payload = serde_json::json!({
+                "valid": false,
+                "error": { "code": code, "message": message },
+            });
+            println!("{}", serde_json::to_string_pretty(&payload)?);
+        }
+        ErrorFormat::Text => eprintln!("error: {message}"),
+    }
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -252,36 +306,196 @@ fn main() -> Result<()> {
             let reg = capabilities::CapabilityRegistry::current();
             println!("{}", serde_json::to_string_pretty(&reg)?);
         }
+        Commands::Examples {
+            name,
+            tag,
+            error_format,
+        } => {
+            run_examples(name.as_deref(), tag.as_deref(), &error_format)?;
+        }
         Commands::Validate {
             input,
             strict_determinism,
             composition,
+            error_format,
+            ignore_unknown,
+            check_assets,
+            fix,
+            in_place,
         } => {
+            let base_dir = input.parent();
             let compiler = compilers::detect(&input)?;
-            let mut compiled = compiler.compile(&input)?;
+
+            // --fix: rewrite (or print) safe corrections before validating the rest.
+            if fix {
+                let raw = fs::read_to_string(&input)
+                    .with_context(|| format!("Failed to read input: {}", input.display()))?;
+                let (fixed, applied) = if compiler.format_name() == "html" {
+                    fix::fix_html_str(&raw)
+                } else {
+                    let Some((fixed, applied)) = fix::fix_json_str(&raw) else {
+                        emit_validate_error(
+                            &error_format,
+                            "cannot --fix: input is not valid JSON",
+                        )?;
+                        std::process::exit(2);
+                    };
+                    (fixed, applied)
+                };
+                if in_place {
+                    fs::write(&input, &fixed).with_context(|| {
+                        format!("Failed to write fixed scene: {}", input.display())
+                    })?;
+                } else {
+                    // Files that were already clean are echoed byte-for-byte; only
+                    // add a trailing newline when the output has none (pretty JSON).
+                    print!("{fixed}");
+                    if !fixed.ends_with('\n') {
+                        println!();
+                    }
+                }
+                match error_format {
+                    ErrorFormat::Json => {
+                        let payload = serde_json::json!({
+                            "fixed": applied.len(),
+                            "fixes": applied.iter().map(|f| serde_json::json!({
+                                "path": f.path,
+                                "field": f.field,
+                                "before": f.before,
+                                "after": f.after,
+                            })).collect::<Vec<_>>(),
+                        });
+                        eprintln!("{}", serde_json::to_string_pretty(&payload)?);
+                    }
+                    ErrorFormat::Text => {
+                        for f in &applied {
+                            eprintln!("fix: {} {} {} -> {}", f.path, f.field, f.before, f.after);
+                        }
+                    }
+                }
+                if in_place {
+                    eprintln!(
+                        "rustren: rewrote {} ({} fix(es))",
+                        input.display(),
+                        applied.len()
+                    );
+                }
+                return Ok(());
+            }
+
+            // Unknown-field validation needs the raw source. HTML scenes are
+            // checked structurally by the compiler, so only JSON is pre-scanned.
+            if !ignore_unknown
+                && input
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(|e| e.eq_ignore_ascii_case("json"))
+                    .unwrap_or(false)
+            {
+                let raw = fs::read_to_string(&input)
+                    .with_context(|| format!("Failed to read input: {}", input.display()))?;
+                if let Err(e) = lint::validate_no_unknown_fields(&raw) {
+                    let message = match e.downcast_ref::<serde_json::Error>() {
+                        Some(syntax) => {
+                            // serde's Display repeats the position; keep the message once.
+                            let detail = syntax
+                                .to_string()
+                                .split(" at line ")
+                                .next()
+                                .unwrap_or("")
+                                .to_string();
+                            // serde_json reports column 0 for EOF; positions are 1-based,
+                            // so clamp to 1 to keep the hint usable.
+                            format!(
+                                "JSON syntax error in {:?} (line {}, column {}): {}",
+                                input,
+                                syntax.line(),
+                                syntax.column().max(1),
+                                detail
+                            )
+                        }
+                        None => e.to_string(),
+                    };
+                    emit_validate_error(&error_format, &message)?;
+                    std::process::exit(2);
+                }
+            }
+
+            let mut compiled = match compiler.compile(&input) {
+                Ok(c) => c,
+                Err(e) => {
+                    emit_validate_error(&error_format, &format!("{e:#}"))?;
+                    std::process::exit(2);
+                }
+            };
             let scene = compiled.as_static_mut();
             if let Some(comp_name) = composition {
                 scene.apply_profile(&comp_name)?;
             }
             capabilities::validate_scene_capabilities(scene)?;
-            let mut warnings = collect_lint_warnings(scene);
+
+            let mut structured = lint::collect_lint_warnings_structured(scene);
             if strict_determinism {
-                warnings.extend(lint::collect_determinism_warnings(scene));
+                structured.extend(lint::collect_determinism_warnings_structured(scene));
             }
-            for w in &warnings {
-                eprintln!("warning: {w}");
+            if check_assets {
+                structured.extend(lint::check_local_assets(scene, base_dir));
             }
-            println!(
-                "rustren: valid {} (schema v{}, {}x{} @ {}fps, {:.2}s, {} root layers, {} warning(s))",
-                compiler.format_name().to_uppercase(),
-                scene.schema_version,
-                scene.canvas.width,
-                scene.canvas.height,
-                scene.canvas.fps,
-                scene.canvas.duration_secs,
-                scene.layers.len(),
-                warnings.len()
-            );
+            if compiler.format_name() == "html" {
+                let raw = fs::read_to_string(&input)
+                    .with_context(|| format!("Failed to read input: {}", input.display()))?;
+                for issue in source_map::lint_html_source(&raw) {
+                    structured.push(lint::LintWarning {
+                        code: issue.code,
+                        path: issue.path,
+                        message: issue.message,
+                        fix: issue.fix,
+                        affected_paths: Vec::new(),
+                    });
+                }
+            }
+
+            match error_format {
+                ErrorFormat::Json => {
+                    let payload = serde_json::json!({
+                        "valid": true,
+                        "format": compiler.format_name(),
+                        "schema_version": scene.schema_version,
+                        "canvas": {
+                            "width": scene.canvas.width,
+                            "height": scene.canvas.height,
+                            "fps": scene.canvas.fps,
+                            "duration_secs": scene.canvas.duration_secs,
+                        },
+                        "root_layers": scene.layers.len(),
+                        "warning_count": structured.len(),
+                        "warnings": structured.iter().map(|w| serde_json::json!({
+                            "code": w.code,
+                            "path": w.path,
+                            "message": w.message,
+                            "fix": w.fix,
+                            "affected_paths": w.affected_paths,
+                        })).collect::<Vec<_>>(),
+                    });
+                    println!("{}", serde_json::to_string_pretty(&payload)?);
+                }
+                ErrorFormat::Text => {
+                    for w in &structured {
+                        eprintln!("warning: {}", w.to_text());
+                    }
+                    println!(
+                        "rustren: valid {} (schema v{}, {}x{} @ {}fps, {:.2}s, {} root layers, {} warning(s))",
+                        compiler.format_name().to_uppercase(),
+                        scene.schema_version,
+                        scene.canvas.width,
+                        scene.canvas.height,
+                        scene.canvas.fps,
+                        scene.canvas.duration_secs,
+                        scene.layers.len(),
+                        structured.len()
+                    );
+                }
+            }
         }
         Commands::Render {
             input,
@@ -439,7 +653,14 @@ fn main() -> Result<()> {
             out,
             cache_dir,
         } => {
-            run_diff(&baseline, &current, t, threshold, out.as_deref(), &cache_dir)?;
+            run_diff(
+                &baseline,
+                &current,
+                t,
+                threshold,
+                out.as_deref(),
+                &cache_dir,
+            )?;
         }
         #[cfg(feature = "pro")]
         Commands::Studio {
@@ -451,7 +672,12 @@ fn main() -> Result<()> {
             let rt = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()?;
-            rt.block_on(studio::run_studio(input.as_deref(), &host, port, &cache_dir))?;
+            rt.block_on(studio::run_studio(
+                input.as_deref(),
+                &host,
+                port,
+                &cache_dir,
+            ))?;
         }
         #[cfg(feature = "pro")]
         Commands::Preview {
@@ -478,6 +704,76 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+/// Print either the example listing or a single example's source.
+fn run_examples(name: Option<&str>, tag: Option<&str>, format: &ErrorFormat) -> Result<()> {
+    if let Some(name) = name {
+        let Some(example) = examples_cmd::find(name) else {
+            let message = format!(
+                "unknown example '{}'; run `rustren examples` to list {} examples",
+                name,
+                examples_cmd::EXAMPLES.len()
+            );
+            emit_error(format, "unknown_example", &message)?;
+            std::process::exit(2);
+        };
+        match format {
+            // Source goes to stdout unchanged so it can be piped straight to a file.
+            ErrorFormat::Text => print!("{}", example.source),
+            ErrorFormat::Json => {
+                let payload = serde_json::json!({
+                    "name": example.name,
+                    "description": example.description,
+                    "format": example.format,
+                    "tags": example.tags,
+                    "source": example.source,
+                });
+                println!("{}", serde_json::to_string_pretty(&payload)?);
+            }
+        }
+        return Ok(());
+    }
+
+    let listed = examples_cmd::by_tag(tag);
+
+    // Unknown tags are a typo, not an empty result; fail so agents notice.
+    if tag.is_some() && listed.is_empty() {
+        let message = format!(
+            "no example has tag '{}'; available tags: {}",
+            tag.unwrap_or_default(),
+            examples_cmd::all_tags().join(", ")
+        );
+        emit_error(format, "unknown_example_tag", &message)?;
+        std::process::exit(2);
+    }
+
+    match format {
+        ErrorFormat::Json => {
+            let payload = serde_json::json!({
+                "count": listed.len(),
+                "tags": examples_cmd::all_tags(),
+                "examples": listed.iter().map(|e| serde_json::json!({
+                    "name": e.name,
+                    "description": e.description,
+                    "format": e.format,
+                    "tags": e.tags,
+                })).collect::<Vec<_>>(),
+            });
+            println!("{}", serde_json::to_string_pretty(&payload)?);
+        }
+        ErrorFormat::Text => {
+            for example in &listed {
+                println!("{} ({}) - {}", example.name, example.format, example.description);
+            }
+            println!(
+                "\n{} example(s). Print one with `rustren examples <name>`; tags: {}",
+                listed.len(),
+                examples_cmd::all_tags().join(", ")
+            );
+        }
+    }
+    Ok(())
+}
+
 fn collect_video_audio_tracks(
     layers: &[schema::Layer],
     timeline: schema::TimelineMode,
@@ -489,7 +785,9 @@ fn collect_video_audio_tracks(
     let mut series_cursor = 0.0f32;
     for layer in layers {
         let local_start = match timeline {
-            schema::TimelineMode::Series => (series_cursor + layer.start_sec - layer.overlap_secs).max(0.0),
+            schema::TimelineMode::Series => {
+                (series_cursor + layer.start_sec - layer.overlap_secs).max(0.0)
+            }
             _ => layer.start_sec,
         };
         let layer_dur = layer
@@ -511,25 +809,25 @@ fn collect_video_audio_tracks(
                 ..
             } if !*muted && *volume > 0.0 => {
                 if let Some(va) = assets.videos.get(src)
-                    && va.has_audio {
-                        let effective_trim_end = trim_end_sec.or_else(|| {
-                            Some(trim_start_sec + layer_dur * playback_rate.max(0.1))
-                        });
-                        out.push((
-                            schema::AudioTrack {
-                                src: src.clone(),
-                                start_sec: global_start,
-                                volume: *volume,
-                                trim_start_sec: Some(*trim_start_sec),
-                                trim_end_sec: effective_trim_end,
-                                playback_rate: *playback_rate,
-                                fade_in_secs: 0.0,
-                                fade_out_secs: 0.0,
-                                animations: Vec::new(),
-                            },
-                            va.path.clone(),
-                        ));
-                    }
+                    && va.has_audio
+                {
+                    let effective_trim_end = trim_end_sec
+                        .or_else(|| Some(trim_start_sec + layer_dur * playback_rate.max(0.1)));
+                    out.push((
+                        schema::AudioTrack {
+                            src: src.clone(),
+                            start_sec: global_start,
+                            volume: *volume,
+                            trim_start_sec: Some(*trim_start_sec),
+                            trim_end_sec: effective_trim_end,
+                            playback_rate: *playback_rate,
+                            fade_in_secs: 0.0,
+                            fade_out_secs: 0.0,
+                            animations: Vec::new(),
+                        },
+                        va.path.clone(),
+                    ));
+                }
             }
             schema::LayerKind::Container {
                 timeline: child_tl,
@@ -540,7 +838,14 @@ fn collect_video_audio_tracks(
                     schema::TimelineMode::Global => time_offset,
                     schema::TimelineMode::Local | schema::TimelineMode::Series => global_start,
                 };
-                collect_video_audio_tracks(children, *child_tl, child_offset, layer_dur, assets, out);
+                collect_video_audio_tracks(
+                    children,
+                    *child_tl,
+                    child_offset,
+                    layer_dur,
+                    assets,
+                    out,
+                );
             }
             _ => {}
         }
@@ -693,7 +998,12 @@ pub fn render_scene_to_file_with_profile(
                     } else {
                         None
                     }
-                    .or_else(|| by_idx.iter().find(|(ki, _)| *ki == idx).map(|(_, a)| a.clone()))
+                    .or_else(|| {
+                        by_idx
+                            .iter()
+                            .find(|(ki, _)| *ki == idx)
+                            .map(|(_, a)| a.clone())
+                    })
                     .expect("rendered frame must exist for batch index");
                     if tx.send(frame).is_err() {
                         break 'batches;

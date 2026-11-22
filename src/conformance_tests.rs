@@ -1,5 +1,5 @@
 use crate::assets::AssetStore;
-use crate::capabilities::{validate_scene_capabilities, CapabilityRegistry};
+use crate::capabilities::{CapabilityRegistry, validate_scene_capabilities};
 use crate::renderer::render_frame;
 use crate::schema::Scene;
 
@@ -14,6 +14,89 @@ fn render_json_frame(json: &str, frame_idx: u32) -> Vec<u8> {
 fn pixel_at(buf: &[u8], width: u32, x: u32, y: u32) -> [u8; 4] {
     let idx = ((y * width + x) * 4) as usize;
     [buf[idx], buf[idx + 1], buf[idx + 2], buf[idx + 3]]
+}
+
+/// Guards against `schema.json` drifting from the renderer's accepted fields.
+/// If this fails, update the corresponding `$defs` entry in `schema.json`
+/// (or `lint::LAYER_KIND_FIELDS` / `lint::COMMON_LAYER_FIELDS`).
+#[test]
+fn test_schema_field_parity_matches_lint() {
+    let schema: serde_json::Value = serde_json::from_str(include_str!("../schema.json"))
+        .expect("schema.json must be valid JSON");
+    let defs = schema["$defs"]
+        .as_object()
+        .expect("$defs must be an object");
+
+    let def_for_kind = |kind: &str| -> &'static str {
+        match kind {
+            "container" => "ContainerLayer",
+            "rect" => "RectLayer",
+            "circle" => "CircleLayer",
+            "text" => "TextLayer",
+            "svg" => "SvgLayer",
+            "image" => "ImageLayer",
+            "video" => "VideoLayer",
+            "waveform" => "WaveformLayer",
+            "lottie" => "LottieLayer",
+            "particles" => "ParticlesLayer",
+            "mesh3d" => "Mesh3dLayer",
+            "include" => "IncludeLayer",
+            other => panic!("no schema $def mapping for layer kind '{other}'"),
+        }
+    };
+
+    for (kind, extra) in crate::lint::LAYER_KIND_FIELDS {
+        let def_name = def_for_kind(kind);
+        let def = defs
+            .get(def_name)
+            .unwrap_or_else(|| panic!("schema.json missing $defs/{def_name}"));
+        assert_eq!(
+            def["properties"]["type"]["const"], *kind,
+            "$defs/{def_name} must constrain type = \"{kind}\""
+        );
+        let props = def["properties"].as_object().expect("properties object");
+
+        let expected: std::collections::BTreeSet<&str> = if *kind == "include" {
+            // `include` is expanded into other layers before deserialization, so
+            // only its own keys are meaningful; `type` + `animations` are the
+            // structural keys, common layer fields are tolerated by the validator.
+            extra
+                .iter()
+                .copied()
+                .chain(["type", "animations"])
+                .collect()
+        } else {
+            crate::lint::COMMON_LAYER_FIELDS
+                .iter()
+                .chain(extra.iter())
+                .copied()
+                .collect()
+        };
+        let actual: std::collections::BTreeSet<&str> = props.keys().map(|k| k.as_str()).collect();
+
+        let missing_from_schema: Vec<_> = expected.difference(&actual).collect();
+        let extra_in_schema: Vec<_> = actual.difference(&expected).collect();
+        assert!(
+            missing_from_schema.is_empty() && extra_in_schema.is_empty(),
+            "$defs/{def_name} ({kind}) drifted from lint fields.\n  missing in schema.json: {missing_from_schema:?}\n  only in schema.json: {extra_in_schema:?}"
+        );
+    }
+
+    // Animation property list must cover the schema enum and vice versa.
+    let schema_props: std::collections::BTreeSet<&str> =
+        defs["Animation"]["properties"]["property"]["enum"]
+            .as_array()
+            .expect("animation property enum")
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+    let mut lint_props: std::collections::BTreeSet<&str> =
+        crate::schema::ANIM_PROPERTY_NAMES.iter().copied().collect();
+    lint_props.extend(["background", "z"]);
+    assert_eq!(
+        schema_props, lint_props,
+        "schema.json Animation.property enum drifted from AnimProperty"
+    );
 }
 
 /// Guards against `SKILL.md` drifting from the code. If this fails, update the
@@ -93,6 +176,10 @@ fn test_schema_and_capabilities_alignment() {
     assert!(reg.capabilities.timeline.local_timeline);
     assert!(reg.capabilities.timeline.series_sequencing);
     assert!(reg.capabilities.timeline.transition_overlap);
+    assert!(reg.capabilities.elements.particles);
+    assert!(reg.capabilities.animation.properties.contains(&"z_index"));
+    assert!(reg.capabilities.animation.properties.contains(&"rotate_x"));
+    assert!(reg.capabilities.animation.properties.contains(&"volume"));
 }
 
 #[test]
@@ -583,15 +670,20 @@ fn test_schema_md_examples_parse_and_validate() {
         let block = after[..end].trim();
         rest = &after[end + 3..];
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(block)
-            && val.get("canvas").is_some() && val.get("layers").is_some() {
-                crate::lint::validate_no_unknown_fields(block)
-                    .unwrap_or_else(|e| panic!("SCHEMA.md example #{checked} has unknown field: {e}\n{block}"));
-                let scene: crate::schema::Scene = serde_json::from_value(val)
-                    .unwrap_or_else(|e| panic!("SCHEMA.md example #{checked} failed to parse: {e}\n{block}"));
-                crate::capabilities::validate_scene_capabilities(&scene)
-                    .unwrap_or_else(|e| panic!("SCHEMA.md example #{checked} failed capability validation: {e}"));
-                checked += 1;
-            }
+            && val.get("canvas").is_some()
+            && val.get("layers").is_some()
+        {
+            crate::lint::validate_no_unknown_fields(block).unwrap_or_else(|e| {
+                panic!("SCHEMA.md example #{checked} has unknown field: {e}\n{block}")
+            });
+            let scene: crate::schema::Scene = serde_json::from_value(val).unwrap_or_else(|e| {
+                panic!("SCHEMA.md example #{checked} failed to parse: {e}\n{block}")
+            });
+            crate::capabilities::validate_scene_capabilities(&scene).unwrap_or_else(|e| {
+                panic!("SCHEMA.md example #{checked} failed capability validation: {e}")
+            });
+            checked += 1;
+        }
     }
     assert!(checked >= 1, "Expected at least 1 complete scene JSON example in SCHEMA.md");
 }
@@ -629,6 +721,22 @@ fn test_smart_lint_grouping_contrast_and_bounds() {
     assert!(
         !warnings.iter().any(|w| w.contains("layers[1]")),
         "16px HUD in landscape should not warn: {warnings:?}"
+    );
+
+    // Grouped warnings must expose every offending path, not just the first.
+    let structured = crate::lint::collect_lint_warnings_structured(&scene);
+    let font = structured
+        .iter()
+        .find(|w| w.code == "font_size")
+        .expect("font_size warning");
+    assert_eq!(font.affected_paths.len(), 4, "{font:?}");
+    assert!(font.affected_paths.iter().all(|p| p.starts_with("layers[")));
+    assert_eq!(font.path, font.affected_paths[0]);
+    // Single-node warnings keep `path` only, with no duplicate list.
+    assert!(
+        structured
+            .iter()
+            .any(|w| w.code == "out_of_canvas" && w.affected_paths.is_empty())
     );
 }
 
@@ -1072,20 +1180,24 @@ fn test_all_examples_compile_and_validate() {
             let doc = scraper::Html::parse_document(&content);
             let sel = scraper::Selector::parse("html[data-composition-variables]").unwrap();
             if let Some(el) = doc.select(&sel).next()
-                && let Some(vars_attr) = el.value().attr("data-composition-variables") {
-                    let detected_vars: Vec<serde_json::Value> = serde_json::from_str(vars_attr).unwrap();
-                    for dv in &detected_vars {
-                        if let (Some(id), Some(def)) = (dv.get("id").and_then(|v| v.as_str()), dv.get("default")) {
-                            let val_str = match def {
-                                serde_json::Value::String(s) => s.clone(),
-                                serde_json::Value::Number(n) => n.to_string(),
-                                serde_json::Value::Bool(b) => b.to_string(),
-                                other => other.to_string(),
-                            };
-                            content = content.replace(&format!("{{{{{}}}}}", id), &val_str);
-                        }
+                && let Some(vars_attr) = el.value().attr("data-composition-variables")
+            {
+                let detected_vars: Vec<serde_json::Value> =
+                    serde_json::from_str(vars_attr).unwrap();
+                for dv in &detected_vars {
+                    if let (Some(id), Some(def)) =
+                        (dv.get("id").and_then(|v| v.as_str()), dv.get("default"))
+                    {
+                        let val_str = match def {
+                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::Number(n) => n.to_string(),
+                            serde_json::Value::Bool(b) => b.to_string(),
+                            other => other.to_string(),
+                        };
+                        content = content.replace(&format!("{{{{{}}}}}", id), &val_str);
                     }
                 }
+            }
             let scene = crate::compilers::html::parse_html_scene_with_base(&content, path.parent())
                 .unwrap_or_else(|e| panic!("Failed to parse {:?}: {}", path, e));
             crate::capabilities::validate_scene_capabilities(&scene)

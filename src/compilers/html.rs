@@ -552,6 +552,13 @@ fn parse_html_scene_internal(
     depth: usize,
     vars: &HashMap<String, String>,
 ) -> Result<Scene> {
+    // Fail on malformed `<include>` tags before building the DOM, so the error
+    // can point at the offending tag in the original source.
+    if let Some(loc) = first_include_without_src(html_content) {
+        anyhow::bail!(
+            "HTML: {loc}: <include> is missing a `src` attribute (write <include src=\"file.html\"/>)"
+        );
+    }
     let resolved_content = if vars.is_empty() {
         html_content.to_string()
     } else {
@@ -570,7 +577,13 @@ fn parse_html_scene_internal(
         .next()
         .or_else(|| document.select(&comp_sel).next())
         .or_else(|| document.select(&body_sel).next())
-        .ok_or_else(|| anyhow::anyhow!("Missing <scene>, <component>, or <body> root tag in HTML document"))?;
+        .ok_or_else(|| {
+            let hint = missing_root_hint(&resolved_content);
+            anyhow::anyhow!(
+                "HTML: missing <scene>, <component>, or <body> root tag{}",
+                hint
+            )
+        })?;
 
     // 1. Canvas
     let width = get_attr_f32(&root_elem, "width").unwrap_or(1280.0) as u32;
@@ -682,6 +695,38 @@ fn parse_html_scene_internal(
     })
 }
 
+/// Build a short diagnostic suffix when no root tag is found: point at the
+/// first meaningful tag (a likely layer) or at the first non-blank line.
+fn missing_root_hint(src: &str) -> String {
+    let tags = crate::source_map::scan_tags(src);
+    let map = crate::source_map::SourceMap::new(src);
+
+    if let Some(first_tag) = tags.iter().find(|t| !t.closing && !t.name.is_empty()) {
+        return format!(
+            " (first tag <{}> at {})",
+            first_tag.name,
+            map.loc(first_tag.start)
+        );
+    }
+
+    match src.find(|c: char| !c.is_whitespace()) {
+        Some(offset) => format!(" (content starts at {})", map.loc(offset)),
+        None => " (the file is empty)".to_string(),
+    }
+}
+
+/// Find the `line L, column C` of the first `<include>` tag that has no `src`.
+///
+/// This is checked on the raw source because `scraper` has already normalised
+/// the tag by the time the layer walker sees it, losing the position.
+fn first_include_without_src(src: &str) -> Option<String> {
+    let tags = crate::source_map::scan_tags(src);
+    let map = crate::source_map::SourceMap::new(src);
+    tags.iter()
+        .find(|t| !t.closing && t.name == "include" && t.attr("src").is_none())
+        .map(|t| map.loc(t.start))
+}
+
 fn parse_children_layers(
     parent: &ElementRef,
     base_dir: Option<&Path>,
@@ -708,7 +753,7 @@ fn parse_children_layers(
             }
             if tag == "include" {
                 let src = get_attr_str(&el, "src").ok_or_else(|| {
-                    anyhow::anyhow!("Tag <include> wajib memiliki atribut 'src'")
+                    anyhow::anyhow!("HTML: <include> is missing a `src` attribute")
                 })?;
                 if depth >= MAX_INCLUDE_DEPTH {
                     anyhow::bail!(
@@ -737,7 +782,8 @@ fn parse_children_layers(
                     inc_path.parent(),
                     depth + 1,
                     &child_vars,
-                )?;
+                )
+                .with_context(|| format!("in <include src=\"{}\">", src))?;
                 for mut layer in inc_scene.layers {
                     if is_inside_container && get_attr_str(&el, "position").is_none() {
                         layer.position = PositionSpec::Relative;

@@ -11,6 +11,18 @@ fn test_parse_hex_color() {
 }
 
 #[test]
+fn test_parse_hex_color_accepts_named_and_rgba() {
+    let white = parse_hex_color("white", 1.0).unwrap();
+    assert!((white.red() - 1.0).abs() < 1e-5);
+    assert!((white.green() - 1.0).abs() < 1e-5);
+    let clear = parse_hex_color("transparent", 0.5).unwrap();
+    assert_eq!(clear.alpha(), 0.0);
+    let rgba = parse_hex_color("rgba(0, 120, 212, 0.14)", 1.0).unwrap();
+    assert!((rgba.blue() - 212.0 / 255.0).abs() < 1e-3);
+    assert!((rgba.alpha() - 0.14).abs() < 1e-3);
+}
+
+#[test]
 fn test_render_frame_with_container_and_absolute() {
     let json = r##"{
         "canvas": { "width": 320, "height": 240, "fps": 30, "duration_secs": 1.0, "background": "#000000" },

@@ -943,6 +943,35 @@ pub struct Animation {
     pub yoyo: bool,
 }
 
+/// Canonical snake_case names for every [`AnimProperty`] variant, using the
+/// same spelling the serializer emits. Used to keep `schema.json` in sync.
+#[allow(dead_code)]
+pub const ANIM_PROPERTY_NAMES: &[&str] = &[
+    "volume",
+    "x",
+    "y",
+    "width",
+    "height",
+    "opacity",
+    "scale",
+    "rotation",
+    "skew_x",
+    "skew_y",
+    "rotate_x",
+    "rotate_y",
+    "rotate_z",
+    "perspective",
+    "z_index",
+    "cx",
+    "cy",
+    "r",
+    "radius",
+    "color",
+    "border_color",
+    "path_progress",
+    "stroke_dashoffset",
+];
+
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AnimProperty {

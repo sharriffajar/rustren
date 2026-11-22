@@ -226,6 +226,16 @@ Type definitions matching `schema.json` are included for AI pipelines:
 - **TypeScript:** [sdk/typescript/rustren.d.ts](sdk/typescript/rustren.d.ts)
 - **Python:** [sdk/python/rustren_types.py](sdk/python/rustren_types.py)
 
+Both files are generated from the schema. After editing `schema.json` run:
+
+```bash
+python3 scripts/gen_sdk.py          # rewrite both SDK files
+python3 scripts/gen_sdk.py --check  # exit 1 when they are stale
+```
+
+`cargo test` enforces the same parity (`tests/sdk_parity.rs`), so a stale SDK fails the build
+even without Python.
+
 ## Examples
 Browse [examples/](examples) for full scenes you can validate or render directly, including:
 - [examples/showreel.json](examples/showreel.json) — 60-second, 16-scene v1.1 showreel (2.5D perspective, surface shaders, `dynamic` typewriter & timecode, `skew_x`, `anchor`, `stagger_secs`)
