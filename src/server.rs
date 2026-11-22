@@ -108,6 +108,38 @@ struct HealthResponse {
     total_tracked_jobs: usize,
 }
 
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum SnapshotPayload {
+    Wrapped {
+        scene: Scene,
+        #[serde(default)]
+        composition: Option<String>,
+        #[serde(default)]
+        time: Option<f32>,
+        #[serde(default)]
+        times: Option<Vec<f32>>,
+        #[serde(default)]
+        sheet: Option<bool>,
+        #[serde(default)]
+        cols: Option<u32>,
+    },
+    Direct(Scene),
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum LayoutPayload {
+    Wrapped {
+        scene: Scene,
+        #[serde(default)]
+        composition: Option<String>,
+        #[serde(default)]
+        time: Option<f32>,
+    },
+    Direct(Scene),
+}
+
 #[derive(Serialize)]
 struct ValidateResponse {
     valid: bool,
@@ -232,7 +264,10 @@ All endpoint paths below are relative to this base URL (e.g. if you fetched `htt
 
 ## Quickstart Workflow for AI Agents
 1. **Learn the Scene Format**: Fetch `GET ./guide` (human/LLM authoring guide), `GET ./schema` (JSON Schema), and `GET ./capabilities` (supported layers, effects, transitions, easing).
-2. **Validate First**: `POST ./validate` with your Scene JSON to catch schema, capability, or lint issues before rendering.
+2. **Validate & Preview Fast (Zero-Encode)**:
+   - `POST ./validate` with your Scene JSON to catch schema, capability, or lint issues.
+   - `POST ./layout` with `{{"scene": <Scene>, "time": 2.0}}` to inspect computed bounding boxes and overlap/clipping diagnostics.
+   - `POST ./snapshot` with `{{"scene": <Scene>, "times": [0.5, 2.0, 4.0], "sheet": true}}` to get a PNG contact sheet in ~1s without encoding MP4!
 3. **Submit Render Job**: `POST ./jobs` with either a raw Scene JSON object or `{{"scene": <Scene>, "composition": "<optional_profile>", "webhook_url": "<optional_https_url>"}}`. Returns `202 Accepted` with `{{"job_id": "...", "status": "queued", "warnings": [...]}}`.
 4. **Poll & Download**: Poll `GET ./jobs/{{job_id}}` until `status` is `"completed"` (or `"failed"`), then download the MP4 from `GET ./jobs/{{job_id}}/video` (include the same auth header).
 
@@ -245,6 +280,8 @@ All endpoint paths below are relative to this base URL (e.g. if you fetched `htt
 | `GET` | `./schema` | Public | Full Scene JSON Schema |
 | `GET` | `./guide` | Public | Detailed Scene authoring guide (`SCHEMA.md`) |
 | `POST` | `./validate` | Auth | Validate Scene JSON and return lint warnings |
+| `POST` | `./layout` | Auth | Inspect bounding boxes & overlap/clip diagnostics at `time` (JSON) |
+| `POST` | `./snapshot` | Auth | Render single frame or contact sheet grid as `image/png` (max 16 timestamps) |
 | `POST` | `./jobs` | Auth | Queue a video render job (`202 Accepted`) |
 | `GET` | `./jobs/{{id}}` | Auth | Check job status (`queued`, `processing`, `completed`, `failed`) |
 | `GET` | `./jobs/{{id}}/video` | Auth | Download rendered `video/mp4` once completed |
@@ -369,6 +406,164 @@ async fn validate_endpoint(
         warnings,
     })
     .into_response()
+}
+
+const MAX_SNAPSHOT_FRAMES: usize = 16;
+
+async fn snapshot_endpoint(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if let Err(resp) = check_auth(&headers, &state.config.api_key) {
+        return resp;
+    }
+    if let Err(resp) = check_rate_limit(&state, addr.ip()).await {
+        return resp;
+    }
+    let raw = match std::str::from_utf8(&body) {
+        Ok(s) => extract_clean_json(s),
+        Err(_) => return api_error(StatusCode::BAD_REQUEST, "Request body must be valid UTF-8"),
+    };
+    let payload: SnapshotPayload = match serde_json::from_str(&raw) {
+        Ok(p) => p,
+        Err(e) => {
+            return api_error(
+                StatusCode::BAD_REQUEST,
+                format!("Invalid snapshot JSON: {e}"),
+            );
+        }
+    };
+
+    let (scene, times, sheet, cols) = match payload {
+        SnapshotPayload::Wrapped {
+            mut scene,
+            composition,
+            time,
+            times,
+            sheet,
+            cols,
+        } => {
+            if let Some(comp_name) = composition
+                && let Err(e) = scene.apply_profile(&comp_name)
+            {
+                return api_error(StatusCode::BAD_REQUEST, e.to_string());
+            }
+            let ts = match times {
+                Some(v) if !v.is_empty() => v,
+                _ => vec![time.unwrap_or(0.0)],
+            };
+            let is_sheet = sheet.unwrap_or(ts.len() > 1);
+            (scene, ts, is_sheet, cols)
+        }
+        SnapshotPayload::Direct(scene) => (scene, vec![0.0], false, None),
+    };
+
+    if times.len() > MAX_SNAPSHOT_FRAMES {
+        return api_error(
+            StatusCode::BAD_REQUEST,
+            format!("Too many snapshot timestamps (max {MAX_SNAPSHOT_FRAMES})"),
+        );
+    }
+    if let Err(e) = crate::capabilities::validate_scene_capabilities(&scene) {
+        return api_error(StatusCode::BAD_REQUEST, e.to_string());
+    }
+    if let Err(e) = validate_scene_for_service(&scene, &state.config.limits) {
+        return api_error(StatusCode::BAD_REQUEST, e.to_string());
+    }
+
+    let _permit = match state.semaphore.clone().acquire_owned().await {
+        Ok(p) => p,
+        Err(_) => return api_error(StatusCode::SERVICE_UNAVAILABLE, "Render queue is closed"),
+    };
+
+    let cache_dir = state.config.cache_dir.clone();
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<u8>> {
+        let assets = crate::assets::AssetStore::load_for_scene_with_base(&scene, &cache_dir, None)?;
+        crate::render_snapshots_to_png_bytes(&scene, &assets, &times, sheet, cols)
+    })
+    .await;
+
+    match res {
+        Ok(Ok(png_bytes)) => Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "image/png")
+            .body(Body::from(png_bytes))
+            .unwrap_or_else(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "Response error")),
+        Ok(Err(e)) => api_error(StatusCode::BAD_REQUEST, format!("Snapshot failed: {e}")),
+        Err(e) => api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Snapshot worker panicked: {e}"),
+        ),
+    }
+}
+
+async fn layout_endpoint(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if let Err(resp) = check_auth(&headers, &state.config.api_key) {
+        return resp;
+    }
+    if let Err(resp) = check_rate_limit(&state, addr.ip()).await {
+        return resp;
+    }
+    let raw = match std::str::from_utf8(&body) {
+        Ok(s) => extract_clean_json(s),
+        Err(_) => return api_error(StatusCode::BAD_REQUEST, "Request body must be valid UTF-8"),
+    };
+    let payload: LayoutPayload = match serde_json::from_str(&raw) {
+        Ok(p) => p,
+        Err(e) => return api_error(StatusCode::BAD_REQUEST, format!("Invalid layout JSON: {e}")),
+    };
+
+    let (scene, time) = match payload {
+        LayoutPayload::Wrapped {
+            mut scene,
+            composition,
+            time,
+        } => {
+            if let Some(comp_name) = composition
+                && let Err(e) = scene.apply_profile(&comp_name)
+            {
+                return api_error(StatusCode::BAD_REQUEST, e.to_string());
+            }
+            (scene, time.unwrap_or(0.0))
+        }
+        LayoutPayload::Direct(scene) => (scene, 0.0),
+    };
+
+    if let Err(e) = crate::capabilities::validate_scene_capabilities(&scene) {
+        return api_error(StatusCode::BAD_REQUEST, e.to_string());
+    }
+    if let Err(e) = validate_scene_for_service(&scene, &state.config.limits) {
+        return api_error(StatusCode::BAD_REQUEST, e.to_string());
+    }
+
+    let cache_dir = state.config.cache_dir.clone();
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<serde_json::Value> {
+        let assets = crate::assets::AssetStore::load_for_scene_with_base(&scene, &cache_dir, None)?;
+        let layers = crate::renderer::inspect_layout_at_time(&scene, &assets, time)?;
+        let diagnostics = crate::renderer::diagnose_layout_at_time(&scene, &assets, time)?;
+        Ok(serde_json::json!({
+            "time": time,
+            "layers": layers,
+            "diagnostics": diagnostics,
+        }))
+    })
+    .await;
+
+    match res {
+        Ok(Ok(val)) => Json(val).into_response(),
+        Ok(Err(e)) => api_error(StatusCode::BAD_REQUEST, format!("Layout inspect failed: {e}")),
+        Err(e) => api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Layout worker panicked: {e}"),
+        ),
+    }
 }
 
 async fn submit_job(
@@ -656,6 +851,8 @@ pub async fn run_server(config: ServeConfig) -> anyhow::Result<()> {
         .route("/guide", get(get_guide))
         .route("/capabilities", get(get_capabilities))
         .route("/validate", post(validate_endpoint))
+        .route("/snapshot", post(snapshot_endpoint))
+        .route("/layout", post(layout_endpoint))
         .route("/jobs", post(submit_job))
         .route("/jobs/:id", get(get_job_status))
         .route("/jobs/:id/video", get(download_job_video))

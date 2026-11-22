@@ -105,6 +105,93 @@ fn test_track_matte_alpha_and_inverted() {
 }
 
 #[test]
+fn test_track_matte_inside_25d_container() {
+    let json = r##"{
+        "canvas": { "width": 200, "height": 200, "fps": 30, "duration_secs": 1.0, "background": "#000000" },
+        "layers": [
+            {
+                "type": "container",
+                "x": 50, "y": 50, "width": 100, "height": 100,
+                "rotate_y": 15,
+                "perspective": 800,
+                "children": [
+                    {
+                        "type": "rect",
+                        "x": 0, "y": 0, "width": 100, "height": 100,
+                        "color": "#00FF00",
+                        "track_matte": "alpha",
+                        "matte_layer": {
+                            "type": "rect",
+                            "x": 0, "y": 0, "width": 100, "height": 100,
+                            "color": "#FFFFFF"
+                        }
+                    }
+                ]
+            }
+        ]
+    }"##;
+    let scene: Scene = serde_json::from_str(json).unwrap();
+    let assets = AssetStore {
+        fonts: vec![],
+        images: HashMap::new(),
+        videos: HashMap::new(),
+        svgs: HashMap::new(),
+        audio_paths: vec![],
+        #[cfg(feature = "exp-3d")]
+        mesh3d: HashMap::new(),
+    };
+    let frame = render_frame(&scene, &assets, 0).unwrap();
+    let green_pixels = frame
+        .chunks_exact(4)
+        .filter(|px| px[1] > 180 && px[0] < 50 && px[2] < 50)
+        .count();
+    assert!(
+        green_pixels > 1000,
+        "track_matte inside 2.5D container must render visible pixels, got {green_pixels}"
+    );
+}
+
+#[test]
+fn test_waveform_color_animation() {
+    let json = r##"{
+        "canvas": { "width": 120, "height": 80, "fps": 30, "duration_secs": 1.0, "background": "#000000" },
+        "layers": [
+            {
+                "type": "waveform",
+                "x": 10, "y": 10, "width": 100, "height": 60,
+                "bars": 8,
+                "color": "#FF0000",
+                "animations": [
+                    {
+                        "property": "color",
+                        "from": "#FF0000",
+                        "to": "#0000FF",
+                        "start_sec": 0.0,
+                        "end_sec": 1.0
+                    }
+                ]
+            }
+        ]
+    }"##;
+    let scene: Scene = serde_json::from_str(json).unwrap();
+    let assets = AssetStore {
+        fonts: vec![],
+        images: HashMap::new(),
+        videos: HashMap::new(),
+        svgs: HashMap::new(),
+        audio_paths: vec![],
+        #[cfg(feature = "exp-3d")]
+        mesh3d: HashMap::new(),
+    };
+    let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
+    let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
+    let red_t0 = f0.chunks_exact(4).filter(|p| p[0] > 200 && p[2] < 50).count();
+    let blue_t1 = f1.chunks_exact(4).filter(|p| p[2] > 200 && p[0] < 50).count();
+    assert!(red_t0 > 100, "waveform at t=0 should be red, got {red_t0}");
+    assert!(blue_t1 > 100, "waveform at t=1 should be blue, got {blue_t1}");
+}
+
+#[test]
 fn test_echo_smear_renders_trail() {
     let json = r##"{
         "canvas": { "width": 200, "height": 100, "fps": 30, "duration_secs": 1.0, "background": "#000000" },

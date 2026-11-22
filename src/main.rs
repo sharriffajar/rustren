@@ -1325,6 +1325,61 @@ pub(crate) fn premul_to_rgba_image(w: u32, h: u32, mut data: Vec<u8>) -> Result<
         .ok_or_else(|| anyhow::anyhow!("Failed to construct RGBA image {w}x{h}"))
 }
 
+pub(crate) fn render_snapshots_to_png_bytes(
+    scene: &Scene,
+    assets: &AssetStore,
+    times: &[f32],
+    sheet: bool,
+    cols_opt: Option<u32>,
+) -> Result<Vec<u8>> {
+    let w = scene.canvas.width;
+    let h = scene.canvas.height;
+    let frames: Vec<(f32, image::RgbaImage)> = times
+        .par_iter()
+        .map(|&ts| {
+            let raw = renderer::render_frame_at_time(scene, assets, ts)?;
+            Ok((ts, premul_to_rgba_image(w, h, raw)?))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let img = if !sheet && frames.len() == 1 {
+        frames.into_iter().next().unwrap().1
+    } else {
+        let count = frames.len() as u32;
+        let cols = cols_opt.unwrap_or_else(|| count.min(4)).max(1);
+        let rows = count.div_ceil(cols);
+        let max_thumb_w = 640u32;
+        let (tw, th) = if w > max_thumb_w {
+            let scale = max_thumb_w as f32 / w as f32;
+            (max_thumb_w, ((h as f32) * scale).round().max(1.0) as u32)
+        } else {
+            (w, h)
+        };
+        let pad = 16u32;
+        let sheet_w = cols * tw + (cols + 1) * pad;
+        let sheet_h = rows * th + (rows + 1) * pad;
+        let mut canvas =
+            image::RgbaImage::from_pixel(sheet_w, sheet_h, image::Rgba([24, 24, 24, 255]));
+        for (idx, (_, frame_img)) in frames.into_iter().enumerate() {
+            let col = (idx as u32) % cols;
+            let row = (idx as u32) / cols;
+            let thumb = if tw != w || th != h {
+                image::imageops::resize(&frame_img, tw, th, image::imageops::FilterType::Triangle)
+            } else {
+                frame_img
+            };
+            let ox = pad + col * (tw + pad);
+            let oy = pad + row * (th + pad);
+            image::imageops::overlay(&mut canvas, &thumb, ox as i64, oy as i64);
+        }
+        canvas
+    };
+
+    let mut out = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(img).write_to(&mut out, image::ImageFormat::Png)?;
+    Ok(out.into_inner())
+}
+
 pub(crate) fn render_snapshots(
     scene: &Scene,
     assets: &AssetStore,

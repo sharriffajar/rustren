@@ -863,7 +863,7 @@ fn render_layer(
             font_system,
             swash_cache,
             &mut matte_pm,
-            None,
+            layout_override,
             1.0,
             false,
         )?;
@@ -1719,7 +1719,14 @@ fn render_layer_inner(
             let total_gap = gap * (num_bars.saturating_sub(1) as f32);
             let bar_w = ((w - total_gap) / (num_bars as f32)).max(1.0);
 
-            let col = parse_hex_color(color, op)?;
+            let eff_color = eval_color_property(
+                &layer.animations,
+                AnimProperty::Color,
+                time_sec,
+                Some(color),
+            )
+            .unwrap_or_else(|| color.clone());
+            let col = parse_hex_color(&eff_color, op)?;
             let mut paint = Paint::default();
             paint.set_color(col);
             paint.anti_alias = true;
