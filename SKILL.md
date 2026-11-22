@@ -2,7 +2,7 @@
 name: rustren
 description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for 3D, live streaming, or editing existing video timelines frame-by-frame in a GUI.
 metadata:
-  skill_version: "1.1.3"
+  skill_version: "1.1.4"
   rustren_version: "0.3.1"
   schema_version: "1.1"
   renderer_version: "1.1"
@@ -288,6 +288,15 @@ errors point at the offending tag (`line 2, column 3: <include> is missing a src
 
 ## Changelog
 
+- **1.1.4** (rustren 0.3.1, schema 1.1, experimental): `exp-3d` Phase 2. `Mesh3d` layers can now
+  load a local `.glb`/`.gltf` model via `src` (`Texture`/UV via `texture`), with `Mesh::from_gltf_bytes`
+  extracting positions, `TEXCOORD_0` UVs and indices, synthesising smooth normals when the file has
+  none, and normalizing the bounding box into the unit cube. Models are parsed once per scene in
+  `AssetStore` (never per frame), and textures decode once behind a `OnceLock` cache. Shading is now
+  Blinn-Phong (ambient + diffuse + specular + rim light) with perspective-correct bilinear UV
+  sampling, replacing the old half-Lambert term; the vertex format gained `uv`. All of this stays
+  behind `#[cfg(feature = "exp-3d")]` and is CPU-only and deterministic. `schema.json` documents
+  `texture` (SDK types regenerated).
 - **1.1.3** (rustren 0.3.1, schema 1.1): closed four gaps where `validate` passed but a render
   failed or lied. `parse_hex_color` now expands CSS shorthand `#RGB`/`#RGBA`, which `schema.json`
   already allowed, so `"#FFF"` renders instead of failing after a green validate (and `--fix`

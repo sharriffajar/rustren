@@ -529,7 +529,10 @@ export interface Mesh3dLayer extends BaseLayer {
   height?: number;
   /** default: "cube" */
   primitive?: "cube" | "sphere" | "pyramid" | "torus";
+  /** Local .glb/.gltf model path; when set, loaded instead of the procedural primitive */
   src?: string;
+  /** PNG/JPEG texture sampled with vertex UVs (requires exp-3d) */
+  texture?: string;
   /** default: 1.0 */
   scale?: number;
   /** default: 0.0 */

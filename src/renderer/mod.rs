@@ -2,7 +2,7 @@ mod cache;
 mod fx;
 pub mod inspect;
 mod layout;
-mod mesh3d;
+pub mod mesh3d;
 mod svg_draw;
 #[cfg(test)]
 mod tests;
@@ -2323,7 +2323,8 @@ fn render_layer_inner(
             width,
             height,
             primitive,
-            src: _,
+            src,
+            texture,
             opacity,
             scale,
             rotate_x,
@@ -2367,12 +2368,30 @@ fn render_layer_inner(
 
             let (rx, ry) = apply_anchor(rx, ry, w, h, layer.anchor);
 
-            // Select mesh based on primitive type
-            let mesh = match primitive {
-                Mesh3dPrimitive::Cube => Mesh::cube(),
-                Mesh3dPrimitive::Sphere => Mesh::sphere(16, 32),
-                Mesh3dPrimitive::Pyramid => Mesh::pyramid(),
-                Mesh3dPrimitive::Torus => Mesh::torus(0.5, 0.2, 24, 16),
+            // Select mesh: a local `.glb`/`.gltf` when `src` is set, otherwise the
+            // procedural primitive. Imported models are cached in `AssetStore`
+            // so they parse once instead of on every frame.
+            let mesh: std::sync::Arc<Mesh> = match src {
+                Some(path) if !path.trim().is_empty() => assets
+                    .mesh3d
+                    .get(path)
+                    .cloned()
+                    .ok_or_else(|| anyhow!("Mesh3d model not preloaded: {path}"))?,
+                _ => std::sync::Arc::new(match primitive {
+                    Mesh3dPrimitive::Cube => Mesh::cube(),
+                    Mesh3dPrimitive::Sphere => Mesh::sphere(16, 32),
+                    Mesh3dPrimitive::Pyramid => Mesh::pyramid(),
+                    Mesh3dPrimitive::Torus => Mesh::torus(0.5, 0.2, 24, 16),
+                }),
+            };
+
+            // Texture is resolved lazily by path and cached in a `OnceLock`, so
+            // repeated frames reuse one decoded RGBA buffer.
+            let mesh_texture = match texture {
+                Some(path) if !path.trim().is_empty() => {
+                    Some(crate::renderer::mesh3d::load_texture(path)?)
+                }
+                _ => None,
             };
 
             let light_dir = light_dir.unwrap_or([0.5, -1.0, 0.5]);
@@ -2393,6 +2412,7 @@ fn render_layer_inner(
                 rot_x,
                 rot_y,
                 rot_z,
+                mesh_texture.as_deref(),
             );
         }
     }

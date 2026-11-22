@@ -1617,7 +1617,14 @@
           "enum": ["cube", "sphere", "pyramid", "torus"],
           "default": "cube"
         },
-        "src": { "type": "string" },
+        "src": {
+          "type": "string",
+          "description": "Local .glb/.gltf model path; when set, loaded instead of the procedural primitive"
+        },
+        "texture": {
+          "type": "string",
+          "description": "PNG/JPEG texture sampled with vertex UVs (requires exp-3d)"
+        },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
         "scale": { "type": "number", "default": 1.0 },
         "rotation": { "type": "number", "default": 0.0 },

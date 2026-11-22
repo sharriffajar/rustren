@@ -30,7 +30,6 @@ pub struct HtmlCompiler;
 
 const MAX_INCLUDE_DEPTH: usize = 8;
 
-
 fn expand_self_closing_tags(input: &str) -> String {
     let bytes = input.as_bytes();
     let n = bytes.len();
@@ -41,17 +40,47 @@ fn expand_self_closing_tags(input: &str) -> String {
         if bytes[i] == b'<' && i + 1 < n && bytes[i + 1] != b'/' && bytes[i + 1] != b'!' {
             let tag_start = i + 1;
             let mut j = tag_start;
-            while j < n && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'-' || bytes[j] == b'_') {
+            while j < n
+                && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'-' || bytes[j] == b'_')
+            {
                 j += 1;
             }
             if j > tag_start {
                 let tag_name = &input[tag_start..j];
                 let is_custom_tag = matches!(
                     tag_name,
-                    "rect" | "circle" | "text" | "image" | "svg" | "mesh3d" | "waveform" | "lottie" | "video"
-                    | "particles" | "container" | "div" | "section" | "p" | "span" | "h1" | "h2" | "h3" | "img"
-                    | "animate" | "animation" | "include" | "matte" | "profile" | "font" | "audio"
-                    | "path" | "line" | "polygon" | "polyline" | "ellipse" | "g"
+                    "rect"
+                        | "circle"
+                        | "text"
+                        | "image"
+                        | "svg"
+                        | "mesh3d"
+                        | "waveform"
+                        | "lottie"
+                        | "video"
+                        | "particles"
+                        | "container"
+                        | "div"
+                        | "section"
+                        | "p"
+                        | "span"
+                        | "h1"
+                        | "h2"
+                        | "h3"
+                        | "img"
+                        | "animate"
+                        | "animation"
+                        | "include"
+                        | "matte"
+                        | "profile"
+                        | "font"
+                        | "audio"
+                        | "path"
+                        | "line"
+                        | "polygon"
+                        | "polyline"
+                        | "ellipse"
+                        | "g"
                 );
 
                 if is_custom_tag {
@@ -148,7 +177,11 @@ fn parse_gradient_from_str(s: &str) -> Option<LinearGradientSpec> {
         }
         let color = tokens[0].to_string();
         let offset = if tokens.len() > 1 && tokens[1].ends_with('%') {
-            tokens[1].trim_end_matches('%').parse::<f32>().unwrap_or(0.0) / 100.0
+            tokens[1]
+                .trim_end_matches('%')
+                .parse::<f32>()
+                .unwrap_or(0.0)
+                / 100.0
         } else if count == 1 {
             0.0
         } else {
@@ -271,7 +304,10 @@ fn parse_shadow_shorthand(s: &str) -> Option<ShadowSpec> {
         Some(idx) => (trimmed[..idx].trim(), trimmed[idx..].trim().to_string()),
         None => (trimmed, "#00000080".to_string()),
     };
-    let nums: Vec<f32> = nums_part.split_whitespace().filter_map(parse_px_f32).collect();
+    let nums: Vec<f32> = nums_part
+        .split_whitespace()
+        .filter_map(parse_px_f32)
+        .collect();
     if nums.len() < 2 {
         return None;
     }
@@ -289,17 +325,13 @@ fn parse_dash_array(val: Option<&str>) -> Option<Vec<f32>> {
         .filter(|s| !s.is_empty())
         .filter_map(|s| s.parse::<f32>().ok())
         .collect();
-    if nums.is_empty() {
-        None
-    } else {
-        Some(nums)
-    }
+    if nums.is_empty() { None } else { Some(nums) }
 }
 
 fn parse_font_weight(val: Option<&str>) -> FontWeightSpec {
     match val {
-        Some("bold") | Some("semibold") | Some("600") | Some("650") | Some("700")
-        | Some("800") | Some("900") => FontWeightSpec::Bold,
+        Some("bold") | Some("semibold") | Some("600") | Some("650") | Some("700") | Some("800")
+        | Some("900") => FontWeightSpec::Bold,
         _ => FontWeightSpec::Normal,
     }
 }
@@ -352,8 +384,7 @@ fn clean_inline_text_node(raw: &str) -> String {
 
 fn parse_inline_text_spans(elem: &ElementRef) -> (String, Vec<TextSpan>) {
     let has_inline_elem = elem.children().any(|c| {
-        ElementRef::wrap(c)
-            .is_some_and(|el| matches!(el.value().name(), "span" | "b" | "strong"))
+        ElementRef::wrap(c).is_some_and(|el| matches!(el.value().name(), "span" | "b" | "strong"))
     });
     if !has_inline_elem {
         let mut content = get_attr_str(elem, "content")
@@ -396,10 +427,10 @@ fn parse_inline_text_spans(elem: &ElementRef) -> (String, Vec<TextSpan>) {
                         } else {
                             get_attr_str(&el, "font-weight").map(|w| parse_font_weight(Some(&w)))
                         };
-                        let font_family = get_attr_str(&el, "font-family")
-                            .or_else(|| get_attr_str(&el, "font"));
-                        let font_size = get_attr_f32(&el, "font-size")
-                            .or_else(|| get_attr_f32(&el, "size"));
+                        let font_family =
+                            get_attr_str(&el, "font-family").or_else(|| get_attr_str(&el, "font"));
+                        let font_size =
+                            get_attr_f32(&el, "font-size").or_else(|| get_attr_f32(&el, "size"));
                         spans.push(TextSpan {
                             text,
                             color,
@@ -464,8 +495,7 @@ fn serialize_svg_element_without_animate(elem: &ElementRef, strip_anim_props: bo
     let tag = elem.value().name();
     let mut out = format!("<{tag}");
     for (k, v) in elem.value().attrs() {
-        if strip_anim_props
-            && matches!(k, "opacity" | "path-progress" | "stroke-dashoffset" | "id")
+        if strip_anim_props && matches!(k, "opacity" | "path-progress" | "stroke-dashoffset" | "id")
         {
             continue;
         }
@@ -482,9 +512,10 @@ fn serialize_svg_element_without_animate(elem: &ElementRef, strip_anim_props: bo
             scraper::Node::Text(t) => out.push_str(t.text.as_ref()),
             scraper::Node::Element(_) => {
                 if let Some(c_el) = ElementRef::wrap(child)
-                    && !matches!(c_el.value().name(), "animate" | "animation") {
-                        out.push_str(&serialize_svg_element_without_animate(&c_el, false));
-                    }
+                    && !matches!(c_el.value().name(), "animate" | "animation")
+                {
+                    out.push_str(&serialize_svg_element_without_animate(&c_el, false));
+                }
             }
             _ => {}
         }
@@ -504,7 +535,10 @@ pub fn substitute_variables(template: &str, vars: &HashMap<String, String>) -> S
             let expr = after_open[..end].trim();
             if let Some((key, default_val)) = expr.split_once('|') {
                 let key = key.trim();
-                let val = vars.get(key).map(|s| s.as_str()).unwrap_or(default_val.trim());
+                let val = vars
+                    .get(key)
+                    .map(|s| s.as_str())
+                    .unwrap_or(default_val.trim());
                 result.push_str(val);
             } else if let Some(val) = vars.get(expr) {
                 result.push_str(val);
@@ -617,11 +651,14 @@ fn parse_html_scene_internal(
     let mut profiles = HashMap::new();
     let profile_sel = Selector::parse("profiles > profile, profile").unwrap();
     for prof_elem in root_elem.select(&profile_sel) {
-        if let Some(name) = get_attr_str(&prof_elem, "name").or_else(|| get_attr_str(&prof_elem, "id")) {
+        if let Some(name) =
+            get_attr_str(&prof_elem, "name").or_else(|| get_attr_str(&prof_elem, "id"))
+        {
             let p_width = get_attr_f32(&prof_elem, "width").map(|v| v as u32);
             let p_height = get_attr_f32(&prof_elem, "height").map(|v| v as u32);
             let p_fps = get_attr_f32(&prof_elem, "fps").map(|v| v as u32);
-            let p_dur = get_attr_f32(&prof_elem, "duration").or_else(|| get_attr_f32(&prof_elem, "duration-secs"));
+            let p_dur = get_attr_f32(&prof_elem, "duration")
+                .or_else(|| get_attr_f32(&prof_elem, "duration-secs"));
             let p_bg = get_attr_str(&prof_elem, "background");
             profiles.insert(
                 name,
@@ -650,13 +687,23 @@ fn parse_html_scene_internal(
     let audio_sel = Selector::parse("audio-tracks > audio, audio").unwrap();
     for a_elem in root_elem.select(&audio_sel) {
         if let Some(src) = get_attr_str(&a_elem, "src") {
-            let start_sec = get_attr_f32(&a_elem, "start").or_else(|| get_attr_f32(&a_elem, "start-sec")).unwrap_or(0.0);
+            let start_sec = get_attr_f32(&a_elem, "start")
+                .or_else(|| get_attr_f32(&a_elem, "start-sec"))
+                .unwrap_or(0.0);
             let volume = get_attr_f32(&a_elem, "volume").unwrap_or(1.0);
-            let trim_start_sec = get_attr_f32(&a_elem, "trim-start").or_else(|| get_attr_f32(&a_elem, "trim-start-sec"));
-            let trim_end_sec = get_attr_f32(&a_elem, "trim-end").or_else(|| get_attr_f32(&a_elem, "trim-end-sec"));
-            let playback_rate = get_attr_f32(&a_elem, "playback-rate").or_else(|| get_attr_f32(&a_elem, "speed")).unwrap_or(1.0);
-            let fade_in_secs = get_attr_f32(&a_elem, "fade-in").or_else(|| get_attr_f32(&a_elem, "fade-in-secs")).unwrap_or(0.0);
-            let fade_out_secs = get_attr_f32(&a_elem, "fade-out").or_else(|| get_attr_f32(&a_elem, "fade-out-secs")).unwrap_or(0.0);
+            let trim_start_sec = get_attr_f32(&a_elem, "trim-start")
+                .or_else(|| get_attr_f32(&a_elem, "trim-start-sec"));
+            let trim_end_sec =
+                get_attr_f32(&a_elem, "trim-end").or_else(|| get_attr_f32(&a_elem, "trim-end-sec"));
+            let playback_rate = get_attr_f32(&a_elem, "playback-rate")
+                .or_else(|| get_attr_f32(&a_elem, "speed"))
+                .unwrap_or(1.0);
+            let fade_in_secs = get_attr_f32(&a_elem, "fade-in")
+                .or_else(|| get_attr_f32(&a_elem, "fade-in-secs"))
+                .unwrap_or(0.0);
+            let fade_out_secs = get_attr_f32(&a_elem, "fade-out")
+                .or_else(|| get_attr_f32(&a_elem, "fade-out-secs"))
+                .unwrap_or(0.0);
 
             let animations = parse_animations(&a_elem)?;
 
@@ -798,13 +845,20 @@ fn parse_children_layers(
                 continue;
             }
             if tag == "svg"
-                && let Some(svg_layers) =
-                    try_parse_animated_svg_layers(&el, base_dir, depth, parent_vars, is_inside_container)?
-                {
-                    layers.extend(svg_layers);
-                    continue;
-                }
-            if let Some(layer) = parse_layer_element(&el, base_dir, depth, parent_vars, is_inside_container)? {
+                && let Some(svg_layers) = try_parse_animated_svg_layers(
+                    &el,
+                    base_dir,
+                    depth,
+                    parent_vars,
+                    is_inside_container,
+                )?
+            {
+                layers.extend(svg_layers);
+                continue;
+            }
+            if let Some(layer) =
+                parse_layer_element(&el, base_dir, depth, parent_vars, is_inside_container)?
+            {
                 layers.push(layer);
             }
         }
@@ -974,13 +1028,14 @@ fn parse_common_layer_meta(
     let mut matte_layer = None;
     for c in elem.children() {
         if let Some(c_el) = ElementRef::wrap(c)
-            && c_el.value().name() == "matte" {
-                let matte_children = parse_children_layers(&c_el, base_dir, depth, vars, false)?;
-                if let Some(first) = matte_children.into_iter().next() {
-                    matte_layer = Some(Box::new(first));
-                }
-                break;
+            && c_el.value().name() == "matte"
+        {
+            let matte_children = parse_children_layers(&c_el, base_dir, depth, vars, false)?;
+            if let Some(first) = matte_children.into_iter().next() {
+                matte_layer = Some(Box::new(first));
             }
+            break;
+        }
     }
     let skew_y = get_attr_f32(elem, "skew-y")
         .or_else(|| get_attr_f32(elem, "skew_y"))
@@ -1121,7 +1176,9 @@ fn try_parse_animated_svg_layers(
         let child_dash = parse_dash_array(get_attr_str(&anim_child, "stroke-dasharray").as_deref())
             .or_else(|| base_dash.clone());
         let mut child_meta = meta.clone();
-        if let Some(cid) = get_attr_str(&anim_child, "name").or_else(|| get_attr_str(&anim_child, "id")) {
+        if let Some(cid) =
+            get_attr_str(&anim_child, "name").or_else(|| get_attr_str(&anim_child, "id"))
+        {
             child_meta.name = Some(cid);
         }
         if wrap_in_container {
@@ -1189,17 +1246,25 @@ fn parse_layer_element(
     let animations = parse_animations(elem)?;
 
     let kind = match tag {
-        "rect" | "div" if get_attr_str(elem, "type").as_deref() == Some("rect") || tag == "rect" => {
+        "rect" | "div"
+            if get_attr_str(elem, "type").as_deref() == Some("rect") || tag == "rect" =>
+        {
             let x = get_attr_f32(elem, "x").unwrap_or(0.0);
             let y = get_attr_f32(elem, "y").unwrap_or(0.0);
-            let width = get_attr_f32(elem, "width").or_else(|| get_attr_f32(elem, "w")).unwrap_or(100.0);
-            let height = get_attr_f32(elem, "height").or_else(|| get_attr_f32(elem, "h")).unwrap_or(100.0);
-            let radius = get_attr_f32(elem, "radius").or_else(|| get_attr_f32(elem, "border-radius")).unwrap_or(0.0);
+            let width = get_attr_f32(elem, "width")
+                .or_else(|| get_attr_f32(elem, "w"))
+                .unwrap_or(100.0);
+            let height = get_attr_f32(elem, "height")
+                .or_else(|| get_attr_f32(elem, "h"))
+                .unwrap_or(100.0);
+            let radius = get_attr_f32(elem, "radius")
+                .or_else(|| get_attr_f32(elem, "border-radius"))
+                .unwrap_or(0.0);
             let raw_color = get_attr_str(elem, "color")
                 .or_else(|| get_attr_str(elem, "background"))
                 .or_else(|| get_attr_str(elem, "fill"));
-            let mut gradient = get_attr_str(elem, "gradient")
-                .and_then(|g| parse_gradient_from_str(&g));
+            let mut gradient =
+                get_attr_str(elem, "gradient").and_then(|g| parse_gradient_from_str(&g));
             let color = match raw_color {
                 Some(c) if c.trim().starts_with("linear-gradient(") => {
                     gradient = parse_gradient_from_str(&c);
@@ -1233,9 +1298,15 @@ fn parse_layer_element(
             }
         }
         "circle" => {
-            let cx = get_attr_f32(elem, "cx").or_else(|| get_attr_f32(elem, "x")).unwrap_or(0.0);
-            let cy = get_attr_f32(elem, "cy").or_else(|| get_attr_f32(elem, "y")).unwrap_or(0.0);
-            let r = get_attr_f32(elem, "r").or_else(|| get_attr_f32(elem, "radius")).unwrap_or(50.0);
+            let cx = get_attr_f32(elem, "cx")
+                .or_else(|| get_attr_f32(elem, "x"))
+                .unwrap_or(0.0);
+            let cy = get_attr_f32(elem, "cy")
+                .or_else(|| get_attr_f32(elem, "y"))
+                .unwrap_or(0.0);
+            let r = get_attr_f32(elem, "r")
+                .or_else(|| get_attr_f32(elem, "radius"))
+                .unwrap_or(50.0);
             let color = get_attr_str(elem, "color")
                 .or_else(|| get_attr_str(elem, "fill"))
                 .or_else(|| get_attr_str(elem, "background"))
@@ -1263,12 +1334,18 @@ fn parse_layer_element(
             let x = get_attr_f32(elem, "x").unwrap_or(0.0);
             let y = get_attr_f32(elem, "y").unwrap_or(0.0);
             let (content, spans) = parse_inline_text_spans(elem);
-            let font_size = get_attr_f32(elem, "font-size").or_else(|| get_attr_f32(elem, "size")).unwrap_or(48.0);
+            let font_size = get_attr_f32(elem, "font-size")
+                .or_else(|| get_attr_f32(elem, "size"))
+                .unwrap_or(48.0);
             let line_height = get_attr_f32(elem, "line-height");
             let letter_spacing = get_attr_f32(elem, "letter-spacing").unwrap_or(0.0);
-            let font_family = get_attr_str(elem, "font-family").or_else(|| get_attr_str(elem, "font"));
+            let font_family =
+                get_attr_str(elem, "font-family").or_else(|| get_attr_str(elem, "font"));
             let font_weight = parse_font_weight(get_attr_str(elem, "font-weight").as_deref());
-            let text_align = match get_attr_str(elem, "text-align").or_else(|| get_attr_str(elem, "align")).as_deref() {
+            let text_align = match get_attr_str(elem, "text-align")
+                .or_else(|| get_attr_str(elem, "align"))
+                .as_deref()
+            {
                 Some("center") => TextAlignSpec::Center,
                 Some("right") => TextAlignSpec::Right,
                 Some("start") => TextAlignSpec::Start,
@@ -1288,7 +1365,8 @@ fn parse_layer_element(
                 || get_attr_f32(elem, "outline-width").is_some()
             {
                 Some(TextOutlineSpec {
-                    color: get_attr_str(elem, "outline-color").unwrap_or_else(|| "#000000".to_string()),
+                    color: get_attr_str(elem, "outline-color")
+                        .unwrap_or_else(|| "#000000".to_string()),
                     width: get_attr_f32(elem, "outline-width").unwrap_or(2.0),
                 })
             } else {
@@ -1387,7 +1465,8 @@ fn parse_layer_element(
             }
             let path_progress = get_attr_f32(elem, "path-progress").unwrap_or(1.0);
             let stroke_dashoffset = get_attr_f32(elem, "stroke-dashoffset");
-            let stroke_dasharray = parse_dash_array(get_attr_str(elem, "stroke-dasharray").as_deref());
+            let stroke_dasharray =
+                parse_dash_array(get_attr_str(elem, "stroke-dasharray").as_deref());
             let opacity = get_attr_f32(elem, "opacity").unwrap_or(1.0);
             let rotation = get_attr_f32(elem, "rotation").unwrap_or(0.0);
 
@@ -1501,8 +1580,12 @@ fn parse_layer_element(
         "particles" => {
             let x = get_attr_f32(elem, "x").unwrap_or(0.0);
             let y = get_attr_f32(elem, "y").unwrap_or(0.0);
-            let width = get_attr_f32(elem, "width").or_else(|| get_attr_f32(elem, "w")).unwrap_or(400.0);
-            let height = get_attr_f32(elem, "height").or_else(|| get_attr_f32(elem, "h")).unwrap_or(400.0);
+            let width = get_attr_f32(elem, "width")
+                .or_else(|| get_attr_f32(elem, "w"))
+                .unwrap_or(400.0);
+            let height = get_attr_f32(elem, "height")
+                .or_else(|| get_attr_f32(elem, "h"))
+                .unwrap_or(400.0);
             let count = get_attr_f32(elem, "count").unwrap_or(40.0).max(0.0) as usize;
             let seed = get_attr_f32(elem, "seed").unwrap_or(42.0).max(0.0) as u64;
             let speed = get_attr_f32(elem, "speed").unwrap_or(1.0);
@@ -1557,8 +1640,8 @@ fn parse_layer_element(
                 .or_else(|| get_attr_str(elem, "bg"))
                 .or_else(|| get_attr_str(elem, "color"))
                 .or_else(|| get_attr_str(elem, "fill"));
-            let mut gradient = get_attr_str(elem, "gradient")
-                .and_then(|g| parse_gradient_from_str(&g));
+            let mut gradient =
+                get_attr_str(elem, "gradient").and_then(|g| parse_gradient_from_str(&g));
             let background = match raw_bg {
                 Some(bg) if bg.trim().starts_with("linear-gradient(") => {
                     gradient = parse_gradient_from_str(&bg);
@@ -1567,13 +1650,19 @@ fn parse_layer_element(
                 other => other,
             };
             let (border_color, border_width) = resolve_border_style(elem, false);
-            let radius = get_attr_f32(elem, "radius").or_else(|| get_attr_f32(elem, "border-radius")).unwrap_or(0.0);
+            let radius = get_attr_f32(elem, "radius")
+                .or_else(|| get_attr_f32(elem, "border-radius"))
+                .unwrap_or(0.0);
             let opacity = get_attr_f32(elem, "opacity").unwrap_or(1.0);
             let rotation = get_attr_f32(elem, "rotation").unwrap_or(0.0);
             let scale = get_attr_f32(elem, "scale").unwrap_or(1.0);
-            let clip = get_attr_str(elem, "clip").is_some() || get_attr_str(elem, "overflow").as_deref() == Some("hidden");
-            let cascade_opacity = get_attr_str(elem, "cascade-opacity").is_some() || get_attr_str(elem, "cascade_opacity").is_some();
-            let stagger_secs = get_attr_f32(elem, "stagger").or_else(|| get_attr_f32(elem, "stagger-secs")).unwrap_or(0.0);
+            let clip = get_attr_str(elem, "clip").is_some()
+                || get_attr_str(elem, "overflow").as_deref() == Some("hidden");
+            let cascade_opacity = get_attr_str(elem, "cascade-opacity").is_some()
+                || get_attr_str(elem, "cascade_opacity").is_some();
+            let stagger_secs = get_attr_f32(elem, "stagger")
+                .or_else(|| get_attr_f32(elem, "stagger-secs"))
+                .unwrap_or(0.0);
 
             let timeline = match get_attr_str(elem, "timeline").as_deref() {
                 Some("local") | Some("parallel") => TimelineMode::Local,
@@ -1594,8 +1683,16 @@ fn parse_layer_element(
                 || get_attr_str(elem, "wrap")
                     .is_some_and(|w| w == "true" || w == "wrap" || w == "1");
 
-            let justify = parse_align(get_attr_str(elem, "justify-content").or_else(|| get_attr_str(elem, "justify")).as_deref());
-            let align = parse_align(get_attr_str(elem, "align-items").or_else(|| get_attr_str(elem, "align")).as_deref());
+            let justify = parse_align(
+                get_attr_str(elem, "justify-content")
+                    .or_else(|| get_attr_str(elem, "justify"))
+                    .as_deref(),
+            );
+            let align = parse_align(
+                get_attr_str(elem, "align-items")
+                    .or_else(|| get_attr_str(elem, "align"))
+                    .as_deref(),
+            );
             let gap_vals: Vec<f32> = get_attr_str(elem, "gap")
                 .map(|g| g.split_whitespace().filter_map(parse_px_f32).collect())
                 .unwrap_or_default();
@@ -1670,6 +1767,7 @@ fn parse_layer_element(
                 _ => crate::schema::Mesh3dPrimitive::Cube,
             };
             let src = get_attr_str(elem, "src");
+            let texture = get_attr_str(elem, "texture");
             let opacity = get_attr_f32(elem, "opacity").unwrap_or(1.0);
             let scale = get_attr_f32(elem, "scale").unwrap_or(1.0);
             let rotate_x = get_attr_f32(elem, "rotate-x").unwrap_or(0.0);
@@ -1680,7 +1778,8 @@ fn parse_layer_element(
             let light_dir = get_attr_str(elem, "light-dir")
                 .or_else(|| get_attr_str(elem, "light_dir"))
                 .and_then(|s| {
-                    let parts: Vec<f32> = s.split(|c: char| c == ',' || c.is_whitespace())
+                    let parts: Vec<f32> = s
+                        .split(|c: char| c == ',' || c.is_whitespace())
                         .filter(|p| !p.is_empty())
                         .filter_map(|p| p.parse::<f32>().ok())
                         .collect();
@@ -1701,6 +1800,7 @@ fn parse_layer_element(
                 height,
                 primitive,
                 src,
+                texture,
                 opacity,
                 scale,
                 rotate_x,
@@ -1902,7 +2002,12 @@ mod tests {
         assert_eq!(scene.layers.len(), 2);
 
         match &scene.layers[0].kind {
-            LayerKind::Rect { width, color, radius, .. } => {
+            LayerKind::Rect {
+                width,
+                color,
+                radius,
+                ..
+            } => {
                 assert_eq!(*width, 400.0);
                 assert_eq!(color, "#FF0000");
                 assert_eq!(*radius, 16.0);
@@ -1911,10 +2016,18 @@ mod tests {
         }
 
         assert_eq!(scene.layers[0].animations.len(), 1);
-        assert_eq!(scene.layers[0].animations[0].property, AnimProperty::Opacity);
+        assert_eq!(
+            scene.layers[0].animations[0].property,
+            AnimProperty::Opacity
+        );
 
         match &scene.layers[1].kind {
-            LayerKind::Text { content, font_size, color, .. } => {
+            LayerKind::Text {
+                content,
+                font_size,
+                color,
+                ..
+            } => {
                 assert_eq!(content, "Hello HTML Video");
                 assert_eq!(*font_size, 32.0);
                 assert_eq!(color, "#FFFFFF");
@@ -2004,8 +2117,16 @@ mod tests {
             scene.layers[0].animations.is_empty(),
             "Parent stage container must not inherit nested child <animate> tags"
         );
-        assert_eq!(children.len(), 2, "Self-closing <container /> must not swallow siblings");
-        assert_eq!(children[0].animations.len(), 1, "Targeted root <animate> should attach to dot");
+        assert_eq!(
+            children.len(),
+            2,
+            "Self-closing <container /> must not swallow siblings"
+        );
+        assert_eq!(
+            children[0].animations.len(),
+            1,
+            "Targeted root <animate> should attach to dot"
+        );
         assert_eq!(children[1].animations.len(), 1);
     }
 
@@ -2060,7 +2181,11 @@ mod tests {
         "##;
 
         let scene = parse_html_scene(html).unwrap();
-        assert_eq!(scene.layers.len(), 3, "Text + static SVG + animated SVG path");
+        assert_eq!(
+            scene.layers.len(),
+            3,
+            "Text + static SVG + animated SVG path"
+        );
 
         let LayerKind::Text { spans, .. } = &scene.layers[0].kind else {
             panic!("Expected Text");
@@ -2072,7 +2197,10 @@ mod tests {
         assert_eq!(spans[1].font_weight, Some(FontWeightSpec::Bold));
         assert_eq!(spans[2].text, "!");
 
-        let LayerKind::Svg { src: static_src, .. } = &scene.layers[1].kind else {
+        let LayerKind::Svg {
+            src: static_src, ..
+        } = &scene.layers[1].kind
+        else {
             panic!("Expected static Svg");
         };
         assert!(static_src.contains("M 10 10 L 100 100"));
@@ -2080,7 +2208,12 @@ mod tests {
         let anim_layer = &scene.layers[2];
         assert_eq!(anim_layer.name.as_deref(), Some("conn1"));
         assert_eq!(anim_layer.animations.len(), 1);
-        let LayerKind::Svg { src: anim_src, opacity, .. } = &anim_layer.kind else {
+        let LayerKind::Svg {
+            src: anim_src,
+            opacity,
+            ..
+        } = &anim_layer.kind
+        else {
             panic!("Expected animated Svg");
         };
         assert_eq!(*opacity, 0.0);

@@ -282,7 +282,13 @@ fn static_layer_bounds(layer: &Layer) -> Option<(f32, f32, f32, f32)> {
             ..
         } => Some((*x, *y, *w, *h)),
         #[cfg(feature = "exp-3d")]
-        LayerKind::Mesh3d { x, y, width, height, .. } => Some((*x, *y, *width, *height)),
+        LayerKind::Mesh3d {
+            x,
+            y,
+            width,
+            height,
+            ..
+        } => Some((*x, *y, *width, *height)),
         LayerKind::Text {
             x,
             y,
@@ -324,11 +330,16 @@ fn find_effective_bg_at(
                 opacity,
                 ..
             } => {
-                if *opacity >= 0.85 && px >= *x && px <= *x + *width && py >= *y && py <= *y + *height
+                if *opacity >= 0.85
+                    && px >= *x
+                    && px <= *x + *width
+                    && py >= *y
+                    && py <= *y + *height
                     && let Some(c) = parse_rgb(color)
-                        && c.3 >= 0.85 {
-                            return c;
-                        }
+                    && c.3 >= 0.85
+                {
+                    return c;
+                }
             }
             LayerKind::Circle {
                 cx,
@@ -349,11 +360,13 @@ fn find_effective_bg_at(
                     .unwrap_or(*r);
                 let dx = px - *cx;
                 let dy = py - *cy;
-                if *opacity >= 0.85 && (dx * dx + dy * dy) <= eff_r * eff_r
+                if *opacity >= 0.85
+                    && (dx * dx + dy * dy) <= eff_r * eff_r
                     && let Some(c) = parse_rgb(color)
-                        && c.3 >= 0.85 {
-                            return c;
-                        }
+                    && c.3 >= 0.85
+                {
+                    return c;
+                }
             }
             LayerKind::Container {
                 x,
@@ -667,6 +680,7 @@ pub(crate) const LAYER_KIND_FIELDS: &[(&str, &[&str])] = &[
             "height",
             "primitive",
             "src",
+            "texture",
             "opacity",
             "scale",
             "rotation",
@@ -718,7 +732,9 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
         };
         for key in obj.keys() {
             if !COMMON.contains(&key.as_str()) && !extra.contains(&key.as_str()) {
-                anyhow::bail!("Unknown field '{path}.{key}' on type '{kind}' (not defined in schema)");
+                anyhow::bail!(
+                    "Unknown field '{path}.{key}' on type '{kind}' (not defined in schema)"
+                );
             }
         }
         if let Some(shadow) = obj.get("shadow").and_then(|v| v.as_object()) {
@@ -754,8 +770,17 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
                 layout,
                 &format!("{path}.layout"),
                 &[
-                    "direction", "flex_wrap", "justify_content", "align_items", "gap", "row_gap",
-                    "column_gap", "padding", "padding_top", "padding_right", "padding_bottom",
+                    "direction",
+                    "flex_wrap",
+                    "justify_content",
+                    "align_items",
+                    "gap",
+                    "row_gap",
+                    "column_gap",
+                    "padding",
+                    "padding_top",
+                    "padding_right",
+                    "padding_bottom",
                     "padding_left",
                 ],
             )?;
@@ -778,8 +803,18 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
                         ao,
                         &format!("{path}.animations[{ai}]"),
                         &[
-                            "property", "expr", "from", "to", "start_sec", "end_sec", "keyframes",
-                            "easing", "bezier", "spring", "repeat", "yoyo",
+                            "property",
+                            "expr",
+                            "from",
+                            "to",
+                            "start_sec",
+                            "end_sec",
+                            "keyframes",
+                            "easing",
+                            "bezier",
+                            "spring",
+                            "repeat",
+                            "yoyo",
                         ],
                     )?;
                     if let Some(kfs) = ao.get("keyframes").and_then(|v| v.as_array()) {
@@ -880,15 +915,17 @@ fn collect_layer_determinism(
             LayerKind::Text { .. } => {
                 *has_text = true;
             }
-            LayerKind::Image { src, .. } | LayerKind::Video { src, .. } | LayerKind::Svg { src, .. } => {
+            LayerKind::Image { src, .. }
+            | LayerKind::Video { src, .. }
+            | LayerKind::Svg { src, .. } => {
                 if src.starts_with("http://") || src.starts_with("https://") {
                     out.push(LintWarning {
                         code: "determinism_remote_url",
                         path: path.clone(),
                         message: format!("determinism: {path} uses remote URL '{src}'"),
                         fix: Some("use a local asset path for deterministic renders".to_string()),
-                    affected_paths: Vec::new(),
-                });
+                        affected_paths: Vec::new(),
+                    });
                 }
             }
             LayerKind::Container { children, .. } => {
@@ -972,6 +1009,8 @@ fn check_layer_assets(
             LayerKind::Svg { src, .. } => (Some(src), "svg"),
             LayerKind::Video { src, .. } => (Some(src), "video"),
             LayerKind::Lottie { src, .. } => (Some(src), "lottie"),
+            #[cfg(feature = "exp-3d")]
+            LayerKind::Mesh3d { src: Some(src), .. } => (Some(src), "3D model"),
             LayerKind::Container { children, .. } => {
                 check_layer_assets(children, &format!("{path}.children"), base_dir, out);
                 (None, "")
@@ -990,6 +1029,29 @@ fn check_layer_assets(
                     path: path.clone(),
                     message: format!("{kind} not found: {}", resolved.display()),
                     fix: Some(format!("create the file or fix the src path for {src}")),
+                    affected_paths: Vec::new(),
+                });
+            }
+        }
+
+        // `Mesh3d.texture` is a second, independent asset on the same layer.
+        #[cfg(feature = "exp-3d")]
+        if let LayerKind::Mesh3d {
+            texture: Some(texture),
+            ..
+        } = &layer.kind
+            && !texture.trim().is_empty()
+            && !is_remote(texture)
+        {
+            let resolved = resolve(texture, base_dir);
+            if !resolved.exists() {
+                out.push(LintWarning {
+                    code: "missing_asset",
+                    path: path.clone(),
+                    message: format!("mesh texture not found: {}", resolved.display()),
+                    fix: Some(format!(
+                        "create the file or fix the texture path for {texture}"
+                    )),
                     affected_paths: Vec::new(),
                 });
             }

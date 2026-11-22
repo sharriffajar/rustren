@@ -328,6 +328,7 @@ class Mesh3dLayer(TypedDict, total=False):
     height: float
     primitive: Literal["cube", "sphere", "pyramid", "torus"]
     src: str
+    texture: str
     scale: float
     rotation: float
     rotate_z: float

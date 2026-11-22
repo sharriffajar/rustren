@@ -668,6 +668,8 @@ pub enum LayerKind {
         primitive: Mesh3dPrimitive,
         #[serde(default)]
         src: Option<String>,
+        #[serde(default)]
+        texture: Option<String>,
         #[serde(default = "default_opacity")]
         opacity: f32,
         #[serde(default = "default_scale")]

@@ -1,11 +1,20 @@
 //! Software 3D Mesh Rasterizer (CPU-only, deterministic)
 //!
-//! Provides procedural mesh generation, perspective projection, view-space backface
-//! culling, signed-area (barycentric) triangle rasterization with a z-buffer,
-//! anti-aliased supersampling, and half-Lambert shading.
+//! Provides procedural mesh generation, glTF/GLB model loading, perspective
+//! projection, view-space backface culling, signed-area (barycentric) triangle
+//! rasterization with a z-buffer, anti-aliased supersampling, UV texture mapping,
+//! and Blinn-Phong shading (ambient + diffuse + specular + rim light).
 
 #[cfg(feature = "exp-3d")]
-use glam::{Mat4, Vec3, Vec4};
+use anyhow::{Context, Result, anyhow};
+#[cfg(feature = "exp-3d")]
+use glam::{Mat3, Mat4, Vec3, Vec4};
+#[cfg(feature = "exp-3d")]
+use std::collections::HashMap;
+#[cfg(feature = "exp-3d")]
+use std::path::{Path, PathBuf};
+#[cfg(feature = "exp-3d")]
+use std::sync::{Arc, Mutex, OnceLock};
 #[cfg(feature = "exp-3d")]
 use tiny_skia::PixmapMut;
 
@@ -14,6 +23,9 @@ use tiny_skia::PixmapMut;
 pub struct Vertex {
     pub position: Vec3,
     pub normal: Vec3,
+    /// Normalized texture coordinates (0..1). Procedural primitives get sane
+    /// defaults; glTF meshes carry `TEXCOORD_0` when the file provides it.
+    pub uv: [f32; 2],
 }
 
 #[cfg(feature = "exp-3d")]
@@ -52,16 +64,11 @@ impl Mesh {
         // 6 faces, 2 triangles each = 12 triangles = 36 indices
         let _indices = [
             // -Z face
-            0, 1, 2, 2, 3, 0,
-            // +Z face
-            4, 6, 5, 6, 4, 7,
-            // -Y face
-            0, 4, 5, 5, 1, 0,
-            // +Y face
-            3, 2, 6, 6, 7, 3,
-            // -X face
-            0, 3, 7, 7, 4, 0,
-            // +X face
+            0, 1, 2, 2, 3, 0, // +Z face
+            4, 6, 5, 6, 4, 7, // -Y face
+            0, 4, 5, 5, 1, 0, // +Y face
+            3, 2, 6, 6, 7, 3, // -X face
+            0, 3, 7, 7, 4, 0, // +X face
             1, 5, 6, 6, 2, 1,
         ];
 
@@ -80,20 +87,31 @@ impl Mesh {
                 5 => [1, 2, 6, 5], // +X
                 _ => [0, 1, 2, 3],
             };
-            for &vi in &face_vertices {
+            // Quad UVs run left-to-right, top-to-bottom per face so every face
+            // shows the whole texture without mirroring.
+            const QUAD_UV: [[f32; 2]; 4] = [[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]];
+            for (quad_idx, &vi) in face_vertices.iter().enumerate() {
                 vertices.push(Vertex {
                     position: positions[vi],
                     normal: *face_normal,
+                    uv: QUAD_UV[quad_idx],
                 });
             }
             // Two triangles per face
             flat_indices.extend_from_slice(&[
-                base_idx, base_idx + 1, base_idx + 2,
-                base_idx + 2, base_idx + 3, base_idx,
+                base_idx,
+                base_idx + 1,
+                base_idx + 2,
+                base_idx + 2,
+                base_idx + 3,
+                base_idx,
             ]);
         }
 
-        Self { vertices, indices: flat_indices }
+        Self {
+            vertices,
+            indices: flat_indices,
+        }
     }
 
     /// Generate a sphere mesh (UV sphere)
@@ -117,8 +135,14 @@ impl Mesh {
 
                 let position = Vec3::new(x, y, z);
                 let normal = position.normalize();
+                let u = lon as f32 / longitude_bands as f32;
+                let v = lat as f32 / latitude_bands as f32;
 
-                vertices.push(Vertex { position, normal });
+                vertices.push(Vertex {
+                    position,
+                    normal,
+                    uv: [u, v],
+                });
             }
         }
 
@@ -175,10 +199,20 @@ impl Mesh {
 
         for (face_idx, face_normal) in face_normals.iter().enumerate() {
             let base_idx = vertices.len() as u32;
-            for &vi in &face_vertices[face_idx] {
+            // Side faces get an apex/top triangle UV; the two bottom triangles
+            // each cover half the texture.
+            let uv = if face_idx < 4 {
+                [[0.5, 0.0], [0.0, 1.0], [1.0, 1.0]]
+            } else if face_idx == 4 {
+                [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]
+            } else {
+                [[1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]
+            };
+            for (corner, &vi) in face_vertices[face_idx].iter().enumerate() {
                 vertices.push(Vertex {
                     position: positions[vi],
                     normal: *face_normal,
+                    uv: uv[corner],
                 });
             }
             indices.extend_from_slice(&[base_idx, base_idx + 1, base_idx + 2]);
@@ -188,7 +222,12 @@ impl Mesh {
     }
 
     /// Generate a torus mesh
-    pub fn torus(major_radius: f32, minor_radius: f32, major_segments: u32, minor_segments: u32) -> Self {
+    pub fn torus(
+        major_radius: f32,
+        minor_radius: f32,
+        major_segments: u32,
+        minor_segments: u32,
+    ) -> Self {
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
 
@@ -213,8 +252,14 @@ impl Mesh {
                 let ny = cv * su;
                 let nz = sv;
                 let normal = Vec3::new(nx, ny, nz).normalize();
+                let u = i as f32 / major_segments as f32;
+                let v = j as f32 / minor_segments as f32;
 
-                vertices.push(Vertex { position, normal });
+                vertices.push(Vertex {
+                    position,
+                    normal,
+                    uv: [u, v],
+                });
             }
         }
 
@@ -235,6 +280,148 @@ impl Mesh {
 
         Self { vertices, indices }
     }
+
+    /// Load a mesh from `.glb` or `.gltf` bytes.
+    ///
+    /// Extracts every triangle primitive, converts them to one indexed mesh,
+    /// synthesises smooth normals when the file omits them, and normalizes the
+    /// bounding box into the unit cube `[-0.5, 0.5]` so the model fits the
+    /// default camera without clipping.
+    #[allow(dead_code)]
+    pub fn from_gltf_bytes(bytes: &[u8]) -> Result<Self> {
+        Self::from_gltf_bytes_with_base(bytes, None)
+    }
+
+    /// Same as [`Mesh::from_gltf_bytes`] but resolves relative buffer/image URIs
+    /// against `base_dir`, which is what `.gltf` files with external `.bin`
+    /// payloads need.
+    pub fn from_gltf_bytes_with_base(bytes: &[u8], base_dir: Option<&Path>) -> Result<Self> {
+        let gltf =
+            gltf::Gltf::from_slice(bytes).map_err(|e| anyhow!("invalid glTF container: {e}"))?;
+        let buffers = gltf::import_buffers(&gltf.document, base_dir, gltf.blob.clone())
+            .map_err(|e| anyhow!("failed to read glTF buffers: {e}"))?;
+
+        let mut vertices: Vec<Vertex> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
+
+        for node in gltf.document.nodes() {
+            if let Some(mesh) = node.mesh() {
+                let transform = Mat4::from_cols_array_2d(&node.transform().matrix());
+                for primitive in mesh.primitives() {
+                    let reader =
+                        primitive.reader(|buffer| buffers.get(buffer.index()).map(|d| &**d));
+                    let mode = primitive.mode();
+                    if !matches!(
+                        mode,
+                        gltf::mesh::Mode::Triangles | gltf::mesh::Mode::TriangleStrip
+                    ) {
+                        continue;
+                    }
+
+                    let Some(positions) = reader.read_positions() else {
+                        continue;
+                    };
+                    let base = vertices.len() as u32;
+                    let normals: Vec<[f32; 3]> = match reader.read_normals() {
+                        Some(iter) => iter.collect(),
+                        None => Vec::new(),
+                    };
+                    let uvs: Vec<[f32; 2]> = match reader.read_tex_coords(0) {
+                        Some(iter) => iter.into_f32().collect(),
+                        None => Vec::new(),
+                    };
+
+                    for (i, pos) in positions.enumerate() {
+                        let p = transform.transform_point3(Vec3::from(pos));
+                        // Normals must ignore translation, so rotate/scale-only.
+                        let n = normals.get(i).map(|n| {
+                            let nm = Mat3::from_mat4(transform);
+                            (nm * Vec3::from(*n)).normalize()
+                        });
+                        let uv = uvs.get(i).copied().unwrap_or([0.0, 0.0]);
+                        vertices.push(Vertex {
+                            position: p,
+                            normal: n.unwrap_or(Vec3::ZERO),
+                            uv,
+                        });
+                    }
+
+                    let local_indices: Vec<u32> = match reader.read_indices() {
+                        Some(indices) => indices.into_u32().collect(),
+                        None => (0..vertices.len() as u32 - base).collect(),
+                    };
+
+                    if matches!(mode, gltf::mesh::Mode::TriangleStrip) {
+                        // Strip -> list: emit (v[i], v[i+1], v[i+2]) keeping winding.
+                        for i in 0..local_indices.len().saturating_sub(2) {
+                            let a = local_indices[i];
+                            let b = local_indices[i + 1];
+                            let c = local_indices[i + 2];
+                            if i % 2 == 0 {
+                                indices.extend_from_slice(&[base + a, base + b, base + c]);
+                            } else {
+                                indices.extend_from_slice(&[base + a, base + c, base + b]);
+                            }
+                        }
+                    } else {
+                        for idx in local_indices {
+                            indices.push(base + idx);
+                        }
+                    }
+                }
+            }
+        }
+
+        if indices.is_empty() {
+            return Err(anyhow!("glTF contains no triangle geometry"));
+        }
+
+        // Files without normals (or with zero-length ones) get smooth vertex
+        // normals averaged from the adjacent faces, which keeps curvature intact
+        // instead of faceting the silhouette.
+        let needs_normals = vertices.iter().any(|v| v.normal.length_squared() < 1e-12);
+        if needs_normals {
+            let mut accum: Vec<Vec3> = vec![Vec3::ZERO; vertices.len()];
+            for tri in indices.as_chunks::<3>().0 {
+                let p0 = vertices[tri[0] as usize].position;
+                let p1 = vertices[tri[1] as usize].position;
+                let p2 = vertices[tri[2] as usize].position;
+                let face = (p1 - p0).cross(p2 - p0);
+                if face.length_squared() > 1e-20 {
+                    let n = face.normalize();
+                    for &idx in tri {
+                        accum[idx as usize] += n;
+                    }
+                }
+            }
+            for (v, n) in vertices.iter_mut().zip(accum) {
+                if v.normal.length_squared() < 1e-12 {
+                    v.normal = if n.length_squared() > 1e-20 {
+                        n.normalize()
+                    } else {
+                        Vec3::new(0.0, 1.0, 0.0)
+                    };
+                }
+            }
+        }
+
+        // Fit the model into the unit cube so authored scale/rotation behaves
+        // identically for procedural and imported geometry.
+        let mut min = Vec3::splat(f32::INFINITY);
+        let mut max = Vec3::splat(f32::NEG_INFINITY);
+        for v in &vertices {
+            min = min.min(v.position);
+            max = max.max(v.position);
+        }
+        let center = (min + max) * 0.5;
+        let extent = (max - min).max_element();
+        let fit = if extent > 1e-6 { 1.0 / extent } else { 1.0 };
+        for v in &mut vertices {
+            v.position = (v.position - center) * fit;
+        }
+
+        Ok(Self { vertices, indices })
+    }
 }
 
 #[cfg(feature = "exp-3d")]
@@ -242,18 +429,24 @@ impl Mesh {
 struct ProjectedVertex {
     x: f32,
     y: f32,
-    z: f32, // depth for z-buffer
-    w: f32, // homogeneous w
+    z: f32,        // depth for z-buffer
+    w: f32,        // homogeneous w
     normal_z: f32, // view-space normal z: negative faces the camera
-    light_intensity: f32,
+    /// Barycentric-interpolatable shading terms, sampled per fragment.
+    intensity: f32,
+    specular: f32,
+    rim: f32,
+    /// Texture coordinates divided by `w` (perspective-correct, see `w`).
+    uv_over_w: [f32; 2],
+    inv_w: f32,
 }
 
 #[cfg(feature = "exp-3d")]
 fn project_vertex(
     vertex: &Vertex,
     mvp: Mat4,
-    normal_matrix: glam::Mat3,
-    light_dir: Vec3,
+    normal_matrix: Mat3,
+    light_view: Vec3,
     ambient: f32,
 ) -> ProjectedVertex {
     let pos4 = Vec4::new(vertex.position.x, vertex.position.y, vertex.position.z, 1.0);
@@ -267,13 +460,23 @@ fn project_vertex(
 
     // Transform normal into view space so shading follows the object as it rotates.
     let normal_view = (normal_matrix * vertex.normal).normalize();
-    let light_view = light_dir.normalize();
 
-    // Half-Lambert shading: keeps a smooth terminator instead of clipping every
+    // Half-Lambert diffuse: keeps a smooth terminator instead of clipping every
     // back-facing normal to the flat ambient floor, which reads as hard banding.
     let half = (normal_view.dot(light_view) + 1.0) * 0.5;
     let diffuse = half * half;
-    let intensity = ambient + (1.0 - ambient) * diffuse;
+    let intensity = (ambient + (1.0 - ambient) * diffuse).clamp(0.0, 1.0);
+
+    // Blinn-Phong specular: the light points from the surface toward
+    // `-light_view` in view space, the eye sits at the origin, and the camera
+    // looks down -Z, so the view vector at this vertex is roughly +Z.
+    let view_dir = Vec3::Z;
+    let half_dir = (-light_view + view_dir).normalize_or_zero();
+    let specular = normal_view.dot(half_dir).max(0.0).powi(24) * 0.55;
+
+    // Rim light: normals perpendicular to the view vector catch a thin
+    // silhouette glow, which is what makes a matte object read as glossy.
+    let rim = (1.0 - normal_view.dot(view_dir).abs()).powi(3) * 0.45;
 
     ProjectedVertex {
         x,
@@ -281,10 +484,121 @@ fn project_vertex(
         z,
         w: clip.w,
         normal_z: normal_view.z,
-        light_intensity: intensity.clamp(0.0, 1.0),
+        intensity,
+        specular,
+        rim,
+        uv_over_w: [vertex.uv[0] * inv_w, vertex.uv[1] * inv_w],
+        inv_w,
     }
 }
 
+/// Decoded RGBA texture used for UV sampling. Kept separate from the mesh so a
+/// single mesh can be re-shaded with different textures across frames.
+#[cfg(feature = "exp-3d")]
+#[derive(Debug, Clone)]
+pub struct MeshTexture {
+    pub width: u32,
+    pub height: u32,
+    /// Straight (non-premultiplied) RGBA8 pixels, row-major.
+    pub pixels: Vec<u8>,
+}
+
+#[cfg(feature = "exp-3d")]
+impl MeshTexture {
+    /// Construct from straight RGBA8 data. Used by tests and API callers.
+    #[allow(dead_code)]
+    pub fn from_raw(width: u32, height: u32, pixels: Vec<u8>) -> Result<Self> {
+        let expected = (width as usize) * (height as usize) * 4;
+        if width == 0 || height == 0 || pixels.len() != expected {
+            return Err(anyhow!(
+                "texture buffer must be {expected} bytes for {width}x{height}, got {}",
+                pixels.len()
+            ));
+        }
+        Ok(Self {
+            width,
+            height,
+            pixels,
+        })
+    }
+
+    pub fn from_file(path: &Path) -> Result<Self> {
+        let img = image::open(path)
+            .with_context(|| format!("failed to decode mesh texture: {}", path.display()))?
+            .to_rgba8();
+        Ok(Self {
+            width: img.width(),
+            height: img.height(),
+            pixels: img.into_raw(),
+        })
+    }
+
+    /// Bilinear sample with clamp-to-edge addressing. Deterministic because the
+    /// weights come from the same arithmetic every run.
+    fn sample(&self, u: f32, v: f32, out: &mut [f32; 4]) {
+        let max_x = self.width as f32 - 1.0;
+        let max_y = self.height as f32 - 1.0;
+        // glTF/OpenGL UV origin is bottom-left; our pixel rows start at the top.
+        let fx = (u.rem_euclid(1.0) * max_x).clamp(0.0, max_x);
+        let fy = ((1.0 - v.rem_euclid(1.0)) * max_y).clamp(0.0, max_y);
+
+        let x0 = fx.floor() as u32;
+        let y0 = fy.floor() as u32;
+        let x1 = (x0 + 1).min(self.width - 1);
+        let y1 = (y0 + 1).min(self.height - 1);
+        let tx = fx - x0 as f32;
+        let ty = fy - y0 as f32;
+
+        let px = |x: u32, y: u32| -> [f32; 4] {
+            let idx = ((y as usize) * self.width as usize + x as usize) * 4;
+            [
+                self.pixels[idx] as f32 / 255.0,
+                self.pixels[idx + 1] as f32 / 255.0,
+                self.pixels[idx + 2] as f32 / 255.0,
+                self.pixels[idx + 3] as f32 / 255.0,
+            ]
+        };
+
+        let c00 = px(x0, y0);
+        let c10 = px(x1, y0);
+        let c01 = px(x0, y1);
+        let c11 = px(x1, y1);
+        for c in 0..4 {
+            let top = c00[c] + (c10[c] - c00[c]) * tx;
+            let bot = c01[c] + (c11[c] - c01[c]) * tx;
+            out[c] = top + (bot - top) * ty;
+        }
+    }
+}
+
+/// Load (and memoize) a texture from disk. Used by the renderer for
+/// `Mesh3d.texture`; the cache makes an animated scene decode the file once.
+#[cfg(feature = "exp-3d")]
+pub fn load_texture(path: &str) -> Result<Arc<MeshTexture>> {
+    load_texture_cached(Path::new(path))
+}
+
+#[cfg(feature = "exp-3d")]
+fn load_texture_cached(path: &Path) -> Result<Arc<MeshTexture>> {
+    static CACHE: OnceLock<Mutex<HashMap<PathBuf, Arc<MeshTexture>>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    // Resolve the key so two spellings of the same file share one decode.
+    let key = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    if let Some(hit) = cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&key)
+        .cloned()
+    {
+        return Ok(hit);
+    }
+    let texture = Arc::new(MeshTexture::from_file(&key)?);
+    cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(key, texture.clone());
+    Ok(texture)
+}
 
 #[cfg(feature = "exp-3d")]
 #[allow(clippy::too_many_arguments)]
@@ -304,6 +618,7 @@ pub fn render_mesh3d_to_pixmap(
     rotate_x: f32,
     rotate_y: f32,
     rotate_z: f32,
+    texture: Option<&MeshTexture>,
 ) {
     // Parse color
     let base_color = parse_color(color).unwrap_or([0.22, 0.74, 0.97, 1.0]); // #38BDF8
@@ -353,7 +668,13 @@ pub fn render_mesh3d_to_pixmap(
     // Project all vertices
     let mut projected = Vec::with_capacity(mesh.vertices.len());
     for vertex in &mesh.vertices {
-        projected.push(project_vertex(vertex, mvp, normal_matrix, light_view, ambient));
+        projected.push(project_vertex(
+            vertex,
+            mvp,
+            normal_matrix,
+            light_view,
+            ambient,
+        ));
     }
 
     // Destination region in pixmap space. Fractional coordinates are truncated the
@@ -450,9 +771,33 @@ pub fn render_mesh3d_to_pixmap(
 
         if wireframe {
             // Draw wireframe edges
-            draw_line(&mut color_buffer, &mut z_buffer, v0, v1, base_color, opacity, sw);
-            draw_line(&mut color_buffer, &mut z_buffer, v1, v2, base_color, opacity, sw);
-            draw_line(&mut color_buffer, &mut z_buffer, v2, v0, base_color, opacity, sw);
+            draw_line(
+                &mut color_buffer,
+                &mut z_buffer,
+                v0,
+                v1,
+                base_color,
+                opacity,
+                sw,
+            );
+            draw_line(
+                &mut color_buffer,
+                &mut z_buffer,
+                v1,
+                v2,
+                base_color,
+                opacity,
+                sw,
+            );
+            draw_line(
+                &mut color_buffer,
+                &mut z_buffer,
+                v2,
+                v0,
+                base_color,
+                opacity,
+                sw,
+            );
         } else {
             // Filled triangle. Sample at pixel centers so the box downsample
             // produces proper coverage-based anti-aliasing.
@@ -500,19 +845,58 @@ pub fn render_mesh3d_to_pixmap(
                         if depth < z_buffer[idx] {
                             z_buffer[idx] = depth;
 
-                            let intensity = (u * v0.light_intensity
-                                + v * v1.light_intensity
-                                + w * v2.light_intensity)
+                            let intensity =
+                                (u * v0.intensity + v * v1.intensity + w * v2.intensity)
+                                    .clamp(0.0, 1.0);
+                            let specular = (u * v0.specular + v * v1.specular + w * v2.specular)
                                 .clamp(0.0, 1.0);
+                            let rim = (u * v0.rim + v * v1.rim + w * v2.rim).clamp(0.0, 1.0);
+
+                            // Base albedo: either the flat layer color or, when a
+                            // texture is bound, the bilinear UV sample. UVs are
+                            // interpolated in `uv/w` space and divided by the
+                            // interpolated `1/w`, which is perspective-correct.
+                            let mut albedo = [base_color[0], base_color[1], base_color[2]];
+                            if let Some(tex) = texture {
+                                let inv_w = u * v0.inv_w + v * v1.inv_w + w * v2.inv_w;
+                                if inv_w > 1e-9 {
+                                    let inv = 1.0 / inv_w;
+                                    let uv_u = (u * v0.uv_over_w[0]
+                                        + v * v1.uv_over_w[0]
+                                        + w * v2.uv_over_w[0])
+                                        * inv;
+                                    let uv_v = (u * v0.uv_over_w[1]
+                                        + v * v1.uv_over_w[1]
+                                        + w * v2.uv_over_w[1])
+                                        * inv;
+                                    let mut sampled = [0.0f32; 4];
+                                    tex.sample(uv_u, uv_v, &mut sampled);
+                                    // Tint the texture with the layer color so
+                                    // `color="#FFFFFF"` is a pure pass-through.
+                                    albedo = [
+                                        sampled[0] * base_color[0],
+                                        sampled[1] * base_color[1],
+                                        sampled[2] * base_color[2],
+                                    ];
+                                }
+                            }
+
+                            // Blinn-Phong: ambient + diffuse on the albedo, then
+                            // add specular and rim light, which are additions on
+                            // top of the surface color rather than multipliers.
+                            let lit = [
+                                (albedo[0] * intensity + specular + rim * albedo[0] * 0.35)
+                                    .clamp(0.0, 1.0),
+                                (albedo[1] * intensity + specular + rim * albedo[1] * 0.35)
+                                    .clamp(0.0, 1.0),
+                                (albedo[2] * intensity + specular + rim * albedo[2] * 0.35)
+                                    .clamp(0.0, 1.0),
+                            ];
 
                             // Store premultiplied source so downsampling and the
                             // final composite stay correct.
-                            color_buffer[idx] = [
-                                base_color[0] * intensity * alpha,
-                                base_color[1] * intensity * alpha,
-                                base_color[2] * intensity * alpha,
-                                alpha,
-                              ];
+                            color_buffer[idx] =
+                                [lit[0] * alpha, lit[1] * alpha, lit[2] * alpha, alpha];
                         }
                     }
                     u += du_dx;
@@ -623,14 +1007,17 @@ fn draw_line(
                     let depth = v0.z + t * (v1.z - v0.z);
                     if depth < z_buffer[idx] {
                         z_buffer[idx] = depth;
-                        let intensity = (v0.light_intensity
-                            + t * (v1.light_intensity - v0.light_intensity))
-                            .clamp(0.0, 1.0);
+                        let intensity =
+                            (v0.intensity + t * (v1.intensity - v0.intensity)).clamp(0.0, 1.0);
+                        let specular =
+                            (v0.specular + t * (v1.specular - v0.specular)).clamp(0.0, 1.0);
                         // Premultiplied source, same convention as triangle fills.
+                        // Wireframes stay flat-shaded; the far rim term belongs to
+                        // the filled pass where it reads as a silhouette glow.
                         color_buffer[idx] = [
-                            base_color[0] * intensity * alpha,
-                            base_color[1] * intensity * alpha,
-                            base_color[2] * intensity * alpha,
+                            (base_color[0] * intensity + specular).clamp(0.0, 1.0) * alpha,
+                            (base_color[1] * intensity + specular).clamp(0.0, 1.0) * alpha,
+                            (base_color[2] * intensity + specular).clamp(0.0, 1.0) * alpha,
                             alpha,
                         ];
                     }
@@ -667,7 +1054,12 @@ fn parse_color(hex: &str) -> Option<[f32; 4]> {
         let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
         let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
         let a = u8::from_str_radix(&hex[6..8], 16).ok()?;
-        Some([r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0])
+        Some([
+            r as f32 / 255.0,
+            g as f32 / 255.0,
+            b as f32 / 255.0,
+            a as f32 / 255.0,
+        ])
     } else if hex.len() == 3 {
         let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).ok()?;
         let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).ok()?;
@@ -687,7 +1079,7 @@ mod tests {
     fn test_cube_mesh() {
         let mesh = Mesh::cube();
         assert_eq!(mesh.vertices.len(), 24); // 6 faces * 4 vertices
-        assert_eq!(mesh.indices.len(), 36);  // 12 triangles * 3
+        assert_eq!(mesh.indices.len(), 36); // 12 triangles * 3
     }
 
     #[test]
@@ -702,7 +1094,7 @@ mod tests {
     fn test_pyramid_mesh() {
         let mesh = Mesh::pyramid();
         assert_eq!(mesh.vertices.len(), 18); // 6 faces * 3 vertices
-        assert_eq!(mesh.indices.len(), 18);  // 6 triangles * 3
+        assert_eq!(mesh.indices.len(), 18); // 6 triangles * 3
     }
 
     #[test]
