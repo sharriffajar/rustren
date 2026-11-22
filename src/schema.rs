@@ -656,6 +656,39 @@ pub enum LayerKind {
         #[serde(default)]
         children: Vec<Layer>,
     },
+    #[cfg(feature = "exp-3d")]
+    Mesh3d {
+        #[serde(default)]
+        x: f32,
+        #[serde(default)]
+        y: f32,
+        width: f32,
+        height: f32,
+        #[serde(default = "default_mesh3d_primitive")]
+        primitive: Mesh3dPrimitive,
+        #[serde(default)]
+        src: Option<String>,
+        #[serde(default)]
+        texture: Option<String>,
+        #[serde(default = "default_opacity")]
+        opacity: f32,
+        #[serde(default = "default_scale")]
+        scale: f32,
+        #[serde(default)]
+        rotate_x: f32,
+        #[serde(default)]
+        rotate_y: f32,
+        #[serde(default)]
+        rotate_z: f32,
+        #[serde(default = "default_mesh3d_fov")]
+        fov: f32,
+        #[serde(default = "default_mesh3d_color")]
+        color: String,
+        #[serde(default)]
+        light_dir: Option<[f32; 3]>,
+        #[serde(default)]
+        wireframe: bool,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -735,6 +768,32 @@ pub enum ParticleShapeSpec {
     Circle,
     Rect,
     Confetti,
+}
+
+#[cfg(feature = "exp-3d")]
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Mesh3dPrimitive {
+    #[default]
+    Cube,
+    Sphere,
+    Pyramid,
+    Torus,
+}
+
+#[cfg(feature = "exp-3d")]
+fn default_mesh3d_primitive() -> Mesh3dPrimitive {
+    Mesh3dPrimitive::Cube
+}
+
+#[cfg(feature = "exp-3d")]
+fn default_mesh3d_fov() -> f32 {
+    45.0
+}
+
+#[cfg(feature = "exp-3d")]
+fn default_mesh3d_color() -> String {
+    "#38BDF8".to_string()
 }
 
 fn default_true() -> bool {
@@ -886,6 +945,35 @@ pub struct Animation {
     pub yoyo: bool,
 }
 
+/// Canonical snake_case names for every [`AnimProperty`] variant, using the
+/// same spelling the serializer emits. Used to keep `schema.json` in sync.
+#[allow(dead_code)]
+pub const ANIM_PROPERTY_NAMES: &[&str] = &[
+    "volume",
+    "x",
+    "y",
+    "width",
+    "height",
+    "opacity",
+    "scale",
+    "rotation",
+    "skew_x",
+    "skew_y",
+    "rotate_x",
+    "rotate_y",
+    "rotate_z",
+    "perspective",
+    "z_index",
+    "cx",
+    "cy",
+    "r",
+    "radius",
+    "color",
+    "border_color",
+    "path_progress",
+    "stroke_dashoffset",
+];
+
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AnimProperty {
@@ -901,6 +989,7 @@ pub enum AnimProperty {
     SkewY,
     RotateX,
     RotateY,
+    RotateZ,
     Perspective,
     #[serde(alias = "z")]
     ZIndex,

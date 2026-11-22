@@ -745,6 +745,8 @@ pub(super) fn layer_base_scale(kind: &LayerKind) -> f32 {
         | LayerKind::Lottie { scale, .. }
         | LayerKind::Particles { scale, .. }
         | LayerKind::Container { scale, .. } => *scale,
+        #[cfg(feature = "exp-3d")]
+        LayerKind::Mesh3d { scale, .. } => *scale,
         LayerKind::Svg { .. } => 1.0,
     }
 }
@@ -760,6 +762,8 @@ pub(super) fn set_layer_base_scale(kind: &mut LayerKind, val: f32) {
         | LayerKind::Lottie { scale, .. }
         | LayerKind::Particles { scale, .. }
         | LayerKind::Container { scale, .. } => *scale = val,
+        #[cfg(feature = "exp-3d")]
+        LayerKind::Mesh3d { scale, .. } => *scale = val,
         LayerKind::Svg { .. } => {}
     }
 }
@@ -780,6 +784,8 @@ pub(super) fn layer_pose_offset_and_scale(
         | LayerKind::Lottie { x, y, .. }
         | LayerKind::Particles { x, y, .. }
         | LayerKind::Container { x, y, .. } => (*x, *y),
+        #[cfg(feature = "exp-3d")]
+        LayerKind::Mesh3d { x, y, .. } => (*x, *y),
     };
     let (cur_x, cur_y) = resolve_xy(layer, layout_override, base_x, base_y, time_sec);
     let (ref_x, ref_y) = if layer.position == PositionSpec::Absolute {
@@ -813,6 +819,8 @@ pub(super) fn layer_base_opacity(kind: &LayerKind) -> f32 {
         | LayerKind::Lottie { opacity, .. }
         | LayerKind::Particles { opacity, .. }
         | LayerKind::Container { opacity, .. } => *opacity,
+        #[cfg(feature = "exp-3d")]
+        LayerKind::Mesh3d { opacity, .. } => *opacity,
     }
 }
 
@@ -828,6 +836,8 @@ pub(super) fn set_layer_opacity(kind: &mut LayerKind, val: f32) {
         | LayerKind::Lottie { opacity, .. }
         | LayerKind::Particles { opacity, .. }
         | LayerKind::Container { opacity, .. } => *opacity = val,
+        #[cfg(feature = "exp-3d")]
+        LayerKind::Mesh3d { opacity, .. } => *opacity = val,
     }
 }
 
@@ -840,6 +850,7 @@ pub(super) fn is_extrinsic_pose_prop(prop: AnimProperty) -> bool {
             | AnimProperty::Scale
             | AnimProperty::RotateX
             | AnimProperty::RotateY
+            | AnimProperty::RotateZ
             | AnimProperty::Perspective
             | AnimProperty::ZIndex
     )

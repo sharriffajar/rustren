@@ -14,6 +14,10 @@
 snapshot*.png
 frame_*.png
 
+# Python bytecode from scripts/ and sdk/ checks
+__pycache__/
+*.pyc
+
 # Environment & OS files
 .env
 .env.*

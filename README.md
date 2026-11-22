@@ -184,6 +184,8 @@ rustren capabilities
 # Validate and lint a scene JSON before rendering (add --strict-determinism for CI)
 rustren validate scene.json
 rustren validate scene.json --strict-determinism
+# Machine-readable result on stdout: {valid, warnings:[{code,path,message,fix,...}]}
+rustren validate scene.json --error-format json
 
 # Render a single frame or contact sheet to PNG (no FFmpeg encode)
 rustren snapshot scene.json -t 1.5 -o frame.png
@@ -194,6 +196,8 @@ rustren layout scene.json -t 5.0
 
 # Render scene JSON to MP4 (default: --crf 18 --preset medium)
 rustren render scene.json -o output.mp4
+# Machine-readable summary on stdout, progress on stderr
+rustren render scene.json -o output.mp4 --error-format json
 
 # Render with custom encoding options and per-layer/cache profiling
 rustren render scene.json -o output.mp4 --crf 20 --preset fast --profile
@@ -225,6 +229,16 @@ Endpoints:
 Type definitions matching `schema.json` are included for AI pipelines:
 - **TypeScript:** [sdk/typescript/rustren.d.ts](sdk/typescript/rustren.d.ts)
 - **Python:** [sdk/python/rustren_types.py](sdk/python/rustren_types.py)
+
+Both files are generated from the schema. After editing `schema.json` run:
+
+```bash
+python3 scripts/gen_sdk.py          # rewrite both SDK files
+python3 scripts/gen_sdk.py --check  # exit 1 when they are stale
+```
+
+`cargo test` enforces the same parity (`tests/sdk_parity.rs`), so a stale SDK fails the build
+even without Python.
 
 ## Examples
 Browse [examples/](examples) for full scenes you can validate or render directly, including:

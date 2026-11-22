@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
@@ -23,6 +23,10 @@ pub struct AssetStore {
     pub svgs: HashMap<String, Vec<u8>>,
     pub videos: HashMap<String, VideoAsset>,
     pub audio_paths: Vec<PathBuf>,
+    /// Uploaded `.glb`/`.gltf` models keyed by the layer's `src` string, parsed
+    /// once at load time instead of per frame.
+    #[cfg(feature = "exp-3d")]
+    pub mesh3d: HashMap<String, std::sync::Arc<crate::renderer::mesh3d::Mesh>>,
 }
 
 impl AssetStore {
@@ -40,7 +44,13 @@ impl AssetStore {
         let mut images = HashMap::new();
         let mut svgs = HashMap::new();
         let mut videos = HashMap::new();
-        collect_layer_assets(&scene.layers, cache_dir, &mut images, &mut svgs, &mut videos)?;
+        collect_layer_assets(
+            &scene.layers,
+            cache_dir,
+            &mut images,
+            &mut svgs,
+            &mut videos,
+        )?;
 
         let mut audio_paths = Vec::with_capacity(scene.audio.len());
         for track in &scene.audio {
@@ -48,14 +58,62 @@ impl AssetStore {
             audio_paths.push(path);
         }
 
+        #[cfg(feature = "exp-3d")]
+        let mesh3d = collect_mesh3d_models(&scene.layers, cache_dir)?;
+
         Ok(Self {
             fonts,
             images,
             svgs,
             videos,
             audio_paths,
+            #[cfg(feature = "exp-3d")]
+            mesh3d,
         })
     }
+}
+
+/// Parse every `Mesh3d.src` model once, resolving relative paths the same way
+/// images/videos do. Errors surface at load time, so a missing or corrupt model
+/// fails loudly instead of rendering an empty layer.
+#[cfg(feature = "exp-3d")]
+fn collect_mesh3d_models(
+    layers: &[Layer],
+    cache_dir: &Path,
+) -> Result<HashMap<String, std::sync::Arc<crate::renderer::mesh3d::Mesh>>> {
+    let mut out = HashMap::new();
+    collect_mesh3d_models_into(layers, cache_dir, &mut out)?;
+    Ok(out)
+}
+
+#[cfg(feature = "exp-3d")]
+fn collect_mesh3d_models_into(
+    layers: &[Layer],
+    cache_dir: &Path,
+    out: &mut HashMap<String, std::sync::Arc<crate::renderer::mesh3d::Mesh>>,
+) -> Result<()> {
+    for layer in layers {
+        match &layer.kind {
+            LayerKind::Mesh3d { src: Some(src), .. }
+                if !src.trim().is_empty() && !out.contains_key(src) =>
+            {
+                let path = resolve_to_path(src, cache_dir)?;
+                let bytes = fs::read(&path)
+                    .with_context(|| format!("Failed to read 3D model: {}", path.display()))?;
+                let base = path.parent();
+                let mesh =
+                    crate::renderer::mesh3d::Mesh::from_gltf_bytes_with_base(&bytes, base)
+                        .with_context(|| format!("Failed to parse 3D model: {}", path.display()))?;
+                out.insert(src.clone(), std::sync::Arc::new(mesh));
+            }
+            LayerKind::Mesh3d { .. } => {}
+            LayerKind::Container { children, .. } => {
+                collect_mesh3d_models_into(children, cache_dir, out)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 fn collect_layer_assets(
@@ -135,8 +193,8 @@ fn load_video_asset(path: &Path) -> Result<VideoAsset> {
         ));
     }
 
-    let info: serde_json::Value = serde_json::from_slice(&probe.stdout)
-        .context("Failed to parse ffprobe JSON output")?;
+    let info: serde_json::Value =
+        serde_json::from_slice(&probe.stdout).context("Failed to parse ffprobe JSON output")?;
     let streams = info["streams"]
         .as_array()
         .ok_or_else(|| anyhow!("No streams found in {}", path.display()))?;

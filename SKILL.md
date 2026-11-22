@@ -2,7 +2,7 @@
 name: rustren
 description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for 3D, live streaming, or editing existing video timelines frame-by-frame in a GUI.
 metadata:
-  skill_version: "1.0.1"
+  skill_version: "1.1.4"
   rustren_version: "0.3.1"
   schema_version: "1.1"
   renderer_version: "1.1"
@@ -14,6 +14,9 @@ metadata:
 
 Full field reference: [SCHEMA.md](SCHEMA.md) (human-readable) and [schema.json](schema.json) (machine-readable JSON Schema).
 Working examples: [examples/](examples/).
+Typed scene shapes: [sdk/typescript/rustren.d.ts](sdk/typescript/rustren.d.ts) and
+[sdk/python/rustren_types.py](sdk/python/rustren_types.py) (both generated from `schema.json`; use
+them in an editor to catch a misspelled field before running `validate`).
 
 ## 1. Prerequisites (check first)
 
@@ -47,6 +50,9 @@ Versioning scheme of this file (`skill_version`): bump the patch for wording fix
 Never go straight to `render`. A render can take many seconds; `validate` and `snapshot` take milliseconds.
 
 ```bash
+# 0. Start from a known-good template instead of guessing the scene shape
+rustren examples --tag basics && rustren examples minimal-html > scene.html
+
 # 1. Lint: schema errors, unknown fields, low contrast, tiny fonts, out-of-bounds
 rustren validate scene.html
 
@@ -70,11 +76,12 @@ Rules for the loop:
 
 | Command | Purpose | Key flags |
 |---|---|---|
-| `validate <file>` | Lint without rendering | `--strict-determinism`, `--composition <name>` |
+| `validate <file>` | Lint without rendering | `--strict-determinism`, `--composition <name>`, `--error-format json`, `--fix` (+`--in-place`), `--ignore-unknown`, `--check-assets` |
 | `snapshot <file>` | PNG of one or more timestamps | `--t 1.5,5` (required), `--sheet`, `--cols N`, `-o` |
 | `layout <file>` | Computed boxes + text sizes as JSON | `--t <sec>`, `--diagnose` (overlap/clip/overflow) |
 | `render <file>` | Produce MP4 | `-o`, `--crf` (default 18), `--preset` (default medium), `--profile`, `--composition` |
 | `capabilities` | Supported features as JSON | none |
+| `examples` | List built-in copy-ready scenes, or print one | `<name>`, `--tag <tag>`, `--error-format json` |
 | `watch <file>` | Re-render the active frame to PNG on every save | |
 | `diff <a> <b>` | Visual regression between two scenes at time `t` | |
 | `beats <audio>` | Detect beat timestamps in seconds | use to sync cuts to music |
@@ -103,6 +110,20 @@ The root tag is `<scene>`, **not** `<html>`. Layout uses attributes (`x`, `y`, `
 Supported tags: `scene`, `profiles`, `profile`, `fonts`, `font`, `audio-tracks`, `audio`, `container`, `rect`, `circle`, `text`, `image`, `svg`, `video`, `waveform`, `lottie`, `animate`.
 
 `<animate>` can be a child of the layer it animates, or a sibling that names it with `target="<id>"` (give the layer an `id`).
+
+### Start from a known-good scene
+
+Do not hand-write a scene from memory when a template exists. List the built-in examples and copy
+the closest one, then edit it:
+
+```bash
+rustren examples                      # names + descriptions + tags
+rustren examples --tag animation      # filter by tag
+rustren examples effects-particles > scene.html   # print source to a file
+```
+
+Each printed example is compiled and validated by a test at build time, so the shape is current:
+copying one is cheaper than guessing and cheaper than recovering from a schema error.
 
 ## 5. Rules that prevent most failures
 
@@ -216,7 +237,112 @@ Asset downloads are cached on disk (`--cache-dir`, default `.rustren_cache`). Re
 - Report what you actually ran and its result. If `validate` printed warnings you chose not to fix, say so.
 - Do not commit generated MP4/PNG files unless asked.
 
+## 13. Machine-readable validate output (AI / CI)
+For agents and CI, avoid parsing plain-text warnings. Use the structured modes:
+
+```bash
+# Structured result on stdout: {valid, warnings:[{code,path,message,fix,affected_paths}], ...}
+rustren validate scene.json --error-format json
+
+# Auto-fix safe authoring mistakes (px units, named colors, position->anchor)
+rustren validate scene.json --fix            # print fixed JSON to stdout
+rustren validate scene.json --fix --in-place # rewrite the file
+rustren validate scene.html --fix --in-place # same for HTML scenes (attributes only)
+
+# JSON-scope unknown fields fail with exit code 2 (and an {valid:false,error:{...}} payload)
+# render/snapshot/layout/diff enforce the same unknown-field gate, so a green
+# validate cannot turn into a silently wrong render.
+
+# render / snapshot / diff also take --error-format json:
+#   render   -> {ok, output, canvas, frames, elapsed_secs} (progress moves to stderr)
+#   snapshot -> {ok, output, times, count, elapsed_secs}
+#   diff     -> {ok, t, mae, rmse, changed_pixels_pct, threshold, out}
+# layout already prints JSON; its flag only switches error payloads.
+# Error payload shape on every command: {ok:false, valid:false, error:{code,message}}.
+# Scene errors exit 2 (invalid_scene, unsupported_format, unknown_example*);
+# I/O and runtime errors exit 1 (input_error, missing_asset, render_failed, ...).
+rustren render scene.json -o out.mp4 --error-format json
+rustren snapshot scene.json -t 1,3 -o frames/ --error-format json
+rustren diff a.json b.json --error-format json
+
+# Example catalog as JSON: {count, tags, examples:[{name,description,format,tags}]}
+rustren examples --error-format json
+# Single example including its source: {name,format,tags,source,...}
+rustren examples minimal-html --error-format json
+```
+
+Stable warning `code` values: `font_size`, `end_sec`, `missing_max_width`, `out_of_canvas`,
+`low_contrast`, `missing_asset`, `determinism_remote_url`, `determinism_system_fonts`,
+`determinism_infinite_repeat`, plus HTML source checks `unparsed_attribute` (`x="100px"` is
+silently dropped at parse time) and `missing_root_tag` (no `<scene>`, so the canvas silently
+falls back to 1280x720 @ 5s).
+Each warning carries a `path` (e.g. `layers[3].children[0]`, or `rect[0].x` for HTML), an optional
+`fix` suggestion, and `affected_paths`: every offending node when one warning groups more than
+three of them (empty for single-node warnings, where `path` is the node). HTML source warnings
+put `line L, column C` at the start of `message`, so do not parse that prefix as part of the
+text.
+
+Compile errors are actionable too: JSON type errors name the field path and source position
+(`at \`canvas.width\` (line 1, column 20)`), JSON syntax errors report line/column, and HTML
+errors point at the offending tag (`line 2, column 3: <include> is missing a src attribute`).
+
 ## Changelog
 
+- **1.1.4** (rustren 0.3.1, schema 1.1, experimental): `exp-3d` Phase 2. `Mesh3d` layers can now
+  load a local `.glb`/`.gltf` model via `src` (`Texture`/UV via `texture`), with `Mesh::from_gltf_bytes`
+  extracting positions, `TEXCOORD_0` UVs and indices, synthesising smooth normals when the file has
+  none, and normalizing the bounding box into the unit cube. Models are parsed once per scene in
+  `AssetStore` (never per frame), and textures decode once behind a `OnceLock` cache. Shading is now
+  Blinn-Phong (ambient + diffuse + specular + rim light) with perspective-correct bilinear UV
+  sampling, replacing the old half-Lambert term; the vertex format gained `uv`. All of this stays
+  behind `#[cfg(feature = "exp-3d")]` and is CPU-only and deterministic. `schema.json` documents
+  `texture` (SDK types regenerated).
+- **1.1.3** (rustren 0.3.1, schema 1.1): closed four gaps where `validate` passed but a render
+  failed or lied. `parse_hex_color` now expands CSS shorthand `#RGB`/`#RGBA`, which `schema.json`
+  already allowed, so `"#FFF"` renders instead of failing after a green validate (and `--fix`
+  normalizes shorthand to 6/8 digits). `render`, `snapshot`, `layout` and `diff` now run the same
+  unknown-field gate as `validate` (exit 2), instead of silently ignoring a misspelled field.
+  A missing audio file now fails before ffmpeg spawns with `audio file not found: <path>`, rather
+  than surfacing later as `Failed to write RGBA frame to ffmpeg stdin / Broken pipe`; `render`
+  also pre-checks every local asset before rendering. `render`,
+  `snapshot` and `diff` gained `--error-format json` (`layout` uses it for errors only, since it
+  already prints JSON), and every command now reports a missing input file as an `input_error`
+  payload when JSON format is requested. JSON error payloads now share one envelope,
+  `{ok:false, valid:false, error:{code,message}}`, and diff emits a single verdict document on
+  stdout instead of a summary plus a separate error. `render`/`snapshot`/`layout` failures use
+  exit 2 for an invalid scene and exit 1 for I/O or render-runtime failures. Separately, Studio now
+  handles `mesh3d` layers (label plus drag offset and scale), so `--features pro,exp-3d` compiles
+  again.
+- **1.1.2** (rustren 0.3.1, schema 1.1): the SDK types are now generated from `schema.json`
+  (`scripts/gen_sdk.py`) instead of hand-maintained, and `tests/sdk_parity.rs` fails `cargo test`
+  when either SDK file drifts from the schema. `RustrenScene.canvas`, `profiles` and `audio` now
+  have real types (`Canvas`, `Record<string, CompositionProfile>`, `AudioTrack[]`) instead of
+  `Record<string, unknown>`. The Python SDK keeps JSON field spelling, so a scene dict can be
+  pasted straight from the docs (`from`, not `from_`; reserved words use the functional
+  `TypedDict(...)` form). Both SDKs were checked with `tsc --strict` and `pyright`: a misspelled
+  field or wrong enum value is rejected. `schema.json` now has one shared `$defs/Easing` that both
+  `animations[].easing` and `keyframes[].easing` reference; keyframe `easing` used to accept any
+  string there while the renderer already rejected unknown variants.
+- **1.1.1** (rustren 0.3.1, schema 1.1): CLI diagnostics are now locked by end-to-end tests
+  (`tests/cli_diagnostics.rs` + `tests/fixtures/`), so exit codes, the stdout/stderr split and
+  `line`/`column` hints cannot regress silently. JSON syntax errors report a 1-based column even
+  for EOF, and `--fix` paths are indexed per tag name (`rect[0]`, `rect[1]`), matching `validate`
+  warning paths.
+- **1.1.0** (rustren 0.3.1, schema 1.1): new machine-facing additions on top of 1.0.2.
+  `rustren examples` lists copy-ready HTML/JSON scenes and prints one to a file (`--tag`,
+  `--error-format json`). `validate` warnings gained `affected_paths` for grouped warnings.
+  Diagnostics now carry source positions: JSON type errors report the field path plus
+  `line`/`column`, JSON syntax errors report line/column, HTML errors point at the offending tag
+  (`line L, column C`), and HTML source checks flag unit-suffixed numeric attributes and missing
+  root tags. `parse_hex_color` accepts CSS named colors and `rgba()` instead of failing at
+  render time. `serde_path_to_error` added as a dependency.
+- **1.0.2** (rustren 0.3.1, schema 1.1): `validate` now rejects unknown JSON fields (exit 2), checks
+  local assets exist, supports `--error-format json`, `--fix`/`--in-place`, `--ignore-unknown`,
+  `--check-assets`. `capabilities` now lists `particles` and the 2.5D / `z_index` / `volume`
+  animation properties. `schema.json` now documents `particles`, `mesh3d`, `include`, `echo`,
+  `grain`, `vignette`, `halftone`, track mattes, 2.5D rotation, per-side margins, audio fades and
+  layout per-side padding; a conformance test keeps `schema.json` in sync with the renderer.
+  `validate --fix` also works on HTML scenes (attribute-level: unit stripping, named colors,
+  `position` -> `anchor`); comments, doctypes and whitespace are preserved.
 - **1.0.1** (rustren 0.3.1, schema 1.1): updated hardware encoder guidance to reflect default safe 1-frame auto-probe (`RUSTREN_HW_ENCODER=off` to force CPU).
 - **1.0.0** (rustren 0.3.0, schema 1.1): first release. Golden loop, command cheat sheet, authoring rules, motion-comic and explainer recipes, cache-aware authoring, debugging playbook, version check.

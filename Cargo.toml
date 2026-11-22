@@ -20,6 +20,7 @@ exclude = [
 [features]
 default = ["pro"]
 pro = ["dep:axum", "dep:subtle", "dep:tokio", "dep:uuid"]
+exp-3d = ["dep:glam", "dep:gltf"]
 
 [dependencies]
 anyhow = "1.0"
@@ -42,6 +43,9 @@ uuid = { version = "1", features = ["v4"], optional = true }
 evalexpr = "13.1.0"
 fast_image_resize = "5"
 scraper = "0.20"
+glam = { version = "0.29", optional = true }
+gltf = { version = "1.4", optional = true, default-features = false, features = ["import", "utils"] }
+serde_path_to_error = "0.1.20"
 
 [profile.dev.package."*"]
 opt-level = 3

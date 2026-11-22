@@ -1,8 +1,37 @@
 use crate::schema::{AnimProperty, AnimValue, Layer, LayerKind, Scene};
 use std::collections::BTreeMap;
 
-/// Collect grouped, profile-aware lint warnings for a scene.
+/// A machine-readable lint warning: a stable `code`, the path to the offending
+/// node (JSON-Pointer-ish), a human message, and an optional suggested fix.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LintWarning {
+    pub code: &'static str,
+    /// Path of the representative (first) offending node.
+    pub path: String,
+    pub message: String,
+    pub fix: Option<String>,
+    /// Every offending path when the warning summarizes more than one node.
+    /// Empty for single-node warnings, where `path` is already enough.
+    pub affected_paths: Vec<String>,
+}
+
+impl LintWarning {
+    /// Render as the human-facing string used by the plain-text CLI output.
+    pub fn to_text(&self) -> String {
+        self.message.clone()
+    }
+}
+
+/// Collect grouped, profile-aware lint warnings for a scene (plain text).
 pub fn collect_lint_warnings(scene: &Scene) -> Vec<String> {
+    collect_lint_warnings_structured(scene)
+        .into_iter()
+        .map(|w| w.to_text())
+        .collect()
+}
+
+/// Collect structured lint warnings for a scene.
+pub fn collect_lint_warnings_structured(scene: &Scene) -> Vec<LintWarning> {
     let min_font_px = if scene.canvas.height > scene.canvas.width {
         26.0
     } else {
@@ -14,7 +43,7 @@ pub fn collect_lint_warnings(scene: &Scene) -> Vec<String> {
         "landscape/square"
     };
 
-    let mut groups: BTreeMap<&'static str, Vec<String>> = BTreeMap::new();
+    let mut groups: BTreeMap<&'static str, Vec<(String, String)>> = BTreeMap::new();
     let bg_rgb = parse_rgb(&scene.canvas.background).unwrap_or((0.0, 0.0, 0.0, 1.0));
 
     lint_layers(
@@ -32,9 +61,22 @@ pub fn collect_lint_warnings(scene: &Scene) -> Vec<String> {
     let mut out = Vec::new();
     for (category, items) in groups {
         if items.len() <= 3 {
-            out.extend(items);
+            for (path, msg) in items {
+                out.push(LintWarning {
+                    code: category,
+                    path,
+                    message: msg,
+                    fix: fix_for(category),
+                    affected_paths: Vec::new(),
+                });
+            }
         } else {
-            let preview = items[..2].join("; ");
+            let preview: String = items[..2]
+                .iter()
+                .map(|(_, m)| m.as_str())
+                .collect::<Vec<_>>()
+                .join("; ");
+            let path = items[0].0.clone();
             let summary = match category {
                 "font_size" => format!(
                     "{} layers have font_size < {min_font_px}px ({profile_label} profile; e.g.: {preview})",
@@ -58,10 +100,29 @@ pub fn collect_lint_warnings(scene: &Scene) -> Vec<String> {
                 ),
                 _ => format!("{} {category} warnings (e.g.: {preview})", items.len()),
             };
-            out.push(summary);
+            out.push(LintWarning {
+                code: category,
+                path,
+                message: summary,
+                fix: fix_for(category),
+                affected_paths: items.iter().map(|(p, _)| p.clone()).collect(),
+            });
         }
     }
     out
+}
+
+/// Suggested remediation for a warning category, or `None` when there is no
+/// single obvious fix.
+fn fix_for(code: &str) -> Option<String> {
+    match code {
+        "font_size" => Some("increase font_size above the profile minimum".to_string()),
+        "end_sec" => Some("lower end_sec to <= canvas.duration_secs".to_string()),
+        "missing_max_width" => Some("add max_width to the text layer".to_string()),
+        "out_of_canvas" => Some("move or resize the layer so it intersects the canvas".to_string()),
+        "low_contrast" => Some("change the text color or the background behind it".to_string()),
+        _ => None,
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -74,25 +135,28 @@ fn lint_layers(
     in_container: bool,
     prefix: &str,
     default_bg: (f32, f32, f32, f32),
-    groups: &mut BTreeMap<&'static str, Vec<String>>,
+    groups: &mut BTreeMap<&'static str, Vec<(String, String)>>,
 ) {
     for (i, layer) in layers.iter().enumerate() {
         let path = format!("{prefix}[{i}]");
         if let Some(end) = layer.end_sec
-            && end > duration_secs + 1e-3 {
-                groups.entry("end_sec").or_default().push(format!(
-                    "{path} end_sec ({end}) > canvas.duration_secs ({duration_secs})"
-                ));
-            }
+            && end > duration_secs + 1e-3
+        {
+            groups.entry("end_sec").or_default().push((
+                path.clone(),
+                format!("{path} end_sec ({end}) > canvas.duration_secs ({duration_secs})"),
+            ));
+        }
 
         if let Some((lx, ly, lw, lh)) = static_layer_bounds(layer)
             && !has_xy_animation(layer)
-                && (lx + lw <= 0.0 || ly + lh <= 0.0 || lx >= canvas_w || ly >= canvas_h)
-            {
-                groups.entry("out_of_canvas").or_default().push(format!(
-                    "{path} outside canvas bounds ({lx:.0},{ly:.0} {lw:.0}x{lh:.0})"
-                ));
-            }
+            && (lx + lw <= 0.0 || ly + lh <= 0.0 || lx >= canvas_w || ly >= canvas_h)
+        {
+            groups.entry("out_of_canvas").or_default().push((
+                path.clone(),
+                format!("{path} outside canvas bounds ({lx:.0},{ly:.0} {lw:.0}x{lh:.0})"),
+            ));
+        }
 
         match &layer.kind {
             LayerKind::Text {
@@ -105,29 +169,31 @@ fn lint_layers(
                 ..
             } => {
                 if *font_size < min_font_px {
-                    groups.entry("font_size").or_default().push(format!(
-                        "{path} font_size ({font_size}) < {min_font_px}px"
+                    groups.entry("font_size").or_default().push((
+                        path.clone(),
+                        format!("{path} font_size ({font_size}) < {min_font_px}px"),
                     ));
                 }
                 if in_container && max_width.is_none() {
-                    groups
-                        .entry("missing_max_width")
-                        .or_default()
-                        .push(format!("{path} text inside container missing max_width"));
+                    groups.entry("missing_max_width").or_default().push((
+                        path.clone(),
+                        format!("{path} text inside container missing max_width"),
+                    ));
                 }
                 if *opacity >= 0.2
-                    && let Some(fg) = parse_rgb(color) {
-                        let t_check = (layer.start_sec + 0.05).min(
-                            layer.end_sec.unwrap_or(duration_secs).max(layer.start_sec),
-                        );
-                        let bg = find_effective_bg_at(layers, i, *x, *y, t_check, default_bg);
-                        let ratio = contrast_ratio(fg, bg);
-                        if ratio < 2.2 {
-                            groups.entry("low_contrast").or_default().push(format!(
-                                "{path} low contrast ({ratio:.2}:1, text {color})"
-                            ));
-                        }
+                    && let Some(fg) = parse_rgb(color)
+                {
+                    let t_check = (layer.start_sec + 0.05)
+                        .min(layer.end_sec.unwrap_or(duration_secs).max(layer.start_sec));
+                    let bg = find_effective_bg_at(layers, i, *x, *y, t_check, default_bg);
+                    let ratio = contrast_ratio(fg, bg);
+                    if ratio < 2.2 {
+                        groups.entry("low_contrast").or_default().push((
+                            path.clone(),
+                            format!("{path} low contrast ({ratio:.2}:1, text {color})"),
+                        ));
                     }
+                }
             }
             LayerKind::Container { children, .. } => {
                 lint_layers(
@@ -215,6 +281,14 @@ fn static_layer_bounds(layer: &Layer) -> Option<(f32, f32, f32, f32)> {
             height: Some(h),
             ..
         } => Some((*x, *y, *w, *h)),
+        #[cfg(feature = "exp-3d")]
+        LayerKind::Mesh3d {
+            x,
+            y,
+            width,
+            height,
+            ..
+        } => Some((*x, *y, *width, *height)),
         LayerKind::Text {
             x,
             y,
@@ -256,11 +330,16 @@ fn find_effective_bg_at(
                 opacity,
                 ..
             } => {
-                if *opacity >= 0.85 && px >= *x && px <= *x + *width && py >= *y && py <= *y + *height
+                if *opacity >= 0.85
+                    && px >= *x
+                    && px <= *x + *width
+                    && py >= *y
+                    && py <= *y + *height
                     && let Some(c) = parse_rgb(color)
-                        && c.3 >= 0.85 {
-                            return c;
-                        }
+                    && c.3 >= 0.85
+                {
+                    return c;
+                }
             }
             LayerKind::Circle {
                 cx,
@@ -281,11 +360,13 @@ fn find_effective_bg_at(
                     .unwrap_or(*r);
                 let dx = px - *cx;
                 let dy = py - *cy;
-                if *opacity >= 0.85 && (dx * dx + dy * dy) <= eff_r * eff_r
+                if *opacity >= 0.85
+                    && (dx * dx + dy * dy) <= eff_r * eff_r
                     && let Some(c) = parse_rgb(color)
-                        && c.3 >= 0.85 {
-                            return c;
-                        }
+                    && c.3 >= 0.85
+                {
+                    return c;
+                }
             }
             LayerKind::Container {
                 x,
@@ -293,20 +374,15 @@ fn find_effective_bg_at(
                 children,
                 opacity,
                 ..
-            }
-                if *opacity >= 0.85 => {
-                    let inner = find_effective_bg_at(
-                        children,
-                        children.len(),
-                        px - *x,
-                        py - *y,
-                        t,
-                        default_bg,
-                    );
-                    if inner != default_bg {
-                        return inner;
-                    }
+            } if *opacity >= 0.85 => {
+                let inner =
+                    find_effective_bg_at(children, children.len(), px - *x, py - *y, t, default_bg);
+                if inner != default_bg {
+                    return inner;
                 }
+            }
+            #[cfg(feature = "exp-3d")]
+            LayerKind::Mesh3d { .. } => {}
             _ => {}
         }
     }
@@ -362,7 +438,15 @@ pub fn validate_no_unknown_fields(raw: &str) -> anyhow::Result<()> {
     check_allowed_keys(
         root,
         "root",
-        &["schema_version", "min_renderer_version", "canvas", "profiles", "fonts", "audio", "layers"],
+        &[
+            "schema_version",
+            "min_renderer_version",
+            "canvas",
+            "profiles",
+            "fonts",
+            "audio",
+            "layers",
+        ],
     )?;
     if let Some(profiles) = root.get("profiles").and_then(|v| v.as_object()) {
         for (name, prof) in profiles {
@@ -388,7 +472,17 @@ pub fn validate_no_unknown_fields(raw: &str) -> anyhow::Result<()> {
                 check_allowed_keys(
                     obj,
                     &format!("audio[{i}]"),
-                    &["src", "start_sec", "volume", "trim_start_sec", "trim_end_sec", "playback_rate", "fade_in_secs", "fade_out_secs", "animations"],
+                    &[
+                        "src",
+                        "start_sec",
+                        "volume",
+                        "trim_start_sec",
+                        "trim_end_sec",
+                        "playback_rate",
+                        "fade_in_secs",
+                        "fade_out_secs",
+                        "animations",
+                    ],
                 )?;
             }
         }
@@ -412,77 +506,258 @@ fn check_allowed_keys(
     Ok(())
 }
 
+/// Fields accepted on every layer regardless of `type`.
+pub(crate) const COMMON_LAYER_FIELDS: &[&str] = &[
+    "name",
+    "type",
+    "start_sec",
+    "end_sec",
+    "duration_secs",
+    "overlap_secs",
+    "position",
+    "flex_grow",
+    "margin",
+    "margin_top",
+    "margin_right",
+    "margin_bottom",
+    "margin_left",
+    "blend_mode",
+    "blur",
+    "shadow",
+    "anchor",
+    "skew_x",
+    "skew_y",
+    "rotate_x",
+    "rotate_y",
+    "perspective",
+    "backface_visible",
+    "z_index",
+    "z",
+    "grain",
+    "vignette",
+    "halftone",
+    "track_matte",
+    "matte_layer",
+    "echo",
+    "animations",
+];
+
+/// Type-specific layer fields. Keep in sync with `schema.json` `$defs`
+/// (`schema_field_parity_matches_lint` enforces this).
+pub(crate) const LAYER_KIND_FIELDS: &[(&str, &[&str])] = &[
+    (
+        "rect",
+        &[
+            "x",
+            "y",
+            "width",
+            "height",
+            "radius",
+            "color",
+            "gradient",
+            "border_color",
+            "border_width",
+            "path_progress",
+            "stroke_dashoffset",
+            "opacity",
+            "scale",
+            "rotation",
+        ],
+    ),
+    (
+        "circle",
+        &[
+            "cx",
+            "cy",
+            "r",
+            "color",
+            "border_color",
+            "border_width",
+            "path_progress",
+            "stroke_dashoffset",
+            "opacity",
+            "scale",
+        ],
+    ),
+    (
+        "text",
+        &[
+            "x",
+            "y",
+            "content",
+            "dynamic",
+            "spans",
+            "font_size",
+            "line_height",
+            "letter_spacing",
+            "font_family",
+            "font_weight",
+            "text_align",
+            "direction",
+            "color",
+            "gradient",
+            "outline",
+            "opacity",
+            "max_width",
+            "scale",
+        ],
+    ),
+    (
+        "image",
+        &[
+            "x", "y", "width", "height", "src", "fit", "opacity", "rotation", "scale",
+        ],
+    ),
+    (
+        "svg",
+        &[
+            "x",
+            "y",
+            "width",
+            "height",
+            "src",
+            "path_progress",
+            "stroke_dashoffset",
+            "stroke_dasharray",
+            "opacity",
+            "rotation",
+        ],
+    ),
+    (
+        "video",
+        &[
+            "x",
+            "y",
+            "width",
+            "height",
+            "src",
+            "fit",
+            "trim_start_sec",
+            "trim_end_sec",
+            "playback_rate",
+            "volume",
+            "muted",
+            "opacity",
+            "rotation",
+            "scale",
+        ],
+    ),
+    (
+        "waveform",
+        &[
+            "x", "y", "width", "height", "bars", "bar_gap", "color", "seed", "speed", "opacity",
+            "rotation", "scale",
+        ],
+    ),
+    (
+        "lottie",
+        &[
+            "x",
+            "y",
+            "width",
+            "height",
+            "src",
+            "loop_animation",
+            "speed",
+            "opacity",
+            "rotation",
+            "scale",
+        ],
+    ),
+    (
+        "particles",
+        &[
+            "x", "y", "width", "height", "count", "seed", "speed", "gravity", "spread", "angle",
+            "size", "color", "colors", "shape", "opacity", "rotation", "scale",
+        ],
+    ),
+    (
+        "mesh3d",
+        &[
+            "x",
+            "y",
+            "width",
+            "height",
+            "primitive",
+            "src",
+            "texture",
+            "opacity",
+            "scale",
+            "rotation",
+            "rotate_x",
+            "rotate_y",
+            "rotate_z",
+            "fov",
+            "color",
+            "light_dir",
+            "wireframe",
+        ],
+    ),
+    ("include", &["src", "vars", "variables"]),
+    (
+        "container",
+        &[
+            "x",
+            "y",
+            "width",
+            "height",
+            "layout",
+            "background",
+            "gradient",
+            "border_color",
+            "border_width",
+            "radius",
+            "opacity",
+            "scale",
+            "rotation",
+            "clip",
+            "cascade_opacity",
+            "timeline",
+            "stagger_secs",
+            "children",
+        ],
+    ),
+];
+
 fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> anyhow::Result<()> {
-    const COMMON: &[&str] = &[
-        "name", "type", "start_sec", "end_sec", "duration_secs", "overlap_secs", "position",
-        "flex_grow", "margin", "margin_top", "margin_right", "margin_bottom", "margin_left",
-        "blend_mode", "blur", "shadow", "anchor", "skew_x", "skew_y", "rotate_x", "rotate_y",
-        "perspective", "backface_visible", "z_index", "z", "grain", "vignette", "halftone",
-        "track_matte", "matte_layer", "echo", "animations",
-    ];
+    const COMMON: &[&str] = COMMON_LAYER_FIELDS;
     for (i, item) in layers.iter().enumerate() {
         let path = format!("{prefix}[{i}]");
         let Some(obj) = item.as_object() else {
             continue;
         };
         let kind = obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
-        let extra: &[&str] = match kind {
-            "rect" => &[
-                "x", "y", "width", "height", "radius", "color", "gradient", "border_color",
-                "border_width", "path_progress", "stroke_dashoffset", "opacity", "scale",
-                "rotation",
-            ],
-            "circle" => &[
-                "cx", "cy", "r", "color", "border_color", "border_width", "path_progress",
-                "stroke_dashoffset", "opacity", "scale",
-            ],
-            "text" => &[
-                "x", "y", "content", "dynamic", "spans", "font_size", "line_height",
-                "letter_spacing", "font_family", "font_weight", "text_align", "direction", "color",
-                "gradient", "outline", "opacity", "max_width", "scale",
-            ],
-            "image" => &["x", "y", "width", "height", "src", "fit", "opacity", "rotation", "scale"],
-            "svg" => &[
-                "x", "y", "width", "height", "src", "path_progress", "stroke_dashoffset",
-                "stroke_dasharray", "opacity", "rotation",
-            ],
-            "video" => &[
-                "x", "y", "width", "height", "src", "fit", "trim_start_sec", "trim_end_sec",
-                "playback_rate", "volume", "muted", "opacity", "rotation", "scale",
-            ],
-            "waveform" => &[
-                "x", "y", "width", "height", "bars", "bar_gap", "color", "seed", "speed",
-                "opacity", "rotation", "scale",
-            ],
-            "lottie" => &[
-                "x", "y", "width", "height", "src", "loop_animation", "speed", "opacity",
-                "rotation", "scale",
-            ],
-            "particles" => &[
-                "x", "y", "width", "height", "count", "seed", "speed", "gravity", "spread",
-                "angle", "size", "color", "colors", "shape", "opacity", "rotation", "scale",
-            ],
-            "container" => &[
-                "x", "y", "width", "height", "layout", "background", "gradient", "border_color",
-                "border_width", "radius", "opacity", "scale", "rotation", "clip",
-                "cascade_opacity", "timeline", "stagger_secs", "children",
-            ],
-            _ => continue,
+        let Some((_, extra)) = LAYER_KIND_FIELDS.iter().find(|(k, _)| *k == kind) else {
+            continue;
         };
         for key in obj.keys() {
             if !COMMON.contains(&key.as_str()) && !extra.contains(&key.as_str()) {
-                anyhow::bail!("Unknown field '{path}.{key}' on type '{kind}' (not defined in schema)");
+                anyhow::bail!(
+                    "Unknown field '{path}.{key}' on type '{kind}' (not defined in schema)"
+                );
             }
         }
         if let Some(shadow) = obj.get("shadow").and_then(|v| v.as_object()) {
-            check_allowed_keys(shadow, &format!("{path}.shadow"), &["color", "offset_x", "offset_y", "blur"])?;
+            check_allowed_keys(
+                shadow,
+                &format!("{path}.shadow"),
+                &["color", "offset_x", "offset_y", "blur"],
+            )?;
         }
         if let Some(grad) = obj.get("gradient").and_then(|v| v.as_object()) {
-            check_allowed_keys(grad, &format!("{path}.gradient"), &["type", "from", "to", "stops", "angle"])?;
+            check_allowed_keys(
+                grad,
+                &format!("{path}.gradient"),
+                &["type", "from", "to", "stops", "angle"],
+            )?;
             if let Some(stops) = grad.get("stops").and_then(|v| v.as_array()) {
                 for (si, st) in stops.iter().enumerate() {
                     if let Some(so) = st.as_object() {
-                        check_allowed_keys(so, &format!("{path}.gradient.stops[{si}]"), &["offset", "color"])?;
+                        check_allowed_keys(
+                            so,
+                            &format!("{path}.gradient.stops[{si}]"),
+                            &["offset", "color"],
+                        )?;
                     }
                 }
             }
@@ -495,8 +770,17 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
                 layout,
                 &format!("{path}.layout"),
                 &[
-                    "direction", "flex_wrap", "justify_content", "align_items", "gap", "row_gap",
-                    "column_gap", "padding", "padding_top", "padding_right", "padding_bottom",
+                    "direction",
+                    "flex_wrap",
+                    "justify_content",
+                    "align_items",
+                    "gap",
+                    "row_gap",
+                    "column_gap",
+                    "padding",
+                    "padding_top",
+                    "padding_right",
+                    "padding_bottom",
                     "padding_left",
                 ],
             )?;
@@ -519,8 +803,18 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
                         ao,
                         &format!("{path}.animations[{ai}]"),
                         &[
-                            "property", "expr", "from", "to", "start_sec", "end_sec", "keyframes",
-                            "easing", "bezier", "spring", "repeat", "yoyo",
+                            "property",
+                            "expr",
+                            "from",
+                            "to",
+                            "start_sec",
+                            "end_sec",
+                            "keyframes",
+                            "easing",
+                            "bezier",
+                            "spring",
+                            "repeat",
+                            "yoyo",
                         ],
                     )?;
                     if let Some(kfs) = ao.get("keyframes").and_then(|v| v.as_array()) {
@@ -553,17 +847,40 @@ fn check_layers_unknown_fields(layers: &[serde_json::Value], prefix: &str) -> an
 
 /// Flag scene patterns that can hurt cross-machine determinism (network assets,
 /// system font fallbacks, or infinite repeat cycles).
+#[allow(dead_code)]
 pub fn collect_determinism_warnings(scene: &Scene) -> Vec<String> {
+    collect_determinism_warnings_structured(scene)
+        .into_iter()
+        .map(|w| w.to_text())
+        .collect()
+}
+
+/// Structured variant of [`collect_determinism_warnings`].
+pub fn collect_determinism_warnings_structured(scene: &Scene) -> Vec<LintWarning> {
     let mut out = Vec::new();
     let mut has_text = false;
     for (i, audio) in scene.audio.iter().enumerate() {
         if audio.src.starts_with("http://") || audio.src.starts_with("https://") {
-            out.push(format!("determinism: audio[{i}] uses remote URL '{}'", audio.src));
+            let path = format!("audio[{i}]");
+            out.push(LintWarning {
+                code: "determinism_remote_url",
+                path,
+                message: format!("determinism: audio[{i}] uses remote URL '{}'", audio.src),
+                fix: Some("use a local asset path for deterministic renders".to_string()),
+                affected_paths: Vec::new(),
+            });
         }
     }
     collect_layer_determinism(&scene.layers, "layers", &mut has_text, &mut out);
     if has_text && scene.fonts.is_empty() {
-        out.push("determinism: fonts[] is empty; text rendering relies on host system fonts".to_string());
+        out.push(LintWarning {
+            code: "determinism_system_fonts",
+            path: "fonts".to_string(),
+            message: "determinism: fonts[] is empty; text rendering relies on host system fonts"
+                .to_string(),
+            fix: Some("bundle the fonts used by text layers in fonts[]".to_string()),
+            affected_paths: Vec::new(),
+        });
     }
     out
 }
@@ -572,30 +889,172 @@ fn collect_layer_determinism(
     layers: &[Layer],
     prefix: &str,
     has_text: &mut bool,
-    out: &mut Vec<String>,
+    out: &mut Vec<LintWarning>,
 ) {
     for (i, layer) in layers.iter().enumerate() {
         let path = format!("{prefix}[{i}]");
         for (ai, anim) in layer.animations.iter().enumerate() {
-            if matches!(anim.repeat, Some(crate::schema::RepeatSpec::Mode(crate::schema::RepeatMode::Infinite))) {
-                out.push(format!(
-                    "determinism: {path}.animations[{ai}] uses repeat='infinite' (unbounded cycle)"
-                ));
+            if matches!(
+                anim.repeat,
+                Some(crate::schema::RepeatSpec::Mode(
+                    crate::schema::RepeatMode::Infinite
+                ))
+            ) {
+                out.push(LintWarning {
+                    code: "determinism_infinite_repeat",
+                    path: format!("{path}.animations[{ai}]"),
+                    message: format!(
+                        "determinism: {path}.animations[{ai}] uses repeat='infinite' (unbounded cycle)"
+                    ),
+                    fix: Some("use a finite repeat count for deterministic output".to_string()),
+                    affected_paths: Vec::new(),
+                });
             }
         }
         match &layer.kind {
             LayerKind::Text { .. } => {
                 *has_text = true;
             }
-            LayerKind::Image { src, .. } | LayerKind::Video { src, .. } | LayerKind::Svg { src, .. } => {
+            LayerKind::Image { src, .. }
+            | LayerKind::Video { src, .. }
+            | LayerKind::Svg { src, .. } => {
                 if src.starts_with("http://") || src.starts_with("https://") {
-                    out.push(format!("determinism: {path} uses remote URL '{src}'"));
+                    out.push(LintWarning {
+                        code: "determinism_remote_url",
+                        path: path.clone(),
+                        message: format!("determinism: {path} uses remote URL '{src}'"),
+                        fix: Some("use a local asset path for deterministic renders".to_string()),
+                        affected_paths: Vec::new(),
+                    });
                 }
             }
             LayerKind::Container { children, .. } => {
                 collect_layer_determinism(children, &format!("{path}.children"), has_text, out);
             }
             _ => {}
+        }
+    }
+}
+
+/// Check that local (non-URL) assets referenced by the scene exist on disk.
+/// Remote URLs are left to the render-time download path and are only flagged
+/// by [`collect_determinism_warnings_structured`].
+pub fn check_local_assets(scene: &Scene, base_dir: Option<&std::path::Path>) -> Vec<LintWarning> {
+    fn resolve(src: &str, base_dir: Option<&std::path::Path>) -> std::path::PathBuf {
+        let p = std::path::PathBuf::from(src);
+        if p.is_absolute() {
+            return p;
+        }
+        match base_dir {
+            Some(dir) => dir.join(p),
+            None => p,
+        }
+    }
+    fn is_remote(src: &str) -> bool {
+        src.starts_with("http://") || src.starts_with("https://")
+    }
+
+    let mut out = Vec::new();
+
+    let check = |src: &str, path: String, kind: &'static str, out: &mut Vec<LintWarning>| {
+        if src.trim().is_empty() || is_remote(src) || src.trim_start().starts_with('<') {
+            return;
+        }
+        let resolved = resolve(src, base_dir);
+        if !resolved.exists() {
+            out.push(LintWarning {
+                code: "missing_asset",
+                path,
+                message: format!("{kind} not found: {}", resolved.display()),
+                fix: Some(format!("create the file or fix the src path for {src}")),
+                affected_paths: Vec::new(),
+            });
+        }
+    };
+
+    for (i, font) in scene.fonts.iter().enumerate() {
+        check(font, format!("fonts[{i}]"), "font file", &mut out);
+    }
+    for (i, audio) in scene.audio.iter().enumerate() {
+        check(&audio.src, format!("audio[{i}]"), "audio file", &mut out);
+    }
+    check_layer_assets(&scene.layers, "layers", base_dir, &mut out);
+    out
+}
+
+fn check_layer_assets(
+    layers: &[Layer],
+    prefix: &str,
+    base_dir: Option<&std::path::Path>,
+    out: &mut Vec<LintWarning>,
+) {
+    fn resolve(src: &str, base_dir: Option<&std::path::Path>) -> std::path::PathBuf {
+        let p = std::path::PathBuf::from(src);
+        if p.is_absolute() {
+            return p;
+        }
+        match base_dir {
+            Some(dir) => dir.join(p),
+            None => p,
+        }
+    }
+    fn is_remote(src: &str) -> bool {
+        src.starts_with("http://") || src.starts_with("https://")
+    }
+
+    for (i, layer) in layers.iter().enumerate() {
+        let path = format!("{prefix}[{i}]");
+        let (src, kind): (Option<&str>, &'static str) = match &layer.kind {
+            LayerKind::Image { src, .. } => (Some(src), "image"),
+            LayerKind::Svg { src, .. } => (Some(src), "svg"),
+            LayerKind::Video { src, .. } => (Some(src), "video"),
+            LayerKind::Lottie { src, .. } => (Some(src), "lottie"),
+            #[cfg(feature = "exp-3d")]
+            LayerKind::Mesh3d { src: Some(src), .. } => (Some(src), "3D model"),
+            LayerKind::Container { children, .. } => {
+                check_layer_assets(children, &format!("{path}.children"), base_dir, out);
+                (None, "")
+            }
+            _ => (None, ""),
+        };
+        if let Some(src) = src
+            && !src.trim().is_empty()
+            && !is_remote(src)
+            && !src.trim_start().starts_with('<')
+        {
+            let resolved = resolve(src, base_dir);
+            if !resolved.exists() {
+                out.push(LintWarning {
+                    code: "missing_asset",
+                    path: path.clone(),
+                    message: format!("{kind} not found: {}", resolved.display()),
+                    fix: Some(format!("create the file or fix the src path for {src}")),
+                    affected_paths: Vec::new(),
+                });
+            }
+        }
+
+        // `Mesh3d.texture` is a second, independent asset on the same layer.
+        #[cfg(feature = "exp-3d")]
+        if let LayerKind::Mesh3d {
+            texture: Some(texture),
+            ..
+        } = &layer.kind
+            && !texture.trim().is_empty()
+            && !is_remote(texture)
+        {
+            let resolved = resolve(texture, base_dir);
+            if !resolved.exists() {
+                out.push(LintWarning {
+                    code: "missing_asset",
+                    path: path.clone(),
+                    message: format!("mesh texture not found: {}", resolved.display()),
+                    fix: Some(format!(
+                        "create the file or fix the texture path for {texture}"
+                    )),
+                    affected_paths: Vec::new(),
+                });
+            }
         }
     }
 }

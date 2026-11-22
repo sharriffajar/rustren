@@ -244,6 +244,8 @@ pub(super) fn build_taffy_child_node(
                 | LayerKind::Particles { x, y, .. }
                 | LayerKind::Svg { x, y, .. }
                 | LayerKind::Container { x, y, .. } => (*x, *y),
+                #[cfg(feature = "exp-3d")]
+                LayerKind::Mesh3d { x, y, .. } => (*x, *y),
                 LayerKind::Circle {
                     cx, cy, r, scale, ..
                 } => {
@@ -335,6 +337,11 @@ pub(super) fn build_taffy_child_node(
         | LayerKind::Svg { width, height, .. } => (
             width.map(Dimension::Length).unwrap_or(Dimension::Auto),
             height.map(Dimension::Length).unwrap_or(Dimension::Auto),
+        ),
+        #[cfg(feature = "exp-3d")]
+        LayerKind::Mesh3d { width, height, .. } => (
+            Dimension::Length(*width),
+            Dimension::Length(*height),
         ),
         LayerKind::Text {
             content,

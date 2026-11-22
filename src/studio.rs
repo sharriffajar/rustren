@@ -3,15 +3,22 @@ use std::path::{Path, PathBuf};
 
 use crate::assets::AssetStore;
 use crate::schema::Scene;
-use crate::{capabilities, compilers, lint, premul_to_rgba_image, render_scene_to_file, renderer, schema};
+use crate::{
+    capabilities, compilers, lint, premul_to_rgba_image, render_scene_to_file, renderer, schema,
+};
 
 /// Launch the browser-based Rustren live studio web server and WebSocket handler.
-pub async fn run_studio(input_path: Option<&Path>, host: &str, port: u16, cache_dir: &Path) -> Result<()> {
+pub async fn run_studio(
+    input_path: Option<&Path>,
+    host: &str,
+    port: u16,
+    cache_dir: &Path,
+) -> Result<()> {
     use axum::{
-        extract::{ws::WebSocketUpgrade, State},
+        Router,
+        extract::{State, ws::WebSocketUpgrade},
         response::Html,
         routing::get,
-        Router,
     };
 
     #[derive(Clone)]
@@ -40,7 +47,9 @@ pub async fn run_studio(input_path: Option<&Path>, host: &str, port: u16, cache_
             "/ws",
             get(
                 |ws: WebSocketUpgrade, State(state): State<StudioState>| async move {
-                    ws.on_upgrade(move |socket| handle_studio_ws(socket, state.cache_dir, state.input_path))
+                    ws.on_upgrade(move |socket| {
+                        handle_studio_ws(socket, state.cache_dir, state.input_path)
+                    })
                 },
             ),
         )
@@ -104,92 +113,109 @@ async fn handle_studio_ws(
     }
 
     let mut dropped_file: Option<(String, String)> = None;
-    let mut layer_offsets: std::collections::HashMap<usize, (f32, f32)> = std::collections::HashMap::new();
+    let mut layer_offsets: std::collections::HashMap<usize, (f32, f32)> =
+        std::collections::HashMap::new();
     let mut layer_scales: std::collections::HashMap<usize, f32> = std::collections::HashMap::new();
     let mut layer_rots: std::collections::HashMap<usize, f32> = std::collections::HashMap::new();
 
-    let parse_scene_from_str = |raw_content: &str, name_or_path: &str, vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
-        let mut content = raw_content.to_string();
-        let mut detected_vars = Vec::new();
-        if let Ok(doc) = scraper::Html::parse_document(&content)
-            .select(&scraper::Selector::parse("html[data-composition-variables]").unwrap())
-            .next()
-            .and_then(|el| el.value().attr("data-composition-variables"))
-            .map(serde_json::from_str::<Vec<serde_json::Value>>)
-            .transpose()
-            && let Some(dv) = doc {
+    let parse_scene_from_str =
+        |raw_content: &str,
+         name_or_path: &str,
+         vars: Option<&serde_json::Map<String, serde_json::Value>>|
+         -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
+            let mut content = raw_content.to_string();
+            let mut detected_vars = Vec::new();
+            if let Ok(doc) = scraper::Html::parse_document(&content)
+                .select(&scraper::Selector::parse("html[data-composition-variables]").unwrap())
+                .next()
+                .and_then(|el| el.value().attr("data-composition-variables"))
+                .map(serde_json::from_str::<Vec<serde_json::Value>>)
+                .transpose()
+                && let Some(dv) = doc
+            {
                 detected_vars = dv;
             }
 
-        for dv in &detected_vars {
-            if let (Some(id), Some(def)) = (dv.get("id").and_then(|v| v.as_str()), dv.get("default")) {
-                let placeholder = format!("{{{{{}}}}}", id);
-                let override_val = vars.and_then(|m| m.get(id)).unwrap_or(def);
-                let val_str = match override_val {
-                    serde_json::Value::String(s) => s.clone(),
-                    serde_json::Value::Number(n) => n.to_string(),
-                    serde_json::Value::Bool(b) => b.to_string(),
-                    other => other.to_string(),
-                };
-                content = content.replace(&placeholder, &val_str);
+            for dv in &detected_vars {
+                if let (Some(id), Some(def)) =
+                    (dv.get("id").and_then(|v| v.as_str()), dv.get("default"))
+                {
+                    let placeholder = format!("{{{{{}}}}}", id);
+                    let override_val = vars.and_then(|m| m.get(id)).unwrap_or(def);
+                    let val_str = match override_val {
+                        serde_json::Value::String(s) => s.clone(),
+                        serde_json::Value::Number(n) => n.to_string(),
+                        serde_json::Value::Bool(b) => b.to_string(),
+                        other => other.to_string(),
+                    };
+                    content = content.replace(&placeholder, &val_str);
+                }
             }
-        }
-        if let Some(v_map) = vars {
-            for (k, val) in v_map {
-                let placeholder = format!("{{{{{}}}}}", k);
-                let val_str = match val {
-                    serde_json::Value::String(s) => s.clone(),
-                    serde_json::Value::Number(n) => n.to_string(),
-                    serde_json::Value::Bool(b) => b.to_string(),
-                    other => other.to_string(),
-                };
-                content = content.replace(&placeholder, &val_str);
+            if let Some(v_map) = vars {
+                for (k, val) in v_map {
+                    let placeholder = format!("{{{{{}}}}}", k);
+                    let val_str = match val {
+                        serde_json::Value::String(s) => s.clone(),
+                        serde_json::Value::Number(n) => n.to_string(),
+                        serde_json::Value::Bool(b) => b.to_string(),
+                        other => other.to_string(),
+                    };
+                    content = content.replace(&placeholder, &val_str);
+                }
             }
-        }
 
-        let is_html = name_or_path.ends_with(".html") || name_or_path.ends_with(".htm");
-        let scene = if is_html {
-            compilers::html::parse_html_scene(&content)?
-        } else {
-            serde_json::from_str::<Scene>(&content)?
+            let is_html = name_or_path.ends_with(".html") || name_or_path.ends_with(".htm");
+            let scene = if is_html {
+                compilers::html::parse_html_scene(&content)?
+            } else {
+                serde_json::from_str::<Scene>(&content)?
+            };
+            let scene_val = serde_json::json!({
+                "canvas": {
+                    "width": scene.canvas.width,
+                    "height": scene.canvas.height,
+                    "fps": scene.canvas.fps,
+                    "duration_secs": scene.canvas.duration_secs,
+                },
+                "layers": scene.layers.iter().map(|l| {
+                    serde_json::json!({
+                        "name": l.name,
+                        "type": match &l.kind {
+                            schema::LayerKind::Text { .. } => "text",
+                            schema::LayerKind::Image { .. } => "image",
+                            schema::LayerKind::Rect { .. } => "rect",
+                            schema::LayerKind::Circle { .. } => "circle",
+                            schema::LayerKind::Video { .. } => "video",
+                            schema::LayerKind::Waveform { .. } => "waveform",
+                            schema::LayerKind::Lottie { .. } => "lottie",
+                            schema::LayerKind::Particles { .. } => "particles",
+                            schema::LayerKind::Svg { .. } => "svg",
+                            schema::LayerKind::Container { .. } => "container",
+                                #[cfg(feature = "exp-3d")]
+                                schema::LayerKind::Mesh3d { .. } => "mesh3d",
+                        },
+                        "start_sec": l.start_sec,
+                        "duration_secs": l.duration_secs,
+                        "animations": l.animations.iter().map(|a| {
+                            serde_json::json!({
+                                "start_sec": a.start_sec,
+                                "end_sec": a.end_sec,
+                            })
+                        }).collect::<Vec<_>>(),
+                    })
+                }).collect::<Vec<_>>()
+            });
+            Ok((scene, name_or_path.to_string(), detected_vars, scene_val))
         };
-        let scene_val = serde_json::json!({
-            "canvas": {
-                "width": scene.canvas.width,
-                "height": scene.canvas.height,
-                "fps": scene.canvas.fps,
-                "duration_secs": scene.canvas.duration_secs,
-            },
-            "layers": scene.layers.iter().map(|l| {
-                serde_json::json!({
-                    "name": l.name,
-                    "type": match &l.kind {
-                        schema::LayerKind::Text { .. } => "text",
-                        schema::LayerKind::Image { .. } => "image",
-                        schema::LayerKind::Rect { .. } => "rect",
-                        schema::LayerKind::Circle { .. } => "circle",
-                        schema::LayerKind::Video { .. } => "video",
-                        schema::LayerKind::Waveform { .. } => "waveform",
-                        schema::LayerKind::Lottie { .. } => "lottie",
-                        schema::LayerKind::Particles { .. } => "particles",
-                        schema::LayerKind::Svg { .. } => "svg",
-                        schema::LayerKind::Container { .. } => "container",
-                    },
-                    "start_sec": l.start_sec,
-                    "duration_secs": l.duration_secs,
-                    "animations": l.animations.iter().map(|a| {
-                        serde_json::json!({
-                            "start_sec": a.start_sec,
-                            "end_sec": a.end_sec,
-                        })
-                    }).collect::<Vec<_>>(),
-                })
-            }).collect::<Vec<_>>()
-        });
-        Ok((scene, name_or_path.to_string(), detected_vars, scene_val))
-    };
 
-    let load_current_scene = |dropped: Option<&(String, String)>, vars: Option<&serde_json::Map<String, serde_json::Value>>| -> Result<(Scene, String, Vec<serde_json::Value>, serde_json::Value)> {
+    let load_current_scene = |dropped: Option<&(String, String)>,
+                              vars: Option<&serde_json::Map<String, serde_json::Value>>|
+     -> Result<(
+        Scene,
+        String,
+        Vec<serde_json::Value>,
+        serde_json::Value,
+    )> {
         if let Some((fname, fcontent)) = dropped {
             parse_scene_from_str(fcontent, fname, vars)
         } else if let Some(ref path) = input_path {
@@ -236,7 +262,8 @@ async fn handle_studio_ws(
             }
             let _ = socket
                 .send(Message::Text(
-                    serde_json::json!({ "type": "layer_transformed", "layer_index": idx }).to_string(),
+                    serde_json::json!({ "type": "layer_transformed", "layer_index": idx })
+                        .to_string(),
                 ))
                 .await;
             continue;
@@ -263,14 +290,17 @@ async fn handle_studio_ws(
                 match parse_scene_from_str(&fcontent, &fname, None) {
                     Ok((_scene, path_str, vars, scene_val)) => {
                         dropped_file = Some((fname, fcontent));
-                        let _ = socket.send(Message::Text(
-                            serde_json::json!({
+                        let _ = socket
+                            .send(Message::Text(
+                                serde_json::json!({
                                 "type": "init",
                                 "scene": scene_val,
                                 "path": path_str,
                                 "variables": vars
-                            }).to_string()
-                        )).await;
+                                })
+                                .to_string(),
+                            ))
+                            .await;
                     }
                     Err(e) => {
                         let _ = socket.send(Message::Text(
@@ -337,14 +367,17 @@ async fn handle_studio_ws(
         if req.action.as_deref() == Some("get_scene") {
             match load_current_scene(dropped_file.as_ref(), None) {
                 Ok((_scene, path_str, vars, scene_val)) => {
-                    let _ = socket.send(Message::Text(
-                        serde_json::json!({
+                    let _ = socket
+                        .send(Message::Text(
+                            serde_json::json!({
                             "type": "init",
                             "scene": scene_val,
                             "path": path_str,
                             "variables": vars
-                        }).to_string()
-                    )).await;
+                            })
+                            .to_string(),
+                        ))
+                        .await;
                 }
                 Err(e) => {
                     let _ = socket.send(Message::Text(
@@ -362,7 +395,8 @@ async fn handle_studio_ws(
                 lint::validate_no_unknown_fields(s_str)?;
                 serde_json::from_str::<Scene>(s_str)?
             } else {
-                let (s, _, _, _) = load_current_scene(dropped_file.as_ref(), req.variables.as_ref())?;
+                let (s, _, _, _) =
+                    load_current_scene(dropped_file.as_ref(), req.variables.as_ref())?;
                 s
             };
             for (&idx, &(ox, oy)) in &layer_offsets {
@@ -384,6 +418,11 @@ async fn handle_studio_ws(
                             *cx += ox;
                             *cy += oy;
                         }
+                        #[cfg(feature = "exp-3d")]
+                        schema::LayerKind::Mesh3d { x, y, .. } => {
+                            *x += ox;
+                            *y += oy;
+                        }
                     }
                 }
             }
@@ -400,6 +439,10 @@ async fn handle_studio_ws(
                         | schema::LayerKind::Lottie { scale, .. }
                         | schema::LayerKind::Particles { scale, .. }
                         | schema::LayerKind::Container { scale, .. } => {
+                            *scale *= smul;
+                        }
+                        #[cfg(feature = "exp-3d")]
+                        schema::LayerKind::Mesh3d { scale, .. } => {
                             *scale *= smul;
                         }
                         _ => {}

@@ -736,6 +736,39 @@ fn inspect_layer_layout(
                 children: child_infos,
             }
         }
+        #[cfg(feature = "exp-3d")]
+        LayerKind::Mesh3d {
+            x,
+            y,
+            width,
+            height,
+            opacity,
+            scale,
+            ..
+        } => {
+            let (rx, ry) = resolve_xy(layer, layout_override, *x, *y, local_t);
+            let base_w = layout_override.map(|b| b.w).unwrap_or(*width);
+            let base_h = layout_override.map(|b| b.h).unwrap_or(*height);
+            let s = eval_property(&layer.animations, AnimProperty::Scale, local_t, *scale);
+            let w = eval_property(&layer.animations, AnimProperty::Width, local_t, base_w) * s;
+            let h = eval_property(&layer.animations, AnimProperty::Height, local_t, base_h) * s;
+            let op = eval_property(&layer.animations, AnimProperty::Opacity, local_t, *opacity)
+                * parent_opacity;
+            LayerLayoutInfo {
+                path: path.to_string(),
+                name: layer.name.clone(),
+                layer_type: "mesh3d".to_string(),
+                x: rx,
+                y: ry,
+                w,
+                h,
+                opacity: op,
+                in_canvas: boxes_intersect_canvas(rx, ry, w, h),
+                clipped_by_canvas: boxes_clipped_by_canvas(rx, ry, w, h),
+                text_measured: None,
+                children: Vec::new(),
+            }
+        }
     };
     Ok(Some(info))
 }

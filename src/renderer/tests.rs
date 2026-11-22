@@ -7,7 +7,32 @@ fn test_parse_hex_color() {
     let c = parse_hex_color("#FF0000", 0.5).unwrap();
     assert!((c.red() - 1.0).abs() < 1e-5);
     assert!((c.alpha() - 0.5).abs() < 1e-5);
-    assert!(parse_hex_color("#123", 1.0).is_err());
+}
+
+#[test]
+fn test_parse_hex_color_expands_shorthand() {
+    // schema.json allows `#RGB`, so the renderer must accept it too.
+    let short = parse_hex_color("#FFF", 1.0).unwrap();
+    assert!((short.red() - 1.0).abs() < 1e-5);
+    assert!((short.green() - 1.0).abs() < 1e-5);
+    assert!((short.blue() - 1.0).abs() < 1e-5);
+    let short_alpha = parse_hex_color("#F00F", 1.0).unwrap();
+    assert!((short_alpha.red() - 1.0).abs() < 1e-5);
+    assert_eq!(short_alpha.alpha(), 1.0);
+    let half = parse_hex_color("#0008", 1.0).unwrap();
+    assert!((half.alpha() - 136.0 / 255.0).abs() < 1e-5);
+}
+
+#[test]
+fn test_parse_hex_color_accepts_named_and_rgba() {
+    let white = parse_hex_color("white", 1.0).unwrap();
+    assert!((white.red() - 1.0).abs() < 1e-5);
+    assert!((white.green() - 1.0).abs() < 1e-5);
+    let clear = parse_hex_color("transparent", 0.5).unwrap();
+    assert_eq!(clear.alpha(), 0.0);
+    let rgba = parse_hex_color("rgba(0, 120, 212, 0.14)", 1.0).unwrap();
+    assert!((rgba.blue() - 212.0 / 255.0).abs() < 1e-3);
+    assert!((rgba.alpha() - 0.14).abs() < 1e-3);
 }
 
 #[test]
@@ -34,6 +59,8 @@ fn test_render_frame_with_container_and_absolute() {
         videos: HashMap::new(),
         svgs: HashMap::new(),
         audio_paths: vec![],
+        #[cfg(feature = "exp-3d")]
+        mesh3d: HashMap::new(),
     };
     let frame = render_frame(&scene, &assets, 0).unwrap();
     assert_eq!(frame.len(), 320 * 240 * 4);
@@ -64,6 +91,8 @@ fn test_track_matte_alpha_and_inverted() {
         videos: HashMap::new(),
         svgs: HashMap::new(),
         audio_paths: vec![],
+        #[cfg(feature = "exp-3d")]
+        mesh3d: HashMap::new(),
     };
     let frame = render_frame(&scene, &assets, 0).unwrap();
     // Pixel at (10, 10) is outside matte -> should be black (0, 0, 0)
@@ -98,6 +127,8 @@ fn test_echo_smear_renders_trail() {
         videos: HashMap::new(),
         svgs: HashMap::new(),
         audio_paths: vec![],
+        #[cfg(feature = "exp-3d")]
+        mesh3d: HashMap::new(),
     };
     // At frame 15 (t = 0.5s), main rect is at x = 75..95, echo 1 (t=0.4s) is at x = 60..80
     let frame = render_frame(&scene, &assets, 15).unwrap();
@@ -175,7 +206,8 @@ fn test_diagnose_layout_detects_sibling_text_overlap_and_clipping() {
     assert!(
         diags
             .iter()
-            .any(|d| d.kind == LayoutDiagnosticKind::UnexpectedTextWrap && d.path == "layers[3].children[0]"),
+            .any(|d| d.kind == LayoutDiagnosticKind::UnexpectedTextWrap
+                && d.path == "layers[3].children[0]"),
         "Expected UnexpectedTextWrap on layers[3].children[0], got: {diags:?}"
     );
 }
@@ -188,6 +220,8 @@ fn test_25d_perspective_rotation_and_backface_culling() {
         videos: HashMap::new(),
         svgs: HashMap::new(),
         audio_paths: vec![],
+        #[cfg(feature = "exp-3d")]
+        mesh3d: HashMap::new(),
     };
 
     // Tilted 3D card should exhibit perspective foreshortening: left edge taller than right edge for ry > 0
@@ -222,7 +256,10 @@ fn test_25d_perspective_rotation_and_backface_culling() {
     let culled_scene = crate::compilers::html::parse_html_scene(culled_html).unwrap();
     let culled_frame = render_frame_at_time(&culled_scene, &empty_assets, 0.0).unwrap();
     let c_idx = (50 * 100 + 50) * 4;
-    assert_eq!(culled_frame[c_idx], 0, "Backface should be culled when backface-visible=false");
+    assert_eq!(
+        culled_frame[c_idx], 0,
+        "Backface should be culled when backface-visible=false"
+    );
 
     let visible_html = r##"
     <scene width="100" height="100" fps="30" duration="1.0" background="#000000">
@@ -231,7 +268,10 @@ fn test_25d_perspective_rotation_and_backface_culling() {
     "##;
     let visible_scene = crate::compilers::html::parse_html_scene(visible_html).unwrap();
     let visible_frame = render_frame_at_time(&visible_scene, &empty_assets, 0.0).unwrap();
-    assert_eq!(visible_frame[c_idx], 255, "Backface should render when backface-visible=true");
+    assert_eq!(
+        visible_frame[c_idx], 255,
+        "Backface should render when backface-visible=true"
+    );
 }
 
 #[test]
@@ -242,6 +282,8 @@ fn test_z_index_depth_sorting_root_and_container() {
         videos: HashMap::new(),
         svgs: HashMap::new(),
         audio_paths: vec![],
+        #[cfg(feature = "exp-3d")]
+        mesh3d: HashMap::new(),
     };
 
     let html = r##"
@@ -276,6 +318,8 @@ fn test_surface_effects_and_particles_determinism() {
         videos: HashMap::new(),
         svgs: HashMap::new(),
         audio_paths: vec![],
+        #[cfg(feature = "exp-3d")]
+        mesh3d: HashMap::new(),
     };
 
     let html = r##"
@@ -288,7 +332,10 @@ fn test_surface_effects_and_particles_determinism() {
     let scene = crate::compilers::html::parse_html_scene(html).unwrap();
     let f0_a = render_frame_at_time(&scene, &empty_assets, 0.6).unwrap();
     let f0_b = render_frame_at_time(&scene, &empty_assets, 0.6).unwrap();
-    assert_eq!(f0_a, f0_b, "Surface effects + particles must be byte-for-byte deterministic");
+    assert_eq!(
+        f0_a, f0_b,
+        "Surface effects + particles must be byte-for-byte deterministic"
+    );
 
     // Vignette should darken near corner (14, 14) compared to center (60, 80)
     let corner_luma = f0_a[(14 * 240 + 14) * 4];
@@ -311,6 +358,8 @@ fn test_shadow_container_fx_cache_hits() {
         videos: HashMap::new(),
         svgs: HashMap::new(),
         audio_paths: vec![],
+        #[cfg(feature = "exp-3d")]
+        mesh3d: HashMap::new(),
     };
 
     let html = r##"
@@ -339,4 +388,758 @@ fn test_shadow_container_fx_cache_hits() {
         "Expected at least 3 FX cache hits on subsequent frames, delta={}",
         hits_after - hits_before
     );
+}
+
+#[cfg(feature = "exp-3d")]
+mod exp_3d_tests {
+    use crate::assets::AssetStore;
+    use crate::compilers::html::parse_html_scene;
+    use crate::renderer::mesh3d::{Mesh, render_mesh3d_to_pixmap};
+    use std::collections::HashMap;
+    use tiny_skia::Pixmap;
+
+    #[test]
+    fn test_mesh3d_primitives_generate_geometry() {
+        let cube = Mesh::cube();
+        assert_eq!(cube.vertices.len(), 24);
+        assert_eq!(cube.indices.len(), 36);
+        assert_eq!(cube.indices.len() % 3, 0);
+
+        let sphere = Mesh::sphere(12, 24);
+        assert!(sphere.vertices.len() > 0);
+        assert!(sphere.indices.len() > 0);
+        assert_eq!(sphere.indices.len() % 3, 0);
+
+        let pyramid = Mesh::pyramid();
+        assert_eq!(pyramid.vertices.len(), 18);
+        assert_eq!(pyramid.indices.len(), 18);
+
+        let torus = Mesh::torus(0.5, 0.2, 16, 12);
+        assert!(torus.vertices.len() > 0);
+        assert!(torus.indices.len() > 0);
+        assert_eq!(torus.indices.len() % 3, 0);
+    }
+
+    #[test]
+    fn test_mesh3d_renders_non_empty_pixels() {
+        let mut pixmap = Pixmap::new(200, 200).unwrap();
+        let mesh = Mesh::cube();
+
+        render_mesh3d_to_pixmap(
+            &mut pixmap.as_mut(),
+            &mesh,
+            50.0,
+            50.0,
+            100.0,
+            100.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            None,
+        );
+
+        // Check that some pixels were drawn (non-transparent)
+        let data = pixmap.data();
+        let mut non_zero = 0;
+        for chunk in data.chunks_exact(4) {
+            if chunk[3] > 0 {
+                non_zero += 1;
+            }
+        }
+        assert!(
+            non_zero > 100,
+            "Expected many non-transparent pixels, got {}",
+            non_zero
+        );
+    }
+
+    #[test]
+    fn test_mesh3d_deterministic_render() {
+        let mesh = Mesh::cube();
+
+        let mut pixmap1 = Pixmap::new(200, 200).unwrap();
+        render_mesh3d_to_pixmap(
+            &mut pixmap1.as_mut(),
+            &mesh,
+            50.0,
+            50.0,
+            100.0,
+            100.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            45.0,
+            30.0,
+            15.0,
+            None,
+        );
+
+        let mut pixmap2 = Pixmap::new(200, 200).unwrap();
+        render_mesh3d_to_pixmap(
+            &mut pixmap2.as_mut(),
+            &mesh,
+            50.0,
+            50.0,
+            100.0,
+            100.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            45.0,
+            30.0,
+            15.0,
+            None,
+        );
+
+        assert_eq!(
+            pixmap1.data(),
+            pixmap2.data(),
+            "Two renders with same params must be byte-for-byte identical"
+        );
+    }
+
+    #[test]
+    fn test_mesh3d_deterministic_full_pipeline() {
+        let html = r##"
+        <scene width="320" height="240" fps="30" duration="2.0" background="#000000">
+            <mesh3d x="80" y="40" width="160" height="160" primitive="cube" color="#38BDF8" fov="50" wireframe="false" light-dir="0.5, -1.0, 0.5">
+                <animate property="rotate_x" from="0" to="720" start="0" end="2" easing="linear" repeat="infinite" />
+                <animate property="rotate_y" from="0" to="360" start="0" end="2" easing="linear" repeat="infinite" />
+            </mesh3d>
+        </scene>
+        "##;
+
+        let scene = parse_html_scene(html).unwrap();
+        let assets = AssetStore {
+            fonts: vec![],
+            images: HashMap::new(),
+            videos: HashMap::new(),
+            svgs: HashMap::new(),
+            audio_paths: vec![],
+            #[cfg(feature = "exp-3d")]
+            mesh3d: HashMap::new(),
+        };
+
+        // Render same frame twice
+        let frame1 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
+        let frame2 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
+
+        assert_eq!(frame1, frame2, "Full pipeline render must be deterministic");
+    }
+
+    #[test]
+    fn test_mesh3d_anti_aliasing_produces_partial_coverage() {
+        // Anti-aliasing (supersample + box downsample) must produce partially
+        // covered pixels along the silhouette instead of hard 1-bit edges.
+        let mut pixmap = Pixmap::new(200, 200).unwrap();
+        let mesh = Mesh::sphere(16, 32);
+
+        render_mesh3d_to_pixmap(
+            &mut pixmap.as_mut(),
+            &mesh,
+            20.0,
+            20.0,
+            160.0,
+            160.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            20.0,
+            30.0,
+            0.0,
+            None,
+        );
+
+        let data = pixmap.data();
+        let mut opaque = 0;
+        let mut partial = 0;
+        for chunk in data.chunks_exact(4) {
+            match chunk[3] {
+                255 => opaque += 1,
+                1..=254 => partial += 1,
+                _ => {}
+            }
+        }
+
+        assert!(opaque > 500, "solid interior expected, got {}", opaque);
+        // A 2x supersample can only ever yield alpha multiples of 64, and a
+        // 160px sphere has ~500 edge pixels, so a healthy number is expected.
+        assert!(
+            partial > 100,
+            "silhouette should be anti-aliased, got {} partial pixels",
+            partial
+        );
+    }
+
+    #[test]
+    fn test_mesh3d_no_cracks_inside_silhouette() {
+        // Regression: at 2x supersampling, shared triangle edges used to leave
+        // 1px background seams inside the body (visible as speckles on the sphere).
+        let mut pixmap = Pixmap::new(200, 200).unwrap();
+        let mesh = Mesh::sphere(16, 32);
+
+        render_mesh3d_to_pixmap(
+            &mut pixmap.as_mut(),
+            &mesh,
+            20.0,
+            20.0,
+            160.0,
+            160.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            20.0,
+            30.0,
+            0.0,
+            None,
+        );
+
+        // Interior box is comfortably inside the projected silhouette, so every
+        // pixel there must be covered.
+        let data = pixmap.data();
+        let w = pixmap.width() as usize;
+        let mut holes = Vec::new();
+        for y in 80..120 {
+            for x in 80..120 {
+                let idx = (y * w + x) * 4;
+                if data[idx + 3] == 0 {
+                    holes.push((x, y));
+                }
+            }
+        }
+        assert!(
+            holes.is_empty(),
+            "background holes inside the sphere body: {:?}",
+            &holes[..holes.len().min(8)]
+        );
+    }
+
+    #[test]
+    fn test_mesh3d_wireframe_renders() {
+        let mut pixmap = Pixmap::new(200, 200).unwrap();
+        let mesh = Mesh::cube();
+
+        render_mesh3d_to_pixmap(
+            &mut pixmap.as_mut(),
+            &mesh,
+            50.0,
+            50.0,
+            100.0,
+            100.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            true, // wireframe
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            None,
+        );
+
+        let data = pixmap.data();
+        let mut non_zero = 0;
+        for chunk in data.chunks_exact(4) {
+            if chunk[3] > 0 {
+                non_zero += 1;
+            }
+        }
+        assert!(non_zero > 10, "Wireframe should render some pixels");
+    }
+
+    #[test]
+    fn test_mesh3d_different_primitives_render() {
+        for prim_name in ["cube", "sphere", "pyramid", "torus"] {
+            let html = format!(
+                r##"
+            <scene width="200" height="200" fps="30" duration="1.0" background="#000000">
+                <mesh3d x="50" y="50" width="100" height="100" primitive="{}" color="#38BDF8" />
+            </scene>
+            "##,
+                prim_name
+            );
+
+            let scene = parse_html_scene(&html).unwrap();
+            let assets = AssetStore {
+                fonts: vec![],
+                images: HashMap::new(),
+                videos: HashMap::new(),
+                svgs: HashMap::new(),
+                audio_paths: vec![],
+                #[cfg(feature = "exp-3d")]
+                mesh3d: HashMap::new(),
+            };
+
+            let frame = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
+
+            let data = &frame;
+            let mut non_zero = 0;
+            for chunk in data.chunks_exact(4) {
+                if chunk[3] > 0 {
+                    non_zero += 1;
+                }
+            }
+            assert!(
+                non_zero > 0,
+                "Primitive '{}' should render pixels",
+                prim_name
+            );
+        }
+    }
+
+    #[test]
+    fn test_mesh3d_self_closing_siblings_all_render() {
+        // Regression: `<mesh3d ... />` must behave like any other self-closing tag,
+        // so following sibling layers are not swallowed as its children.
+        let html = r##"
+        <scene width="640" height="240" fps="30" duration="1.0" background="#000000">
+            <mesh3d x="20" y="20" width="200" height="200" primitive="cube" color="#FF0000" />
+            <mesh3d x="220" y="20" width="200" height="200" primitive="sphere" color="#00FF00" />
+            <mesh3d x="420" y="20" width="200" height="200" primitive="torus" color="#0000FF" />
+        </scene>
+        "##;
+        let scene = parse_html_scene(html).unwrap();
+        assert_eq!(
+            scene.layers.len(),
+            3,
+            "all three sibling mesh3d layers must survive parsing"
+        );
+    }
+
+    #[test]
+    fn test_mesh3d_rotated_geometry_is_not_dropped() {
+        // Regression: rotations at/after 90 degrees used to trip the generic
+        // backface check for image-like layers and skip the whole mesh.
+        for angle in [0.0, 90.0, 180.0, 270.0] {
+            let html = format!(
+                r##"
+                <scene width="200" height="200" fps="30" duration="1.0" background="#000000">
+                    <mesh3d x="20" y="20" width="160" height="160" primitive="cube" color="#38BDF8" rotate-y="{}" />
+                </scene>
+                "##,
+                angle
+            );
+            let scene = parse_html_scene(&html).unwrap();
+            let assets = AssetStore {
+                fonts: vec![],
+                images: HashMap::new(),
+                videos: HashMap::new(),
+                svgs: HashMap::new(),
+                audio_paths: vec![],
+                #[cfg(feature = "exp-3d")]
+                mesh3d: HashMap::new(),
+            };
+            let frame = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
+            let non_zero = frame.chunks_exact(4).filter(|c| c[3] > 0).count();
+            assert!(
+                non_zero > 0,
+                "mesh3d rotated by {} degrees must still render pixels, got {}",
+                angle,
+                non_zero
+            );
+        }
+    }
+}
+
+/// Minimal in-memory GLB: a unit quad with positions, UVs and indices, and
+/// deliberately no NORMAL attribute so the loader has to synthesize normals.
+#[cfg(feature = "exp-3d")]
+fn build_glb_quad() -> Vec<u8> {
+    // Buffer layout: 4 positions (48 B), 4 UVs (32 B), 6 u16 indices (12 B).
+    let mut bin: Vec<u8> = Vec::with_capacity(92);
+    for p in [
+        [-1.0f32, -1.0, 0.0],
+        [1.0, -1.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [-1.0, 1.0, 0.0],
+    ] {
+        for c in p {
+            bin.extend_from_slice(&c.to_le_bytes());
+        }
+    }
+    for uv in [[0.0f32, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]] {
+        for c in uv {
+            bin.extend_from_slice(&c.to_le_bytes());
+        }
+    }
+    for idx in [0u16, 1, 2, 2, 3, 0] {
+        bin.extend_from_slice(&idx.to_le_bytes());
+    }
+
+    let json = serde_json::json!({
+        "asset": { "version": "2.0", "generator": "rustren-test" },
+        "scene": 0,
+        "scenes": [{ "nodes": [0] }],
+        "nodes": [{ "mesh": 0 }],
+        "meshes": [{
+            "primitives": [{
+                "attributes": { "POSITION": 0, "TEXCOORD_0": 1 },
+                "indices": 2,
+                "mode": 4
+            }]
+        }],
+        "buffers": [{ "byteLength": bin.len() }],
+        "bufferViews": [
+            { "buffer": 0, "byteOffset": 0, "byteLength": 48, "target": 34962 },
+            { "buffer": 0, "byteOffset": 48, "byteLength": 32, "target": 34962 },
+            { "buffer": 0, "byteOffset": 80, "byteLength": 12, "target": 34963 }
+        ],
+        "accessors": [
+            {
+                "bufferView": 0, "componentType": 5126, "count": 4,
+                "type": "VEC3", "min": [-1.0, -1.0, 0.0], "max": [1.0, 1.0, 0.0]
+            },
+            {
+                "bufferView": 1, "componentType": 5126, "count": 4, "type": "VEC2"
+            },
+            {
+                "bufferView": 2, "componentType": 5123, "count": 6, "type": "SCALAR"
+            }
+        ]
+    });
+    let json_bytes = serde_json::to_vec(&json).unwrap();
+
+    let mut out = Vec::new();
+    out.extend_from_slice(b"glTF");
+    out.extend_from_slice(&2u32.to_le_bytes());
+
+    let total_len = 12 + 8 + json_bytes.len() + 8 + bin.len();
+    out.extend_from_slice(&(total_len as u32).to_le_bytes());
+
+    out.extend_from_slice(&(json_bytes.len() as u32).to_le_bytes());
+    out.extend_from_slice(&0x4E4F_534Au32.to_le_bytes()); // "JSON"
+    out.extend_from_slice(&json_bytes);
+
+    out.extend_from_slice(&(bin.len() as u32).to_le_bytes());
+    out.extend_from_slice(&0x004E_4942u32.to_le_bytes()); // "BIN\0"
+    out.extend_from_slice(&bin);
+    out
+}
+
+#[cfg(feature = "exp-3d")]
+fn opaque_count(data: &[u8]) -> usize {
+    data.as_chunks::<4>().0.iter().filter(|c| c[3] > 0).count()
+}
+
+#[cfg(feature = "exp-3d")]
+mod exp_3d_phase2_tests {
+    use super::*;
+    use crate::compilers::html::parse_html_scene;
+    use crate::renderer::mesh3d::{Mesh, MeshTexture, render_mesh3d_to_pixmap};
+    use tiny_skia::Pixmap;
+
+    #[test]
+    fn test_gltf_loader_parses_in_memory_glb() {
+        let glb = build_glb_quad();
+        let mesh = Mesh::from_gltf_bytes(&glb).expect("in-memory GLB must parse");
+        assert_eq!(mesh.vertices.len(), 4);
+        assert_eq!(mesh.indices.len(), 6);
+        // Normals are synthesized because the file has no NORMAL attribute.
+        for v in &mesh.vertices {
+            assert!(
+                (v.normal.length() - 1.0).abs() < 1e-4,
+                "synthesized normal must be unit length, got {:?}",
+                v.normal
+            );
+        }
+        // UVs come straight from TEXCOORD_0.
+        assert!((mesh.vertices[1].uv[0] - 1.0).abs() < 1e-5);
+        // The loader normalizes into the unit cube.
+        for v in &mesh.vertices {
+            for axis in 0..3 {
+                assert!(
+                    v.position[axis].abs() <= 0.5 + 1e-5,
+                    "normalized position out of unit cube: {:?}",
+                    v.position
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_gltf_loader_renders_non_empty_pixels() {
+        let mesh = Mesh::from_gltf_bytes(&build_glb_quad()).expect("GLB must parse");
+        let mut pixmap = Pixmap::new(200, 200).unwrap();
+        render_mesh3d_to_pixmap(
+            &mut pixmap.as_mut(),
+            &mesh,
+            20.0,
+            20.0,
+            160.0,
+            160.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            None,
+        );
+        let drawn = opaque_count(pixmap.data());
+        assert!(
+            drawn > 1000,
+            "imported GLB mesh must fill pixels, got {}",
+            drawn
+        );
+    }
+
+    #[test]
+    fn test_gltf_loader_rejects_garbage() {
+        assert!(Mesh::from_gltf_bytes(b"not a gltf file").is_err());
+        assert!(Mesh::from_gltf_bytes(&[]).is_err());
+    }
+
+    /// 4x4 texture split into red and blue halves, so UV sampling produces two
+    /// clearly distinct albedos across the cube face.
+    fn two_tone_texture() -> MeshTexture {
+        let mut pixels = Vec::with_capacity(4 * 4 * 4);
+        for y in 0..4 {
+            for x in 0..4 {
+                if x < 2 {
+                    pixels.extend_from_slice(&[220, 30, 30, 255]);
+                } else {
+                    pixels.extend_from_slice(&[30, 60, 220, 255]);
+                }
+                let _ = y;
+            }
+        }
+        MeshTexture::from_raw(4, 4, pixels).unwrap()
+    }
+
+    #[test]
+    fn test_uv_texture_sampling_differs_from_flat_color() {
+        let mesh = Mesh::cube();
+        let texture = two_tone_texture();
+
+        let mut flat = Pixmap::new(200, 200).unwrap();
+        render_mesh3d_to_pixmap(
+            &mut flat.as_mut(),
+            &mesh,
+            20.0,
+            20.0,
+            160.0,
+            160.0,
+            45.0,
+            "#FFFFFF",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            20.0,
+            30.0,
+            0.0,
+            None,
+        );
+
+        let mut textured = Pixmap::new(200, 200).unwrap();
+        render_mesh3d_to_pixmap(
+            &mut textured.as_mut(),
+            &mesh,
+            20.0,
+            20.0,
+            160.0,
+            160.0,
+            45.0,
+            "#FFFFFF",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            20.0,
+            30.0,
+            0.0,
+            Some(&texture),
+        );
+
+        assert_ne!(
+            flat.data(),
+            textured.data(),
+            "textured render must differ from the flat-colored render"
+        );
+        // Both texture halves must show up, otherwise UV mapping is degenerate.
+        let mut reddish = 0;
+        let mut bluish = 0;
+        for chunk in textured.data().as_chunks::<4>().0 {
+            if chunk[3] == 0 {
+                continue;
+            }
+            if chunk[0] > chunk[2] + 30 {
+                reddish += 1;
+            }
+            if chunk[2] > chunk[0] + 30 {
+                bluish += 1;
+            }
+        }
+        assert!(
+            reddish > 100 && bluish > 100,
+            "both texture halves must be sampled, got red={reddish} blue={bluish}"
+        );
+    }
+
+    #[test]
+    fn test_textured_render_is_deterministic() {
+        let mesh = Mesh::cube();
+        let texture = two_tone_texture();
+
+        let render = |pixmap: &mut Pixmap| {
+            render_mesh3d_to_pixmap(
+                &mut pixmap.as_mut(),
+                &mesh,
+                20.0,
+                20.0,
+                160.0,
+                160.0,
+                45.0,
+                "#FFFFFF",
+                [0.5, -1.0, 0.5],
+                false,
+                1.0,
+                1.0,
+                30.0,
+                25.0,
+                10.0,
+                Some(&texture),
+            );
+        };
+
+        let mut a = Pixmap::new(200, 200).unwrap();
+        let mut b = Pixmap::new(200, 200).unwrap();
+        render(&mut a);
+        render(&mut b);
+        assert_eq!(
+            a.data(),
+            b.data(),
+            "textured render must be byte-for-byte deterministic"
+        );
+    }
+
+    #[test]
+    fn test_specular_and_rim_do_not_darken_the_base_color() {
+        // Regression guard for the shading upgrade: the brighter Blinn-Phong
+        // pipeline must still keep a lit face at least as bright as the old
+        // ambient floor, and never produce pure black on a lit silhouette.
+        let mesh = Mesh::sphere(16, 32);
+        let mut pixmap = Pixmap::new(200, 200).unwrap();
+        render_mesh3d_to_pixmap(
+            &mut pixmap.as_mut(),
+            &mesh,
+            20.0,
+            20.0,
+            160.0,
+            160.0,
+            45.0,
+            "#38BDF8",
+            [0.5, -1.0, 0.5],
+            false,
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            None,
+        );
+        let data = pixmap.data();
+        let mut max_blue = 0u8;
+        let mut black = 0usize;
+        for chunk in data.as_chunks::<4>().0 {
+            if chunk[3] == 0 {
+                continue;
+            }
+            max_blue = max_blue.max(chunk[2]);
+            if chunk[0] == 0 && chunk[1] == 0 && chunk[2] == 0 {
+                black += 1;
+            }
+        }
+        assert!(
+            max_blue > 200,
+            "lit pixel must reach near base blue, got {max_blue}"
+        );
+        assert_eq!(black, 0, "lit shading must not paint pure black pixels");
+    }
+
+    #[test]
+    fn test_mesh3d_src_and_texture_through_asset_store() {
+        // End-to-end wiring: `src`/`texture` on a real Mesh3d layer must load
+        // through AssetStore and reach the pixmap, and repeat identically.
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let model = root.join("assets/mesh_cube.glb");
+        let texture = root.join("assets/mesh_checker.png");
+        assert!(
+            model.exists(),
+            "showcase GLB must exist: {}",
+            model.display()
+        );
+        assert!(
+            texture.exists(),
+            "showcase texture must exist: {}",
+            texture.display()
+        );
+
+        // Absolute paths keep the test independent of the process cwd, which
+        // other parallel tests also read.
+        let model_src = model.display().to_string().replace('\\', "/");
+        let texture_src = texture.display().to_string().replace('\\', "/");
+        let html = format!(
+            r##"<scene width="320" height="320" fps="30" duration="1.0" background="#070B14">
+                <mesh3d x="40" y="40" width="240" height="240" src="{model_src}"
+                        texture="{texture_src}" color="#FFFFFF" rotate-x="20" rotate-y="30" />
+            </scene>"##
+        );
+        let scene = parse_html_scene(&html).unwrap();
+
+        let assets = AssetStore::load_for_scene(&scene, &root.join(".rustren_cache"))
+            .expect("AssetStore must preload the GLB model");
+        assert!(
+            assets.mesh3d.contains_key(&model_src),
+            "mesh3d cache must be populated by load_for_scene"
+        );
+
+        let frame_a = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
+        let frame_b = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
+        assert_eq!(
+            frame_a, frame_b,
+            "GLB pipeline render must be deterministic"
+        );
+
+        // Both checker colors must be present, proving UV texture mapping ran.
+        let mut warm = 0usize;
+        let mut cool = 0usize;
+        for chunk in frame_a.as_chunks::<4>().0 {
+            if chunk[3] == 0 {
+                continue;
+            }
+            if chunk[0] > chunk[2] + 25 {
+                warm += 1;
+            }
+            if chunk[2] > chunk[0] + 25 {
+                cool += 1;
+            }
+        }
+        assert!(
+            warm > 500 && cool > 500,
+            "checker texture must show both hues, got warm={warm} cool={cool}"
+        );
+    }
 }
