@@ -206,6 +206,107 @@ async fn check_rate_limit(state: &AppState, ip: IpAddr) -> Result<(), Response> 
     Ok(())
 }
 
+async fn get_index(State(state): State<AppState>) -> Response {
+    let version = env!("CARGO_PKG_VERSION");
+    let auth_note = if state.config.api_key.is_some() {
+        "Required for `/validate` and `/jobs*`. Send `Authorization: Bearer <API_KEY>` or `x-api-key: <API_KEY>`."
+    } else {
+        "Not required on this server (no API key configured)."
+    };
+    let notice_block = std::env::var("RUSTREN_API_NOTICE")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .map(|s| format!("\n> **Note:** {s}\n"))
+        .unwrap_or_default();
+    let limits = &state.config.limits;
+    let body = format!(
+        r##"# Rustren Video Rendering API (v{version})
+{notice_block}
+Headless, programmatic MP4 video rendering API. Submit a JSON scene description and download the rendered MP4 video.
+
+All endpoint paths below are relative to this base URL (e.g. if you fetched `https://example.com/rustren/`, call `https://example.com/rustren/jobs`).
+
+## Authentication
+{auth_note}
+
+## Quickstart Workflow for AI Agents
+1. **Learn the Scene Format**: Fetch `GET ./guide` (human/LLM authoring guide), `GET ./schema` (JSON Schema), and `GET ./capabilities` (supported layers, effects, transitions, easing).
+2. **Validate First**: `POST ./validate` with your Scene JSON to catch schema, capability, or lint issues before rendering.
+3. **Submit Render Job**: `POST ./jobs` with either a raw Scene JSON object or `{{"scene": <Scene>, "composition": "<optional_profile>", "webhook_url": "<optional_https_url>"}}`. Returns `202 Accepted` with `{{"job_id": "...", "status": "queued", "warnings": [...]}}`.
+4. **Poll & Download**: Poll `GET ./jobs/{{job_id}}` until `status` is `"completed"` (or `"failed"`), then download the MP4 from `GET ./jobs/{{job_id}}/video` (include the same auth header).
+
+## Endpoints
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| `GET` | `./` or `./llms.txt` | Public | This API discovery guide (Markdown) |
+| `GET` | `./health` | Public | Server status, worker count, active jobs |
+| `GET` | `./capabilities` | Public | Supported layer types, effects, transitions, easing (JSON) |
+| `GET` | `./schema` | Public | Full Scene JSON Schema |
+| `GET` | `./guide` | Public | Detailed Scene authoring guide (`SCHEMA.md`) |
+| `POST` | `./validate` | Auth | Validate Scene JSON and return lint warnings |
+| `POST` | `./jobs` | Auth | Queue a video render job (`202 Accepted`) |
+| `GET` | `./jobs/{{id}}` | Auth | Check job status (`queued`, `processing`, `completed`, `failed`) |
+| `GET` | `./jobs/{{id}}/video` | Auth | Download rendered `video/mp4` once completed |
+
+## Server Limits
+- Max resolution: `{max_w}x{max_h}` @ `{max_fps}` fps
+- Max duration: `{max_dur}s`
+- Workers: `{workers}` | Rate limit: `{rl}` req/min | Video TTL: `{ttl}s`
+- Local filesystem paths in scenes: `{local_paths}` (use `https://` URLs or inline SVG/Canvas/Text layers when `false`)
+
+## Minimal Example
+```bash
+# 1. Submit a 3-second test video
+curl -sS -X POST "$BASE_URL/jobs" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{{
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "duration": 3.0,
+    "background": "#0f172a",
+    "layers": [
+      {{
+        "type": "text",
+        "text": "Hello from Rustren!",
+        "x": 640,
+        "y": 360,
+        "font_size": 64,
+        "color": "#ffffff",
+        "align": "center"
+      }}
+    ]
+  }}'
+
+# 2. Poll status
+curl -sS -H "Authorization: Bearer $API_KEY" "$BASE_URL/jobs/$JOB_ID"
+
+# 3. Download MP4
+curl -sS -H "Authorization: Bearer $API_KEY" "$BASE_URL/jobs/$JOB_ID/video" -o out.mp4
+```
+"##,
+        version = version,
+        notice_block = notice_block,
+        auth_note = auth_note,
+        max_w = limits.max_width,
+        max_h = limits.max_height,
+        max_fps = limits.max_fps,
+        max_dur = limits.max_duration_secs,
+        workers = state.config.workers,
+        rl = state.config.rate_limit_per_min,
+        ttl = state.config.ttl_secs,
+        local_paths = limits.allow_local_paths,
+    );
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/markdown; charset=utf-8")
+        .body(Body::from(body))
+        .unwrap_or_else(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "Response error"))
+}
+
 async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
     let jobs = state.jobs.read().await;
     let active_jobs = jobs
@@ -548,6 +649,8 @@ pub async fn run_server(config: ServeConfig) -> anyhow::Result<()> {
     tokio::spawn(cleanup_loop(cleanup_state));
 
     let app = Router::new()
+        .route("/", get(get_index))
+        .route("/llms.txt", get(get_index))
         .route("/health", get(health))
         .route("/schema", get(get_schema))
         .route("/guide", get(get_guide))
