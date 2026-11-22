@@ -3,7 +3,7 @@
 All notable changes to `rustren` are documented in this file.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.4.1] - 2026-11-22
 
 ### Added
 - **MCP Actuation & Sensors**: `rustren mcp <scene>` scene actions (`add_layer`, `remove_layer`, `add_animation`) now persist atomically to disk, and new tools `validate_scene`, `snapshot_scene`, `inspect_layout`, `diff_scenes` and `render_video` let an agent author, measure, diff and render without leaving the protocol. MCP is available in every build (no `pro` feature gate).

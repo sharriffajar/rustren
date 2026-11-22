@@ -1,6 +1,6 @@
 [package]
 name = "rustren"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 license = "AGPL-3.0-only"
 description = "Browserless 2.5D Video Render Engine in Rust"

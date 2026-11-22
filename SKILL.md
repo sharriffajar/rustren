@@ -3,7 +3,7 @@ name: rustren
 description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for 3D, live streaming, or editing existing video timelines frame-by-frame in a GUI.
 metadata:
   skill_version: "1.3.0"
-  rustren_version: "0.4.0"
+  rustren_version: "0.4.1"
   schema_version: "1.1"
   renderer_version: "1.1"
 ---
