@@ -4,7 +4,7 @@
 
 # rustren
 
-Browserless 2D video render engine in Rust — built to be **fast** and **predictable for AI-generated video**.
+Browserless 2.5D video render engine in Rust — built to be **fast** and **predictable for AI-generated video**.
 
 ```
 AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Previews (snapshot / layout) → Renderer executes → MP4 out
