@@ -3,6 +3,19 @@
 All notable changes to `rustren` are documented in this file.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **MCP Actuation & Sensors**: `rustren mcp <scene>` scene actions (`add_layer`, `remove_layer`, `add_animation`) now persist atomically to disk, and new tools `validate_scene`, `snapshot_scene`, `inspect_layout`, `diff_scenes` and `render_video` let an agent author, measure, diff and render without leaving the protocol. MCP is available in every build (no `pro` feature gate).
+- **Composition Variables in the Compiler**: `data-composition-variables` defaults are applied when compiling HTML, so CLI `validate`/`snapshot`/`render` match Studio behavior.
+
+### Changed
+- **Unified Asset Resolution**: `validate --check-assets`, `snapshot`, `layout`, `diff` and `render` now resolve relative asset paths identically (scene file directory first, then the working directory).
+
+### Fixed
+- Silently-dropped HTML `snake_case` attributes (e.g. `font_size=`) now raise a `snake_case_attribute` warning with line/column, and `rustren validate --fix` renames them to kebab-case.
+- `validate --fix` no longer skips attributes after a closing `</svg>` tag.
+
 ## [0.4.0] - 2026-11-22
 
 ### Added

@@ -1,4 +1,3 @@
-#[cfg(any(feature = "pro", test))]
 mod actions;
 mod animation;
 mod assets;
@@ -11,7 +10,6 @@ mod examples_cmd;
 mod fix;
 mod ir;
 mod lint;
-#[cfg(feature = "pro")]
 mod mcp;
 mod renderer;
 mod schema;
@@ -275,7 +273,6 @@ enum Commands {
         cache_dir: PathBuf,
     },
     /// Start MCP (Model Context Protocol) stdio JSON-RPC server for AI agents
-    #[cfg(feature = "pro")]
     Mcp {
         /// Path to the scene JSON file to inspect/edit
         input: PathBuf,
@@ -598,9 +595,10 @@ fn main() -> Result<()> {
             }
 
             // Catch missing local assets before the (expensive) render starts,
-            // instead of after ffmpeg has been spawned. Paths are resolved the
-            // same way the asset loader resolves them (relative to the cwd).
-            if let Some(warning) = lint::check_local_assets(scene, None).first() {
+            // instead of after ffmpeg has been spawned. Paths resolve exactly
+            // the way the asset loader resolves them: relative to the scene
+            // file first, then the working directory.
+            if let Some(warning) = lint::check_local_assets(scene, input.parent()).first() {
                 fail(&error_format, "missing_asset", &warning.message, 1);
             }
 
@@ -626,10 +624,11 @@ fn main() -> Result<()> {
                 ),
             }
 
-            if let Err(e) = render_scene_to_file_with_profile(
+            if let Err(e) = render_scene_to_file_with_base(
                 scene,
                 &output,
                 Path::new(&cache_dir),
+                input.parent(),
                 crf,
                 &preset,
                 profile,
@@ -689,10 +688,12 @@ fn main() -> Result<()> {
             if let Err(e) = capabilities::validate_scene_capabilities(scene) {
                 fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
             }
-            let assets = match AssetStore::load_for_scene(scene, Path::new(&cache_dir)) {
-                Ok(a) => a,
-                Err(e) => fail(&error_format, "missing_asset", &format!("{e:#}"), 1),
-            };
+            let base_dir = input.parent();
+            let assets =
+                match AssetStore::load_for_scene_with_base(scene, Path::new(&cache_dir), base_dir) {
+                    Ok(a) => a,
+                    Err(e) => fail(&error_format, "missing_asset", &format!("{e:#}"), 1),
+                };
             if let Err(e) = render_snapshots(scene, &assets, &t, &output, sheet, cols) {
                 fail(&error_format, "snapshot_failed", &format!("{e:#}"), 1);
             }
@@ -742,10 +743,12 @@ fn main() -> Result<()> {
             if let Err(e) = capabilities::validate_scene_capabilities(scene) {
                 fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
             }
-            let assets = match AssetStore::load_for_scene(scene, Path::new(&cache_dir)) {
-                Ok(a) => a,
-                Err(e) => fail(&error_format, "missing_asset", &format!("{e:#}"), 1),
-            };
+            let base_dir = input.parent();
+            let assets =
+                match AssetStore::load_for_scene_with_base(scene, Path::new(&cache_dir), base_dir) {
+                    Ok(a) => a,
+                    Err(e) => fail(&error_format, "missing_asset", &format!("{e:#}"), 1),
+                };
             let layout = match renderer::inspect_layout_at_time(scene, &assets, t) {
                 Ok(l) => l,
                 Err(e) => fail(&error_format, "layout_failed", &format!("{e:#}"), 1),
@@ -910,7 +913,6 @@ fn main() -> Result<()> {
                 .build()?;
             rt.block_on(studio::run_studio(Some(&input), &host, port, &cache_dir))?;
         }
-        #[cfg(feature = "pro")]
         Commands::Mcp { input } => {
             mcp::run_mcp_server(&input)?;
         }
@@ -1075,7 +1077,7 @@ fn collect_video_audio_tracks(
 }
 
 pub fn render_scene_to_file(scene: &Scene, output: &Path, cache_dir: &Path) -> Result<()> {
-    render_scene_to_file_with_options(scene, output, cache_dir, 18, "medium")
+    render_scene_to_file_with_base(scene, output, cache_dir, None, 18, "medium", false)
 }
 
 pub fn render_scene_to_file_with_options(
@@ -1085,7 +1087,7 @@ pub fn render_scene_to_file_with_options(
     crf: u8,
     preset: &str,
 ) -> Result<()> {
-    render_scene_to_file_with_profile(scene, output, cache_dir, crf, preset, false)
+    render_scene_to_file_with_base(scene, output, cache_dir, None, crf, preset, false)
 }
 
 pub fn render_scene_to_file_with_profile(
@@ -1096,12 +1098,27 @@ pub fn render_scene_to_file_with_profile(
     preset: &str,
     profile: bool,
 ) -> Result<()> {
+    render_scene_to_file_with_base(scene, output, cache_dir, None, crf, preset, profile)
+}
+
+/// Render a scene whose assets resolve against `base_dir` (the scene file's
+/// directory) first, then the working directory.
+#[allow(clippy::too_many_arguments)]
+pub fn render_scene_to_file_with_base(
+    scene: &Scene,
+    output: &Path,
+    cache_dir: &Path,
+    base_dir: Option<&Path>,
+    crf: u8,
+    preset: &str,
+    profile: bool,
+) -> Result<()> {
     if profile {
         renderer::reset_cache_stats();
     } else {
         renderer::clear_render_caches();
     }
-    let assets = AssetStore::load_for_scene(scene, cache_dir)?;
+    let assets = AssetStore::load_for_scene_with_base(scene, cache_dir, base_dir)?;
     let mut audio_tracks: Vec<_> = scene
         .audio
         .iter()
@@ -1308,7 +1325,7 @@ pub(crate) fn premul_to_rgba_image(w: u32, h: u32, mut data: Vec<u8>) -> Result<
         .ok_or_else(|| anyhow::anyhow!("Failed to construct RGBA image {w}x{h}"))
 }
 
-fn render_snapshots(
+pub(crate) fn render_snapshots(
     scene: &Scene,
     assets: &AssetStore,
     times: &[f32],
@@ -1418,7 +1435,7 @@ fn render_preview_once(
         scene.apply_profile(comp_name)?;
     }
     capabilities::validate_scene_capabilities(scene)?;
-    let assets = AssetStore::load_for_scene(scene, cache_dir)?;
+    let assets = AssetStore::load_for_scene_with_base(scene, cache_dir, input.parent())?;
     let rgba = renderer::render_frame_at_time(scene, &assets, t)?;
     let img = premul_to_rgba_image(scene.canvas.width, scene.canvas.height, rgba)?;
     if let Some(parent) = output.parent()
@@ -1501,7 +1518,7 @@ struct DiffReport {
     changed_pct: f64,
 }
 
-fn run_diff(
+pub(crate) fn run_diff(
     baseline: &Path,
     current: &Path,
     t: f32,
@@ -1513,14 +1530,16 @@ fn run_diff(
     let base_compiled = base_compiler.compile(baseline)?;
     let scene_base = base_compiled.as_static();
     capabilities::validate_scene_capabilities(scene_base)?;
-    let assets_base = AssetStore::load_for_scene(scene_base, cache_dir)?;
+    let assets_base =
+        AssetStore::load_for_scene_with_base(scene_base, cache_dir, baseline.parent())?;
     let rgba_base = renderer::render_frame_at_time(scene_base, &assets_base, t)?;
 
     let curr_compiler = compilers::detect(current)?;
     let curr_compiled = curr_compiler.compile(current)?;
     let scene_curr = curr_compiled.as_static();
     capabilities::validate_scene_capabilities(scene_curr)?;
-    let assets_curr = AssetStore::load_for_scene(scene_curr, cache_dir)?;
+    let assets_curr =
+        AssetStore::load_for_scene_with_base(scene_curr, cache_dir, current.parent())?;
     let rgba_curr = renderer::render_frame_at_time(scene_curr, &assets_curr, t)?;
 
     if scene_base.canvas.width != scene_curr.canvas.width

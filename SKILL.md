@@ -2,7 +2,7 @@
 name: rustren
 description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for 3D, live streaming, or editing existing video timelines frame-by-frame in a GUI.
 metadata:
-  skill_version: "1.2.0"
+  skill_version: "1.3.0"
   rustren_version: "0.4.0"
   schema_version: "1.1"
   renderer_version: "1.1"
@@ -227,7 +227,7 @@ Asset downloads are cached on disk (`--cache-dir`, default `.rustren_cache`). Re
 ## 11. Machine interfaces
 
 - **CLI**: every command above; use exit codes (`0` ok, non-zero failure).
-- **MCP**: `rustren mcp` starts a stdio JSON-RPC server (Model Context Protocol) so an agent can call tools without shelling out.
+- **MCP**: `rustren mcp <scene>` starts a stdio JSON-RPC server (Model Context Protocol) so an agent can close the whole loop without shelling out. Actions (`add_layer`, `remove_layer`, `add_animation`) are written back to disk atomically, and sensor/execution tools (`validate_scene`, `snapshot_scene`, `inspect_layout`, `diff_scenes`, `render_video`) let the agent verify what it changed. MCP is stdio-only, so it is available in every build, including `--no-default-features`.
 - **HTTP**: `rustren serve --host 0.0.0.0 --port 8080` with `RUSTREN_API_KEY` set; queue-based render service.
 - **Discovery**: `rustren capabilities` (JSON), [schema.json](schema.json) (JSON Schema).
 
@@ -288,6 +288,13 @@ errors point at the offending tag (`line 2, column 3: <include> is missing a src
 
 ## Changelog
 
+- **1.3.0** (rustren 0.4.0, schema 1.1): agent autonomy pass. MCP now actuates (scene actions are
+  written back to disk atomically) and senses (`validate_scene`, `snapshot_scene`, `inspect_layout`,
+  `diff_scenes`, `render_video`), and is available in every build (no `pro` gate). Asset paths
+  resolve identically in `validate --check-assets`, `snapshot`, `layout`, `diff` and `render` (scene
+  directory first, then cwd). `data-composition-variables` defaults are applied by the HTML compiler,
+  so files like `examples/cuboid_carousel.html` compile straight from the CLI. The HTML linter flags
+  silently-dropped snake_case attributes (e.g. `font_size`) and `--fix` renames them to kebab-case.
 - **1.2.0** (rustren 0.4.0, schema 1.1): v0.4.0 release — dual AGPL-3.0-only / Commercial license, full engine enabled by default (`default = ["pro"]`), `rustren fix`, source maps, structured JSON diagnostics, `rustren examples`, SDK parity generator, shorthand hex colors, and opt-in `--features exp-3d` (glTF/GLB + UV texture + Blinn-Phong).
 - **1.1.4** (rustren 0.3.1, schema 1.1, experimental): `exp-3d` Phase 2. `Mesh3d` layers can now
   load a local `.glb`/`.gltf` model via `src` (`Texture`/UV via `texture`), with `Mesh::from_gltf_bytes`

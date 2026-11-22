@@ -581,7 +581,44 @@ pub fn parse_html_scene(html_content: &str) -> Result<Scene> {
 }
 
 pub fn parse_html_scene_with_base(html_content: &str, base_dir: Option<&Path>) -> Result<Scene> {
-    parse_html_scene_internal(html_content, base_dir, 0, &HashMap::new())
+    // `data-composition-variables` declares defaults for `{{name}}` placeholders.
+    // Studio applies user overrides before parsing; the plain CLI compiles with
+    // the declared defaults so the same file validates and renders everywhere.
+    let with_defaults = apply_composition_defaults(html_content);
+    let content = with_defaults.as_deref().unwrap_or(html_content);
+    parse_html_scene_internal(content, base_dir, 0, &HashMap::new())
+}
+
+/// Substitute `data-composition-variables` defaults into the source. Returns
+/// `None` when the document declares no variables, so the input is untouched.
+fn apply_composition_defaults(html_content: &str) -> Option<String> {
+    let document = Html::parse_document(html_content);
+    let sel = Selector::parse("html[data-composition-variables]").ok()?;
+    let attr = document
+        .select(&sel)
+        .next()
+        .and_then(|el| el.value().attr("data-composition-variables"))?;
+    let vars_json: Vec<serde_json::Value> = serde_json::from_str(attr).ok()?;
+    let mut vars = HashMap::new();
+    for dv in &vars_json {
+        let Some(id) = dv.get("id").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        let Some(default) = dv.get("default") else {
+            continue;
+        };
+        let value = match default {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Number(n) => n.to_string(),
+            serde_json::Value::Bool(b) => b.to_string(),
+            other => other.to_string(),
+        };
+        vars.insert(id.to_string(), value);
+    }
+    if vars.is_empty() {
+        return None;
+    }
+    Some(substitute_variables(html_content, &vars))
 }
 
 fn parse_html_scene_internal(

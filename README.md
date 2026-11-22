@@ -216,7 +216,25 @@ rustren render scene.json -o output.mp4 --crf 20 --preset fast --profile
 
 # Start the HTTP render API server
 rustren serve --port 8080
+
+# Start the MCP stdio server (AI agents: edit, validate, snapshot, diff, render)
+rustren mcp scene.json
 ```
+
+## MCP Server for AI Agents (`rustren mcp`)
+`rustren mcp scene.json` speaks JSON-RPC 2.0 over stdio, so an agent can close the
+author → measure → repair loop without shelling out. Available in every build
+(no `pro` feature gate).
+
+| Tool | Purpose |
+|---|---|
+| `get_scene_summary`, `add_layer`, `remove_layer`, `add_animation` | Inspect/edit; edits are written back to disk atomically |
+| `validate_scene` | Compile + lint + asset check, returns JSON diagnostics |
+| `snapshot_scene` | Render `t`/`times` to PNG, optional `sheet` |
+| `inspect_layout` | Computed boxes + measured text, optional `diagnose` |
+| `diff_scenes` | Visual regression against another scene at `t` |
+| `render_video` | Render the scene to MP4 (`crf`, `preset`, `composition`) |
+| `detect_beats` | Audio beat timestamps for beat-sync |
 
 ## HTTP Render API (`rustren serve`)
 Start the async job queue server (with SSRF protection, rate limiting, and configurable canvas/duration limits):

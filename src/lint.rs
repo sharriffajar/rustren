@@ -941,14 +941,7 @@ fn collect_layer_determinism(
 /// by [`collect_determinism_warnings_structured`].
 pub fn check_local_assets(scene: &Scene, base_dir: Option<&std::path::Path>) -> Vec<LintWarning> {
     fn resolve(src: &str, base_dir: Option<&std::path::Path>) -> std::path::PathBuf {
-        let p = std::path::PathBuf::from(src);
-        if p.is_absolute() {
-            return p;
-        }
-        match base_dir {
-            Some(dir) => dir.join(p),
-            None => p,
-        }
+        crate::assets::resolve_local_asset(src, base_dir)
     }
     fn is_remote(src: &str) -> bool {
         src.starts_with("http://") || src.starts_with("https://")
@@ -989,14 +982,7 @@ fn check_layer_assets(
     out: &mut Vec<LintWarning>,
 ) {
     fn resolve(src: &str, base_dir: Option<&std::path::Path>) -> std::path::PathBuf {
-        let p = std::path::PathBuf::from(src);
-        if p.is_absolute() {
-            return p;
-        }
-        match base_dir {
-            Some(dir) => dir.join(p),
-            None => p,
-        }
+        crate::assets::resolve_local_asset(src, base_dir)
     }
     fn is_remote(src: &str) -> bool {
         src.starts_with("http://") || src.starts_with("https://")

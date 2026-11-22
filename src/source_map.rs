@@ -256,6 +256,62 @@ fn is_opaque_tag(name: &str) -> bool {
     matches!(name, "html" | "head" | "body" | "meta" | "link" | "script" | "style")
 }
 
+/// Known JSON/schema field names that the HTML compiler expects in kebab-case.
+///
+/// Authors (especially agents trained on JSON scenes) often write `font_size=`,
+/// which the HTML compiler silently drops and falls back to a default. This
+/// list maps each silently-dropped snake_case name to the kebab-case name that
+/// actually works, so `validate` can warn and `--fix` can rewrite it.
+pub const SNAKE_CASE_ATTRIBUTES: &[(&str, &str)] = &[
+    ("font_size", "font-size"),
+    ("font_weight", "font-weight"),
+    ("font_family", "font-family"),
+    ("letter_spacing", "letter-spacing"),
+    ("line_height", "line-height"),
+    ("text_align", "text-align"),
+    ("max_width", "max-width"),
+    ("border_radius", "border-radius"),
+    ("border_width", "border-width"),
+    ("blend_mode", "blend-mode"),
+    ("box_shadow", "box-shadow"),
+    ("flex_direction", "flex-direction"),
+    ("flex_wrap", "flex-wrap"),
+    ("flex_grow", "flex-grow"),
+    ("justify_content", "justify-content"),
+    ("align_items", "align-items"),
+    ("row_gap", "row-gap"),
+    ("column_gap", "column-gap"),
+    ("shadow_color", "shadow-color"),
+    ("shadow_blur", "shadow-blur"),
+    ("shadow_x", "shadow-x"),
+    ("shadow_y", "shadow-y"),
+    ("outline_color", "outline-color"),
+    ("outline_width", "outline-width"),
+    ("stroke_width", "stroke-width"),
+    ("stroke_dasharray", "stroke-dasharray"),
+    ("trim_start", "trim-start"),
+    ("trim_end", "trim-end"),
+    ("fade_in", "fade-in"),
+    ("fade_out", "fade-out"),
+    ("playback_rate", "playback-rate"),
+    ("bar_gap", "bar-gap"),
+    ("start_sec", "start-sec"),
+    ("end_sec", "end-sec"),
+    ("stagger_secs", "stagger-secs"),
+    ("dynamic_start", "dynamic-start"),
+    ("dynamic_end", "dynamic-end"),
+    ("trim_start_sec", "trim-start-sec"),
+    ("trim_end_sec", "trim-end-sec"),
+];
+
+/// Look up the kebab-case spelling for a silently-dropped snake_case attribute.
+pub fn kebab_case_for(name: &str) -> Option<&'static str> {
+    SNAKE_CASE_ATTRIBUTES
+        .iter()
+        .find(|(snake, _)| *snake == name)
+        .map(|(_, kebab)| *kebab)
+}
+
 /// Scan HTML source for values the compiler would silently ignore or that the
 /// renderer would reject, with precise `line`/`column` locations.
 ///
@@ -340,6 +396,22 @@ pub fn lint_html_source(src: &str) -> Vec<SourceIssue> {
                 continue;
             };
             let name = attr.name.as_str();
+
+            // `font_size=` is valid in JSON but silently ignored in HTML, where
+            // the compiler only reads `font-size`. Warn instead of falling back
+            // to a default without telling the author.
+            if let Some(kebab) = kebab_case_for(name) {
+                issues.push(SourceIssue {
+                    code: "snake_case_attribute",
+                    path: format!("{path_prefix}.{name}"),
+                    message: format!(
+                        "{}: attribute {name}=\"{value}\" is ignored by the HTML compiler; use the kebab-case form {kebab}=\"{value}\"",
+                        map.loc(attr.value_offset)
+                    ),
+                    fix: Some(format!("rename {name} to {kebab}")),
+                });
+                continue;
+            }
 
             if BOX_SHORTHAND_ATTRIBUTES.contains(&name) {
                 if value.split_whitespace().all(|p| p.parse::<f32>().is_ok()) {
@@ -451,6 +523,39 @@ mod tests {
     #[test]
     fn accepts_valid_values_and_box_shorthands() {
         let src = "<scene><container padding=\"4 10\" x=\"40\" color=\"#FFF\"/></scene>";
+        let issues = lint_html_source(src);
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    #[test]
+    fn flags_snake_case_attributes_with_kebab_fix() {
+        let src = "<scene width=\"640\">\n  <text font_size=\"32\" max_width=\"200\"/></scene>";
+        let issues = lint_html_source(src);
+        let codes: Vec<_> = issues.iter().map(|i| i.code).collect();
+        assert_eq!(codes, ["snake_case_attribute", "snake_case_attribute"]);
+        assert!(
+            issues[0].message.contains("line 2, column 20"),
+            "{}",
+            issues[0].message
+        );
+        assert!(
+            issues[0].message.contains("font-size=\"32\""),
+            "{}",
+            issues[0].message
+        );
+        assert_eq!(issues[0].path, "text[0].font_size");
+        assert_eq!(
+            issues[0].fix.as_deref(),
+            Some("rename font_size to font-size")
+        );
+        assert_eq!(issues[1].path, "text[0].max_width");
+    }
+
+    #[test]
+    fn accepted_snake_case_aliases_are_not_flagged() {
+        // The HTML compiler genuinely reads these snake_case spellings, and
+        // animation properties accept both spellings too.
+        let src = "<scene><container z_index=\"2\" rotate_x=\"5\" track_matte=\"alpha\"/></scene>";
         let issues = lint_html_source(src);
         assert!(issues.is_empty(), "{issues:?}");
     }
