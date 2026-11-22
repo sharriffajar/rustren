@@ -244,7 +244,12 @@ cargo test --release
 ```
 
 ## License
-Licensed under the [Apache License, Version 2.0](LICENSE).
+`rustren` is **dual-licensed**:
+
+- **Open Source — [GNU Affero General Public License v3.0 (`AGPL-3.0-only`)](LICENSE)**: Free to use, modify, and self-host for personal projects, research, and AGPL-compatible open-source software. If you run a modified or integrated version of `rustren` as a network service / SaaS, you must make the corresponding source code available under AGPL-3.0.
+- **Commercial License (Whitelist)**: For companies, agencies, or SaaS products that want to embed or operate `rustren` in proprietary / closed-source commercial workflows without AGPL-3.0 obligations, please contact the repository owner to obtain a commercial license.
+
+*(Note: Previous releases `v0.1.0`–`v0.3.1` remain under their original Apache-2.0 license.)*
 
 
 ---
