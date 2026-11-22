@@ -489,6 +489,19 @@ fn fix_html_attrs(tag: &str, path: &str, applied: &mut Vec<AppliedFix>) -> Strin
 
         let lower = attr.name.to_ascii_lowercase();
 
+        // The HTML compiler only reads kebab-case names; a snake_case attribute
+        // is silently dropped, so rename it to the spelling that works.
+        if let Some(kebab) = crate::source_map::kebab_case_for(&lower) {
+            applied.push(AppliedFix {
+                path: path.to_string(),
+                field: attr.name.to_string(),
+                before: attr.name.to_string(),
+                after: kebab.to_string(),
+            });
+            out.push_str(&render_attr(kebab, value, attr.quote));
+            continue;
+        }
+
         if HTML_NUMERIC_ATTRS.contains(&lower.as_str())
             && has_unit_suffix(value)
             && let Some(num) = strip_numeric_units(value)
@@ -598,16 +611,20 @@ pub fn fix_html_str(raw: &str) -> (String, Vec<AppliedFix>) {
         let tag = &raw[start..i];
 
         // Comments, doctypes and processing instructions are not attribute lists.
-        let name_start = tag
+        let is_closing = tag.starts_with("</");
+        // Closing tags (`</svg>`) must still yield the element name, otherwise
+        // `svg_depth` never returns to 0 and every later tag is skipped.
+        let name_from = if is_closing { 2 } else { 1 };
+        let name_start = tag[name_from.min(tag.len())..]
             .find(|c: char| c.is_whitespace() || c == '>' || c == '/')
+            .map(|p| p + name_from)
             .unwrap_or(tag.len());
-        let tag_name = tag[1.min(tag.len())..name_start].trim();
+        let tag_name = tag[name_from.min(tag.len())..name_start].trim();
         if tag.starts_with("<!") || tag.starts_with("<?") || tag_name.is_empty() {
             out.push_str(tag);
             continue;
         }
 
-        let is_closing = tag.starts_with("</");
         let is_self_closing = tag.trim_end().ends_with("/>");
         let is_svg = tag_name.eq_ignore_ascii_case("svg");
 
@@ -763,6 +780,28 @@ mod tests {
                 .iter()
                 .any(|f| f.field == "position" && f.after.contains("center"))
         );
+    }
+
+    #[test]
+    fn renames_snake_case_html_attributes() {
+        let raw = "<scene width=\"640\">\n  <text font_size=\"32\" max_width=\"200\">Hi</text>\n</scene>";
+        let (fixed, applied) = fix_html_str(raw);
+        assert!(fixed.contains("font-size=\"32\""), "{fixed}");
+        assert!(fixed.contains("max-width=\"200\""), "{fixed}");
+        assert!(!fixed.contains("font_size"), "{fixed}");
+        assert_eq!(applied.len(), 2);
+        assert_eq!(applied[0].path, "text[0]");
+        assert_eq!(applied[0].after, "font-size");
+    }
+
+    #[test]
+    fn fixes_attributes_after_a_closing_svg_tag() {
+        // A closing `</svg>` must reset `svg_depth`; otherwise every later tag
+        // is treated as raw SVG and its fixes are skipped.
+        let raw = "<container>\n  <svg width=\"32\" height=\"32\"><path d=\"M0 0\" /></svg>\n  <text font_size=\"22\">Hi</text>\n</container>";
+        let (fixed, applied) = fix_html_str(raw);
+        assert!(fixed.contains("font-size=\"22\""), "{fixed}");
+        assert_eq!(applied.len(), 1);
     }
 
     #[test]

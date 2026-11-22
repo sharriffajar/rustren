@@ -391,3 +391,152 @@ fn diff_json_reports_verdict_without_stderr() {
     assert_eq!(payload["ok"], false);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn snake_case_html_attribute_warns_and_fixes() {
+    let dir = std::env::temp_dir().join("rustren_cli_snake_case");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("snake.html");
+    std::fs::write(
+        &path,
+        "<scene width=\"640\" height=\"360\" duration=\"2\">\n  <text x=\"10\" y=\"10\" font_size=\"32\" color=\"#FFFFFF\">Hi</text>\n</scene>\n",
+    )
+    .unwrap();
+
+    let validate = run(&["validate", path.to_str().unwrap()]);
+    assert_eq!(exit_code(&validate), 0, "{}", stderr(&validate));
+    let err = stderr(&validate);
+    assert!(
+        err.contains("attribute font_size=\"32\" is ignored"),
+        "{err}"
+    );
+    assert!(err.contains("font-size=\"32\""), "{err}");
+
+    let fixed = run(&["validate", "--fix", path.to_str().unwrap()]);
+    assert_eq!(exit_code(&fixed), 0);
+    let out = stdout(&fixed);
+    assert!(out.contains("font-size=\"32\""), "{out}");
+    assert!(!out.contains("font_size="), "{out}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn composition_variables_resolve_at_compile_time() {
+    // `data-composition-variables` used to be applied only by Studio, so the CLI
+    // rendered `#{{glowColor}}` and failed with an invalid hex color.
+    let validate = run(&["validate", "examples/cuboid_carousel.html"]);
+    assert_eq!(exit_code(&validate), 0, "{}", stderr(&validate));
+    assert!(
+        !stderr(&validate).contains("glowColor"),
+        "composition defaults were not substituted: {}",
+        stderr(&validate)
+    );
+
+    let out = run(&[
+        "snapshot",
+        "examples/cuboid_carousel.html",
+        "-t",
+        "1.0",
+        "-o",
+        "/tmp/rustren_cli_carousel.png",
+    ]);
+    assert_eq!(exit_code(&out), 0, "{}", stderr(&out));
+    assert!(!stderr(&out).contains("glowColor"), "{}", stderr(&out));
+    let _ = std::fs::remove_file("/tmp/rustren_cli_carousel.png");
+}
+
+#[test]
+fn validate_assets_match_render_resolution() {
+    // `showreel.json` lives in examples/ but references `assets/logo.png`
+    // relative to the repo root. validate --check-assets and render must agree
+    // that the asset exists.
+    let out = run(&["validate", "--check-assets", "examples/showreel.json"]);
+    assert_eq!(exit_code(&out), 0, "{}", stderr(&out));
+    assert!(
+        !stderr(&out).contains("logo.png"),
+        "false missing-asset warning: {}",
+        stderr(&out)
+    );
+}
+
+#[test]
+fn mcp_tools_persist_and_sense_end_to_end() {
+    use std::io::{BufRead, BufReader, Write};
+    use std::process::{Command, Stdio};
+
+    let dir = std::env::temp_dir().join("rustren_cli_mcp");
+    std::fs::create_dir_all(&dir).unwrap();
+    let scene = dir.join("scene.json");
+    std::fs::write(
+        &scene,
+        r##"{
+  "canvas": { "width": 320, "height": 180, "fps": 30, "duration_secs": 1.0, "background": "#000000" },
+  "layers": []
+}"##,
+    )
+    .unwrap();
+
+    let mut child = Command::new(binary())
+        .args(["mcp", scene.to_str().unwrap()])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn mcp server");
+
+    let requests = [
+        r#"{"jsonrpc":"2.0","id":0,"method":"initialize"}"#.to_string(),
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#.to_string(),
+        r##"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"add_layer","arguments":{"layer":{"type":"rect","x":10.0,"y":10.0,"width":50.0,"height":20.0,"color":"#22D3EE"}}}}"##.to_string(),
+        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"validate_scene","arguments":{}}}"#.to_string(),
+        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"inspect_layout","arguments":{"t":0.0,"diagnose":true}}}"#.to_string(),
+    ];
+    {
+        let stdin = child.stdin.as_mut().unwrap();
+        for req in &requests {
+            writeln!(stdin, "{req}").unwrap();
+        }
+    }
+    let _ = child.stdin.take();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let mut responses = Vec::new();
+    for line in BufReader::new(std::io::Cursor::new(output.stdout)).lines() {
+        responses.push(serde_json::from_str::<serde_json::Value>(&line.unwrap()).unwrap());
+    }
+    assert_eq!(responses.len(), requests.len(), "{responses:#?}");
+
+    let tools = responses[1]["result"]["tools"].as_array().unwrap();
+    assert_eq!(tools.len(), 10);
+    assert!(responses[2].get("error").is_none(), "{:?}", responses[2]);
+
+    // The edit must be on disk.
+    let on_disk: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&scene).unwrap()).unwrap();
+    assert_eq!(on_disk["layers"].as_array().unwrap().len(), 1);
+
+    let validate_payload: serde_json::Value = serde_json::from_str(
+        responses[3]["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(validate_payload["valid"], true);
+    assert_eq!(validate_payload["root_layers"], 1);
+
+    let layout_payload: serde_json::Value = serde_json::from_str(
+        responses[4]["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(layout_payload["layout"].is_array(), "{layout_payload}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

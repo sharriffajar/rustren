@@ -29,13 +29,47 @@ pub struct AssetStore {
     pub mesh3d: HashMap<String, std::sync::Arc<crate::renderer::mesh3d::Mesh>>,
 }
 
+/// Resolve a local asset path exactly the way the loader does, for linters.
+///
+/// Relative paths are tried against the scene file's directory first and then
+/// against the process working directory. The first existing candidate wins; if
+/// neither exists, the scene-relative path is returned so the warning names the
+/// path the author most likely meant.
+pub fn resolve_local_asset(src: &str, base_dir: Option<&Path>) -> PathBuf {
+    let p = PathBuf::from(src);
+    if p.is_absolute() {
+        return p;
+    }
+    if let Some(dir) = base_dir {
+        let candidate = dir.join(&p);
+        if candidate.exists() {
+            return candidate;
+        }
+    }
+    if p.exists() {
+        return p;
+    }
+    match base_dir {
+        Some(dir) => dir.join(p),
+        None => p,
+    }
+}
+
 impl AssetStore {
-    pub fn load_for_scene(scene: &Scene, cache_dir: &Path) -> Result<Self> {
+    /// Load every asset referenced by `scene`. Relative asset paths resolve
+    /// against `base_dir` (the scene file's directory) first, then the working
+    /// directory, so `validate --check-assets`, `snapshot`, `layout`, `diff`
+    /// and `render` all agree.
+    pub fn load_for_scene_with_base(
+        scene: &Scene,
+        cache_dir: &Path,
+        base_dir: Option<&Path>,
+    ) -> Result<Self> {
         fs::create_dir_all(cache_dir).context("Failed to create asset cache directory")?;
 
         let mut fonts = Vec::with_capacity(scene.fonts.len());
         for font_src in &scene.fonts {
-            let path = resolve_to_path(font_src, cache_dir)?;
+            let path = resolve_to_path_with_base(font_src, cache_dir, base_dir)?;
             let bytes = fs::read(&path)
                 .with_context(|| format!("Failed to read font file: {}", path.display()))?;
             fonts.push(bytes);
@@ -47,6 +81,7 @@ impl AssetStore {
         collect_layer_assets(
             &scene.layers,
             cache_dir,
+            base_dir,
             &mut images,
             &mut svgs,
             &mut videos,
@@ -54,12 +89,12 @@ impl AssetStore {
 
         let mut audio_paths = Vec::with_capacity(scene.audio.len());
         for track in &scene.audio {
-            let path = resolve_to_path(&track.src, cache_dir)?;
+            let path = resolve_to_path_with_base(&track.src, cache_dir, base_dir)?;
             audio_paths.push(path);
         }
 
         #[cfg(feature = "exp-3d")]
-        let mesh3d = collect_mesh3d_models(&scene.layers, cache_dir)?;
+        let mesh3d = collect_mesh3d_models(&scene.layers, cache_dir, base_dir)?;
 
         Ok(Self {
             fonts,
@@ -71,6 +106,13 @@ impl AssetStore {
             mesh3d,
         })
     }
+
+    /// Load assets relative to the working directory, for callers that render
+    /// an already-compiled scene without knowing its source path.
+    #[cfg_attr(not(any(feature = "pro", test)), allow(dead_code))]
+    pub fn load_for_scene(scene: &Scene, cache_dir: &Path) -> Result<Self> {
+        Self::load_for_scene_with_base(scene, cache_dir, None)
+    }
 }
 
 /// Parse every `Mesh3d.src` model once, resolving relative paths the same way
@@ -80,9 +122,10 @@ impl AssetStore {
 fn collect_mesh3d_models(
     layers: &[Layer],
     cache_dir: &Path,
+    base_dir: Option<&Path>,
 ) -> Result<HashMap<String, std::sync::Arc<crate::renderer::mesh3d::Mesh>>> {
     let mut out = HashMap::new();
-    collect_mesh3d_models_into(layers, cache_dir, &mut out)?;
+    collect_mesh3d_models_into(layers, cache_dir, base_dir, &mut out)?;
     Ok(out)
 }
 
@@ -90,6 +133,7 @@ fn collect_mesh3d_models(
 fn collect_mesh3d_models_into(
     layers: &[Layer],
     cache_dir: &Path,
+    base_dir: Option<&Path>,
     out: &mut HashMap<String, std::sync::Arc<crate::renderer::mesh3d::Mesh>>,
 ) -> Result<()> {
     for layer in layers {
@@ -97,7 +141,7 @@ fn collect_mesh3d_models_into(
             LayerKind::Mesh3d { src: Some(src), .. }
                 if !src.trim().is_empty() && !out.contains_key(src) =>
             {
-                let path = resolve_to_path(src, cache_dir)?;
+                let path = resolve_to_path_with_base(src, cache_dir, base_dir)?;
                 let bytes = fs::read(&path)
                     .with_context(|| format!("Failed to read 3D model: {}", path.display()))?;
                 let base = path.parent();
@@ -108,7 +152,7 @@ fn collect_mesh3d_models_into(
             }
             LayerKind::Mesh3d { .. } => {}
             LayerKind::Container { children, .. } => {
-                collect_mesh3d_models_into(children, cache_dir, out)?;
+                collect_mesh3d_models_into(children, cache_dir, base_dir, out)?;
             }
             _ => {}
         }
@@ -119,6 +163,7 @@ fn collect_mesh3d_models_into(
 fn collect_layer_assets(
     layers: &[Layer],
     cache_dir: &Path,
+    base_dir: Option<&Path>,
     images: &mut HashMap<String, image::RgbaImage>,
     svgs: &mut HashMap<String, Vec<u8>>,
     videos: &mut HashMap<String, VideoAsset>,
@@ -127,7 +172,7 @@ fn collect_layer_assets(
         match &layer.kind {
             LayerKind::Image { src, .. } => {
                 if !images.contains_key(src) {
-                    let path = resolve_to_path(src, cache_dir)?;
+                    let path = resolve_to_path_with_base(src, cache_dir, base_dir)?;
                     let img = image::open(&path)
                         .with_context(|| format!("Failed to decode image: {}", path.display()))?
                         .to_rgba8();
@@ -139,7 +184,7 @@ fn collect_layer_assets(
                     let bytes = if src.trim_start().starts_with('<') {
                         src.as_bytes().to_vec()
                     } else {
-                        let path = resolve_to_path(src, cache_dir)?;
+                        let path = resolve_to_path_with_base(src, cache_dir, base_dir)?;
                         fs::read(&path)
                             .with_context(|| format!("Failed to read SVG: {}", path.display()))?
                     };
@@ -148,13 +193,13 @@ fn collect_layer_assets(
             }
             LayerKind::Video { src, .. } => {
                 if !videos.contains_key(src) {
-                    let path = resolve_to_path(src, cache_dir)?;
+                    let path = resolve_to_path_with_base(src, cache_dir, base_dir)?;
                     let asset = load_video_asset(&path)?;
                     videos.insert(src.clone(), asset);
                 }
             }
             LayerKind::Container { children, .. } => {
-                collect_layer_assets(children, cache_dir, images, svgs, videos)?;
+                collect_layer_assets(children, cache_dir, base_dir, images, svgs, videos)?;
             }
             _ => {}
         }
@@ -259,7 +304,13 @@ fn load_video_asset(path: &Path) -> Result<VideoAsset> {
     })
 }
 
-pub fn resolve_to_path(src: &str, cache_dir: &Path) -> Result<PathBuf> {
+/// Resolve a remote URL into the cache, or a local path against the scene
+/// file's directory first (see [`resolve_local_asset`]).
+pub fn resolve_to_path_with_base(
+    src: &str,
+    cache_dir: &Path,
+    base_dir: Option<&Path>,
+) -> Result<PathBuf> {
     if src.starts_with("http://") || src.starts_with("https://") {
         crate::security::validate_remote_url(src)?;
         let mut hasher = Sha256::new();
@@ -291,6 +342,6 @@ pub fn resolve_to_path(src: &str, cache_dir: &Path) -> Result<PathBuf> {
             .with_context(|| format!("Failed to write cache file: {}", cached_path.display()))?;
         Ok(cached_path)
     } else {
-        Ok(PathBuf::from(src))
+        Ok(resolve_local_asset(src, base_dir))
     }
 }
