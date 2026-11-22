@@ -273,12 +273,24 @@ cargo test --release
 `rustren` is **dual-licensed**:
 
 - **Open Source — [GNU Affero General Public License v3.0 (`AGPL-3.0-only`)](LICENSE)**: Free to use, modify, and self-host for personal projects, research, and AGPL-compatible open-source software. If you run a modified or integrated version of `rustren` as a network service / SaaS, you must make the corresponding source code available under AGPL-3.0.
-- **Commercial License (Whitelist)**: For companies, agencies, or SaaS products that want to embed or operate `rustren` in proprietary / closed-source commercial workflows without AGPL-3.0 obligations, please contact the repository owner to obtain a commercial license.
+- **Commercial License (Whitelist)**: For companies, agencies, or SaaS products that want to embed or operate `rustren` in proprietary / closed-source commercial workflows without AGPL-3.0 obligations, see [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
 
 *(Note: Previous releases `v0.1.0`–`v0.3.1` remain under their original Apache-2.0 license.)*
 
 
 ---
+
+## v0.4.0 Features (AI-First DX, Auto-Fix, Full Engine by Default & `exp-3d`)
+
+- **Auto-Repair Scenes (`rustren validate --fix`)**: Automatically fixes common AI-generated mistakes in both JSON and HTML scenes (stripping numeric units like `px`, expanding shorthand hex `#RGB` colors, normalizing named colors, moving invalid `position` values into `anchor`). Use `--in-place` to rewrite the file directly.
+  ```bash
+  rustren validate scene.html --fix --in-place
+  ```
+- **Structured Agent Diagnostics (`--error-format json`)**: Emits machine-readable JSON diagnostics with exact source line, column, and field paths across `validate`, `render`, `snapshot`, `layout`, and `diff`.
+- **Built-in Examples Explorer (`rustren examples`)**: List and inspect bundled showcase scenes directly from the CLI (`rustren examples list`, `rustren examples show <name>`).
+- **Full Engine Enabled by Default**: `cargo install rustren` now ships with the complete Turbo pipeline (Planar YUV420p, temporal frame dedup, buffer pooling), SIMD `fast_image_resize` for all image/video fit modes, automatic 1-frame GPU hardware encoder probing, 18 bundled Allo font weights, plus `serve`, `mcp`, and `studio`.
+- **SDK Parity Generator**: `scripts/gen_sdk.py` + `tests/sdk_parity.rs` keep `schema.json`, `sdk/python/rustren_types.py`, and `sdk/typescript/rustren.d.ts` strictly synchronized.
+- **Experimental CPU 3D (`--features exp-3d`)**: Opt-in software 3D rasterizer (`<mesh3d>`) with procedural primitives, `.glb`/`.gltf` model loading, UV texture mapping, anti-aliasing, and Blinn-Phong specular/rim lighting.
 
 ## v0.3.0 Features (Studio UI, Beats & MCP)
 
