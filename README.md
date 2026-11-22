@@ -117,21 +117,33 @@ rustren render examples/cuboid_carousel.html -o cuboid.mp4
 - **AI Authoring & Debugging Tools**: Instant single-frame / contact-sheet `snapshot`, computed bounding-box `layout` inspection, smart `validate` linting, and `--profile` performance breakdown.
 
 ## Prerequisites & Installation
-- **Rust toolchain** (edition `2024`, Cargo)
 - **`ffmpeg`** (and `ffprobe` for `video` layers) available in `PATH`
 - **Automatic GPU Hardware Encoding**: Probes for a working GPU H.264 encoder (`h264_nvenc`, `h264_videotoolbox`, `h264_qsv`) by default and falls back cleanly to `libx264` CPU encoding when unavailable. Override with `RUSTREN_HW_ENCODER=off` (force CPU) or an explicit encoder name.
 
-Build from source:
+### Quick Install (Prebuilt Binary — No Rust Required)
+Always installs the latest GitHub Release automatically:
+
+**Linux (`x86_64`) / macOS (`Apple Silicon`):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/sharriffajar/rustren/main/scripts/install.sh | sh
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/sharriffajar/rustren/main/scripts/install.ps1 | iex
+```
+
+### Install via Cargo (`crates.io`)
+```bash
+cargo install rustren
+```
+
+### Build from Source
 ```bash
 git clone https://github.com/sharriffajar/rustren.git
 cd rustren
 cargo build --release
 # Binary will be at ./target/release/rustren
-```
-
-Or install into `~/.cargo/bin`:
-```bash
-cargo install --path .
 ```
 
 ## Quick Start
