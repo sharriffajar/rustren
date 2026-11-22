@@ -11,7 +11,6 @@ categories = ["multimedia::video", "command-line-utilities"]
 exclude = [
     "assets/showreel.mp4",
     "assets/showreel_sheet.png",
-    "assets/logo.png",
     "examples/",
     "scripts/",
     "sdk/",
