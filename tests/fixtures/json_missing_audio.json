@@ -1,0 +1,7 @@
+{
+  "canvas": { "width": 64, "height": 64, "fps": 30, "duration_secs": 1.0 },
+  "audio": [{ "src": "fixtures/audio/nope.wav" }],
+  "layers": [
+    { "type": "rect", "x": 8, "y": 8, "width": 48, "height": 48, "color": "#FF0000" }
+  ]
+}

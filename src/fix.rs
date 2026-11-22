@@ -153,6 +153,18 @@ fn is_hex_color(s: &str) -> bool {
     matches!(body.len(), 3 | 4 | 6 | 8) && body.chars().all(|c| c.is_ascii_hexdigit())
 }
 
+/// Expand CSS shorthand hex (`#RGB`/`#RGBA`) to its long form. Returns `None`
+/// when the input is not a shorthand color, so callers can leave it untouched.
+fn expand_short_hex(s: &str) -> Option<String> {
+    let t = s.trim();
+    let body = t.strip_prefix('#')?;
+    if !matches!(body.len(), 3 | 4) || !body.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    let expanded: String = body.chars().flat_map(|c| [c, c]).collect();
+    Some(format!("#{}", expanded.to_ascii_uppercase()))
+}
+
 /// Walk a JSON value and apply safe fixes, collecting them into `applied`.
 pub fn fix_json_value(root: &mut Value) -> Vec<AppliedFix> {
     let mut applied = Vec::new();
@@ -185,19 +197,22 @@ fn walk(node: &mut Value, path: &str, applied: &mut Vec<AppliedFix>) {
                 }
             }
 
-            // Named colors in color fields.
+            // Named colors in color fields, plus CSS shorthand hex normalization.
             for key in COLOR_FIELDS {
-                if let Some(Value::String(s)) = map.get(*key)
-                    && !is_hex_color(s)
-                    && let Some(hex) = named_color_to_hex(s)
-                {
+                if let Some(Value::String(s)) = map.get(*key) {
+                    let replacement = if !is_hex_color(s) {
+                        named_color_to_hex(s).map(|hex| hex.to_string())
+                    } else {
+                        expand_short_hex(s)
+                    };
+                    let Some(after) = replacement else { continue };
                     let before = s.clone();
-                    map.insert((*key).to_string(), Value::String(hex.to_string()));
+                    map.insert((*key).to_string(), Value::String(after.clone()));
                     applied.push(AppliedFix {
                         path: path.to_string(),
                         field: (*key).to_string(),
                         before,
-                        after: hex.to_string(),
+                        after,
                     });
                 }
             }
@@ -505,6 +520,17 @@ fn fix_html_attrs(tag: &str, path: &str, applied: &mut Vec<AppliedFix>) -> Strin
             });
             out.push_str(&render_attr(attr.name, hex, attr.quote));
             continue;
+        } else if HTML_COLOR_ATTRS.contains(&lower.as_str())
+            && let Some(hex) = expand_short_hex(value)
+        {
+            applied.push(AppliedFix {
+                path: path.to_string(),
+                field: attr.name.to_string(),
+                before: value.to_string(),
+                after: hex.clone(),
+            });
+            out.push_str(&render_attr(attr.name, &hex, attr.quote));
+            continue;
         } else if lower == "position"
             && let Some(anchor) = html_anchor_from_position(value)
         {
@@ -632,7 +658,8 @@ mod tests {
     fn html_paths_are_indexed_per_tag_name() {
         // Two rects plus a scene: `--fix` paths must match validate warning
         // paths (`rect[0]`, `rect[1]`), not a document-wide counter.
-        let raw = r##"<scene width="640"><rect x="10px" y="20px"/><rect x="30px" color="red"/></scene>"##;
+        let raw =
+            r##"<scene width="640"><rect x="10px" y="20px"/><rect x="30px" color="red"/></scene>"##;
         let (_, applied) = fix_html_str(raw);
         assert_eq!(applied[0].path, "rect[0]");
         assert_eq!(applied[1].path, "rect[0]");
@@ -656,6 +683,26 @@ mod tests {
         let v: Value = serde_json::from_str(&fixed).unwrap();
         assert_eq!(v["canvas"]["width"], 1280);
         assert_eq!(v["layers"][0]["color"], "#FFFFFF");
+    }
+
+    #[test]
+    fn expands_shorthand_hex_colors() {
+        let raw = r##"{"canvas":{"background":"#FFF"},"layers":[{"type":"rect","color":"#F00","border_color":"#0f08"}]}"##;
+        let (fixed, applied) = fix_json_str(raw).unwrap();
+        let v: Value = serde_json::from_str(&fixed).unwrap();
+        assert_eq!(v["canvas"]["background"], "#FFFFFF");
+        assert_eq!(v["layers"][0]["color"], "#FF0000");
+        assert_eq!(v["layers"][0]["border_color"], "#00FF0088");
+        assert_eq!(applied.len(), 3, "{applied:?}");
+    }
+
+    #[test]
+    fn expands_shorthand_hex_in_html_attributes() {
+        let raw = r##"<scene width="640"><rect x="0" y="0" width="20" height="20" color="#F00"/></scene>"##;
+        let (fixed, applied) = fix_html_str(raw);
+        assert!(fixed.contains(r##"color="#FF0000""##), "{fixed}");
+        assert_eq!(applied.len(), 1, "{applied:?}");
+        assert_eq!(applied[0].before, "#F00");
     }
 
     #[test]

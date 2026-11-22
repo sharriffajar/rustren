@@ -307,7 +307,10 @@ fn test_conformance_determinism_complex_scene() {
     }"##;
     let frame_a = render_json_frame(json, 15);
     let frame_b = render_json_frame(json, 15);
-    assert_eq!(frame_a, frame_b, "render_frame must be byte-for-byte deterministic");
+    assert_eq!(
+        frame_a, frame_b,
+        "render_frame must be byte-for-byte deterministic"
+    );
 }
 
 #[test]
@@ -332,7 +335,10 @@ fn test_conformance_blur_and_shadow() {
     assert!(sh_px[0] > 0, "expected shadow red pixel, got {sh_px:?}");
     // Blurred edge just outside rect (x=18, y=35) should be > 0 due to blur
     let blur_px = pixel_at(&buf, 100, 18, 35);
-    assert!(blur_px[0] > 0, "expected blurred edge pixel, got {blur_px:?}");
+    assert!(
+        blur_px[0] > 0,
+        "expected blurred edge pixel, got {blur_px:?}"
+    );
 }
 
 #[test]
@@ -376,9 +382,20 @@ fn test_conformance_rich_text_and_letter_spacing() {
         ]
     }"##;
     let buf = render_json_frame(json, 0);
-    let has_red = buf.as_chunks::<4>().0.iter().any(|p| p[0] > 180 && p[1] < 50);
-    let has_green = buf.as_chunks::<4>().0.iter().any(|p| p[1] > 180 && p[0] < 50);
-    assert!(has_red && has_green, "expected both red and green rich text spans");
+    let has_red = buf
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .any(|p| p[0] > 180 && p[1] < 50);
+    let has_green = buf
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .any(|p| p[1] > 180 && p[0] < 50);
+    assert!(
+        has_red && has_green,
+        "expected both red and green rich text spans"
+    );
 }
 
 #[test]
@@ -484,14 +501,25 @@ fn test_conformance_video_layer_decode_and_trim() {
     // Frame 0 without trim -> red-dominant
     let f0_raw = render_json_frame(&json_untreated, 0);
     let p_raw = pixel_at(&f0_raw, 32, 16, 16);
-    assert!(p_raw[0] > 200 && p_raw[2] < 50, "expected red pixel, got {:?}", p_raw);
+    assert!(
+        p_raw[0] > 200 && p_raw[2] < 50,
+        "expected red pixel, got {:?}",
+        p_raw
+    );
 
     // Frame 0 with trim_start_sec=0.6 -> blue-dominant
     let f0_trim_a = render_json_frame(&json_trimmed, 0);
     let f0_trim_b = render_json_frame(&json_trimmed, 0);
-    assert_eq!(f0_trim_a, f0_trim_b, "video frame rendering must be deterministic");
+    assert_eq!(
+        f0_trim_a, f0_trim_b,
+        "video frame rendering must be deterministic"
+    );
     let p_trim = pixel_at(&f0_trim_a, 32, 16, 16);
-    assert!(p_trim[2] > 200 && p_trim[0] < 50, "expected blue pixel after trim, got {:?}", p_trim);
+    assert!(
+        p_trim[2] > 200 && p_trim[0] < 50,
+        "expected blue pixel after trim, got {:?}",
+        p_trim
+    );
 
     let _ = std::fs::remove_file(&tmp_video);
 }
@@ -649,15 +677,22 @@ fn test_conformance_circle_absolute_cx_inside_container_and_svg_gradient_progres
     );
     let f_svg = render_json_frame(&json_svg, 0);
     let p_mid = pixel_at(&f_svg, 40, 20, 20);
-    assert!(p_mid[1] > 100 && p_mid[2] > 100, "expected green-blue gradient fill, got {:?}", p_mid);
+    assert!(
+        p_mid[1] > 100 && p_mid[2] > 100,
+        "expected green-blue gradient fill, got {:?}",
+        p_mid
+    );
     let _ = std::fs::remove_file(&tmp_svg);
 }
 
 #[test]
 fn test_schema_md_examples_parse_and_validate() {
-    let schema_json: serde_json::Value =
-        serde_json::from_str(include_str!("../schema.json")).expect("schema.json must be valid JSON");
-    assert!(schema_json.get("properties").is_some(), "schema.json missing properties");
+    let schema_json: serde_json::Value = serde_json::from_str(include_str!("../schema.json"))
+        .expect("schema.json must be valid JSON");
+    assert!(
+        schema_json.get("properties").is_some(),
+        "schema.json missing properties"
+    );
 
     let md = include_str!("../SCHEMA.md");
     let mut rest = md;
@@ -685,7 +720,10 @@ fn test_schema_md_examples_parse_and_validate() {
             checked += 1;
         }
     }
-    assert!(checked >= 1, "Expected at least 1 complete scene JSON example in SCHEMA.md");
+    assert!(
+        checked >= 1,
+        "Expected at least 1 complete scene JSON example in SCHEMA.md"
+    );
 }
 
 #[test]
@@ -707,7 +745,9 @@ fn test_smart_lint_grouping_contrast_and_bounds() {
     let scene: crate::schema::Scene = serde_json::from_str(json).unwrap();
     let warnings = crate::lint::collect_lint_warnings(&scene);
     assert!(
-        warnings.iter().any(|w| w.contains("4 layers have font_size < 14px")),
+        warnings
+            .iter()
+            .any(|w| w.contains("4 layers have font_size < 14px")),
         "expected grouped font_size warning, got {warnings:?}"
     );
     assert!(
@@ -775,7 +815,10 @@ fn test_layout_inspection_and_snapshot_at_time() {
     let title = &layout[0].children[0];
     assert_eq!(title.x, 40.0);
     assert_eq!(title.y, 60.0);
-    let measured = title.text_measured.as_ref().expect("text_measured must be present");
+    let measured = title
+        .text_measured
+        .as_ref()
+        .expect("text_measured must be present");
     assert!(measured.width > 20.0 && measured.height > 20.0);
 
     let frame = crate::renderer::render_frame_at_time(&scene, &assets, 0.5).unwrap();
@@ -838,17 +881,28 @@ fn test_tier2_anchor_skew_stagger_dynamic_and_golden_hash() {
 
     // At t=0.25s, stagger child[0] is active (0.25 >= 0.0), child[1] is NOT yet active (0.25 < 0.5)
     let layout_early = crate::renderer::inspect_layout_at_time(&scene, &assets, 0.25).unwrap();
-    assert_eq!(layout_early[1].children.len(), 1, "stagger should hide child[1] at t=0.25s");
+    assert_eq!(
+        layout_early[1].children.len(),
+        1,
+        "stagger should hide child[1] at t=0.25s"
+    );
 
     // At t=0.75s, both stagger children are active, and centered rect covers (160, 90)
     let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 0.75).unwrap();
     let f2 = crate::renderer::render_frame_at_time(&scene, &assets, 0.75).unwrap();
     let h1 = format!("{:x}", Sha256::digest(&f1));
     let h2 = format!("{:x}", Sha256::digest(&f2));
-    assert_eq!(h1, h2, "golden-frame determinism hash must match across renders");
+    assert_eq!(
+        h1, h2,
+        "golden-frame determinism hash must match across renders"
+    );
 
     let center_px = pixel_at(&f1, 320, 160, 90);
-    assert!(center_px[2] > 200 && center_px[0] < 80, "centered blue rect expected at (160,90), got {:?}", center_px);
+    assert!(
+        center_px[2] > 200 && center_px[0] < 80,
+        "centered blue rect expected at (160,90), got {:?}",
+        center_px
+    );
 }
 
 #[test]
@@ -942,13 +996,24 @@ fn test_keyframes_fit_text_fx_radial_gradient_and_strict_determinism() {
     // At t=1.0s, keyframes opacity=1 -> radial center (100,100) is red, image contain keeps green at (40,40)
     let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
     let p_rad = pixel_at(&f1, 200, 100, 100);
-    assert!(p_rad[0] > 180 && p_rad[2] < 80, "expected radial red center, got {:?}", p_rad);
+    assert!(
+        p_rad[0] > 180 && p_rad[2] < 80,
+        "expected radial red center, got {:?}",
+        p_rad
+    );
     let p_img = pixel_at(&f1, 200, 40, 40);
-    assert!(p_img[1] > 200 && p_img[0] < 50, "expected green contained image pixel, got {:?}", p_img);
+    assert!(
+        p_img[1] > 200 && p_img[0] < 50,
+        "expected green contained image pixel, got {:?}",
+        p_img
+    );
 
     // Strict determinism check flags empty fonts[]
     let det_warnings = crate::lint::collect_determinism_warnings(&scene);
-    assert!(det_warnings.iter().any(|w| w.contains("fonts[] is empty")), "got {det_warnings:?}");
+    assert!(
+        det_warnings.iter().any(|w| w.contains("fonts[] is empty")),
+        "got {det_warnings:?}"
+    );
 
     let _ = std::fs::remove_file(&tmp_img);
 }
@@ -980,11 +1045,17 @@ fn diff_command_identical_and_modified() {
     std::fs::write(&mod_path, mod_json).unwrap();
 
     // Identical scenes pass with threshold 0.0
-    crate::run_diff(&base_path, &same_path, 0.5, 0.0, None, &cache_dir).unwrap();
+    let same = crate::run_diff(&base_path, &same_path, 0.5, 0.0, None, &cache_dir).unwrap();
+    assert_eq!(same.mae, 0.0);
 
-    // Modified scene fails threshold 0.01 and writes diff PNG
-    let err = crate::run_diff(&base_path, &mod_path, 0.5, 0.01, Some(&out_png), &cache_dir);
-    assert!(err.is_err(), "expected diff to fail on modified scene");
+    // Modified scene exceeds threshold 0.01 and writes a diff PNG. The caller
+    // owns the verdict now, so run_diff returns the computed report.
+    let report =
+        crate::run_diff(&base_path, &mod_path, 0.5, 0.01, Some(&out_png), &cache_dir).unwrap();
+    assert!(
+        report.mae as f32 > 0.01,
+        "expected a visual regression, got {report:?}"
+    );
     assert!(out_png.exists(), "expected diff PNG to be written");
 
     let _ = std::fs::remove_file(&base_path);
@@ -1047,7 +1118,10 @@ fn sprint6_waveform_parallel_timeline_and_audio_fade() {
     let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.2).unwrap();
     let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
     assert_ne!(f0, f1, "waveform bars should animate over time");
-    assert!(f0.iter().any(|&b| b > 0), "waveform should render non-black pixels");
+    assert!(
+        f0.iter().any(|&b| b > 0),
+        "waveform should render non-black pixels"
+    );
 }
 
 #[test]
@@ -1118,7 +1192,10 @@ fn test_p2_expression_rtl_and_composition_profile() {
     let assets = crate::assets::AssetStore::load_for_scene(&scene, &std::env::temp_dir()).unwrap();
     let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
     let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
-    assert_ne!(f0, f1, "expression animation should change frames over time");
+    assert_ne!(
+        f0, f1,
+        "expression animation should change frames over time"
+    );
 
     // Also verify helper functions directly
     let v_lerp = crate::animation::eval_math_expression("lerp(0, 100, 0.5)", 0.0, 0.0).unwrap();
@@ -1127,7 +1204,8 @@ fn test_p2_expression_rtl_and_composition_profile() {
     let v_clamp = crate::animation::eval_math_expression("clamp(150, 0, 100)", 0.0, 0.0).unwrap();
     assert!((v_clamp - 100.0).abs() < 1e-4);
 
-    let v_smooth = crate::animation::eval_math_expression("smoothstep(0, 1, 0.5)", 0.0, 0.0).unwrap();
+    let v_smooth =
+        crate::animation::eval_math_expression("smoothstep(0, 1, 0.5)", 0.0, 0.0).unwrap();
     assert!((v_smooth - 0.5).abs() < 1e-4);
 
     let v_abs = crate::animation::eval_math_expression("abs(-42.5)", 0.0, 0.0).unwrap();
@@ -1142,7 +1220,13 @@ fn test_studio_cuboid_carousel_defaults_and_render() {
     let mut content = std::fs::read_to_string("examples/cuboid_carousel.html").unwrap();
     let doc = scraper::Html::parse_document(&content);
     let sel = scraper::Selector::parse("html[data-composition-variables]").unwrap();
-    let vars_attr = doc.select(&sel).next().unwrap().value().attr("data-composition-variables").unwrap();
+    let vars_attr = doc
+        .select(&sel)
+        .next()
+        .unwrap()
+        .value()
+        .attr("data-composition-variables")
+        .unwrap();
     let detected_vars: Vec<serde_json::Value> = serde_json::from_str(vars_attr).unwrap();
     for dv in &detected_vars {
         let id = dv.get("id").and_then(|v| v.as_str()).unwrap();
@@ -1155,12 +1239,19 @@ fn test_studio_cuboid_carousel_defaults_and_render() {
         };
         content = content.replace(&format!("{{{{{}}}}}", id), &val_str);
     }
-    assert!(!content.contains("{{"), "Unresolved template placeholders remain");
+    assert!(
+        !content.contains("{{"),
+        "Unresolved template placeholders remain"
+    );
     let scene = crate::compilers::html::parse_html_scene(&content).unwrap();
     crate::capabilities::validate_scene_capabilities(&scene).unwrap();
-    let assets = AssetStore::load_for_scene(&scene, std::path::Path::new(".rustren_cache")).unwrap();
+    let assets =
+        AssetStore::load_for_scene(&scene, std::path::Path::new(".rustren_cache")).unwrap();
     let rgba = crate::renderer::render_frame_at_time(&scene, &assets, 0.5).unwrap();
-    assert_eq!(rgba.len(), (scene.canvas.width * scene.canvas.height * 4) as usize);
+    assert_eq!(
+        rgba.len(),
+        (scene.canvas.width * scene.canvas.height * 4) as usize
+    );
     assert!(!include_str!("studio.html").contains("bg_color"));
 }
 
@@ -1174,7 +1265,9 @@ fn test_all_examples_compile_and_validate() {
         }
         let mut content = std::fs::read_to_string(&path).unwrap();
         if ext == "html" {
-            if content.contains("components/") && !std::path::Path::new("examples/components").exists() {
+            if content.contains("components/")
+                && !std::path::Path::new("examples/components").exists()
+            {
                 continue;
             }
             let doc = scraper::Html::parse_document(&content);

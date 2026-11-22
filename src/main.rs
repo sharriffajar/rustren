@@ -1,3 +1,4 @@
+#[cfg(any(feature = "pro", test))]
 mod actions;
 mod animation;
 mod assets;
@@ -10,7 +11,6 @@ mod examples_cmd;
 mod fix;
 mod ir;
 mod lint;
-mod source_map;
 #[cfg(feature = "pro")]
 mod mcp;
 mod renderer;
@@ -18,6 +18,7 @@ mod schema;
 mod security;
 #[cfg(feature = "pro")]
 mod server;
+mod source_map;
 #[cfg(feature = "pro")]
 mod studio;
 
@@ -35,7 +36,11 @@ use encoder::FfmpegPipe;
 use schema::Scene;
 
 #[derive(Parser)]
-#[command(name = "rustren", version, about = "Browserless 2D Video Render Engine in Rust")]
+#[command(
+    name = "rustren",
+    version,
+    about = "Browserless 2D Video Render Engine in Rust"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -65,6 +70,9 @@ enum Commands {
         /// Name of composition profile to apply (e.g. "portrait", "square", "4k")
         #[arg(long)]
         composition: Option<String>,
+        /// Emit a machine-readable JSON summary (progress moves to stderr)
+        #[arg(long, value_enum, default_value_t = ErrorFormat::Text)]
+        error_format: ErrorFormat,
     },
     /// Validate and lint a scene JSON file without rendering
     Validate {
@@ -114,6 +122,9 @@ enum Commands {
         /// Name of composition profile to apply (e.g. "portrait", "square", "4k")
         #[arg(long)]
         composition: Option<String>,
+        /// Emit a machine-readable JSON summary (progress moves to stderr)
+        #[arg(long, value_enum, default_value_t = ErrorFormat::Text)]
+        error_format: ErrorFormat,
     },
     /// Inspect computed bounding boxes and measured text sizes at a given timestamp
     Layout {
@@ -131,6 +142,9 @@ enum Commands {
         /// Run automated layout troubleshooting diagnostics (overlaps, clipping, overflow)
         #[arg(long, default_value_t = false)]
         diagnose: bool,
+        /// Emit a machine-readable JSON error payload instead of plain text
+        #[arg(long, value_enum, default_value_t = ErrorFormat::Text)]
+        error_format: ErrorFormat,
     },
     /// Print supported renderer and schema capabilities as JSON
     Capabilities,
@@ -226,6 +240,9 @@ enum Commands {
         /// Directory for caching downloaded assets
         #[arg(long, default_value = ".rustren_cache")]
         cache_dir: PathBuf,
+        /// Emit a machine-readable JSON summary (progress moves to stderr)
+        #[arg(long, value_enum, default_value_t = ErrorFormat::Text)]
+        error_format: ErrorFormat,
     },
     /// Launch browser-based live studio UI with interactive timeline, scrubber and preview
     #[cfg(feature = "pro")]
@@ -287,7 +304,10 @@ fn emit_validate_error(format: &ErrorFormat, message: &str) -> Result<()> {
 fn emit_error(format: &ErrorFormat, code: &str, message: &str) -> Result<()> {
     match format {
         ErrorFormat::Json => {
+            // Shared envelope for every command: `ok` for render/snapshot/diff
+            // style consumers, `valid` for the validate contract.
             let payload = serde_json::json!({
+                "ok": false,
                 "valid": false,
                 "error": { "code": code, "message": message },
             });
@@ -296,6 +316,82 @@ fn emit_error(format: &ErrorFormat, code: &str, message: &str) -> Result<()> {
         ErrorFormat::Text => eprintln!("error: {message}"),
     }
     Ok(())
+}
+
+/// Report a command failure and terminate with the requested exit code.
+/// Errors that describe the scene use exit 2 (same as `validate`); I/O and
+/// render-runtime failures use exit 1 so agents can tell them apart.
+fn fail(error_format: &ErrorFormat, code: &str, message: &str, exit: i32) -> ! {
+    let _ = emit_error(error_format, code, message);
+    std::process::exit(exit);
+}
+
+fn is_json_input(input: &Path) -> bool {
+    input
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("json"))
+        .unwrap_or(false)
+}
+
+/// Fail early, in the requested format, when the input file does not exist.
+/// I/O problems are exit 1 (runtime failure), not exit 2 (invalid scene).
+fn require_input(input: &Path, error_format: &ErrorFormat) {
+    if !input.exists() {
+        fail(
+            error_format,
+            "input_error",
+            &format!("input file not found: {}", input.display()),
+            1,
+        );
+    }
+}
+
+/// JSON-only unknown-field gate, shared by `validate`, `render`, `snapshot`,
+/// `layout` and `diff`. Unknown fields are a hard error so a misspelled field
+/// cannot be silently ignored by a render that already passed compilation.
+fn check_json_unknown_fields(input: &Path, error_format: &ErrorFormat) {
+    if !is_json_input(input) {
+        return;
+    }
+    require_input(input, error_format);
+    let raw = match fs::read_to_string(input) {
+        Ok(raw) => raw,
+        Err(e) => fail(
+            error_format,
+            "input_error",
+            &format!("Failed to read input: {}: {}", input.display(), e),
+            1,
+        ),
+    };
+    if let Err(e) = lint::validate_no_unknown_fields(&raw) {
+        let message = gate_error_message(input, &e);
+        fail(error_format, "invalid_scene", &message, 2);
+    }
+}
+
+/// Turn a gate failure into a single-line message. JSON syntax errors get a
+/// usable line/column; serde reports column 0 at EOF, so clamp it to 1.
+fn gate_error_message(input: &Path, e: &anyhow::Error) -> String {
+    match e.downcast_ref::<serde_json::Error>() {
+        Some(syntax) => {
+            // serde's Display repeats the position; keep the message once.
+            let detail = syntax
+                .to_string()
+                .split(" at line ")
+                .next()
+                .unwrap_or("")
+                .to_string();
+            format!(
+                "JSON syntax error in {:?} (line {}, column {}): {}",
+                input,
+                syntax.line(),
+                syntax.column().max(1),
+                detail
+            )
+        }
+        None => e.to_string(),
+    }
 }
 
 fn main() -> Result<()> {
@@ -324,7 +420,11 @@ fn main() -> Result<()> {
             in_place,
         } => {
             let base_dir = input.parent();
-            let compiler = compilers::detect(&input)?;
+            require_input(&input, &error_format);
+            let compiler = match compilers::detect(&input) {
+                Ok(c) => c,
+                Err(e) => fail(&error_format, "unsupported_format", &format!("{e:#}"), 2),
+            };
 
             // --fix: rewrite (or print) safe corrections before validating the rest.
             if fix {
@@ -385,54 +485,23 @@ fn main() -> Result<()> {
 
             // Unknown-field validation needs the raw source. HTML scenes are
             // checked structurally by the compiler, so only JSON is pre-scanned.
-            if !ignore_unknown
-                && input
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .map(|e| e.eq_ignore_ascii_case("json"))
-                    .unwrap_or(false)
-            {
-                let raw = fs::read_to_string(&input)
-                    .with_context(|| format!("Failed to read input: {}", input.display()))?;
-                if let Err(e) = lint::validate_no_unknown_fields(&raw) {
-                    let message = match e.downcast_ref::<serde_json::Error>() {
-                        Some(syntax) => {
-                            // serde's Display repeats the position; keep the message once.
-                            let detail = syntax
-                                .to_string()
-                                .split(" at line ")
-                                .next()
-                                .unwrap_or("")
-                                .to_string();
-                            // serde_json reports column 0 for EOF; positions are 1-based,
-                            // so clamp to 1 to keep the hint usable.
-                            format!(
-                                "JSON syntax error in {:?} (line {}, column {}): {}",
-                                input,
-                                syntax.line(),
-                                syntax.column().max(1),
-                                detail
-                            )
-                        }
-                        None => e.to_string(),
-                    };
-                    emit_validate_error(&error_format, &message)?;
-                    std::process::exit(2);
-                }
+            if !ignore_unknown {
+                check_json_unknown_fields(&input, &error_format);
             }
 
             let mut compiled = match compiler.compile(&input) {
                 Ok(c) => c,
-                Err(e) => {
-                    emit_validate_error(&error_format, &format!("{e:#}"))?;
-                    std::process::exit(2);
-                }
+                Err(e) => fail(&error_format, "invalid_scene", &format!("{e:#}"), 2),
             };
             let scene = compiled.as_static_mut();
-            if let Some(comp_name) = composition {
-                scene.apply_profile(&comp_name)?;
+            if let Some(comp_name) = composition
+                && let Err(e) = scene.apply_profile(&comp_name)
+            {
+                fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
             }
-            capabilities::validate_scene_capabilities(scene)?;
+            if let Err(e) = capabilities::validate_scene_capabilities(scene) {
+                fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
+            }
 
             let mut structured = lint::collect_lint_warnings_structured(scene);
             if strict_determinism {
@@ -505,41 +574,90 @@ fn main() -> Result<()> {
             preset,
             profile,
             composition,
+            error_format,
         } => {
+            require_input(&input, &error_format);
+            check_json_unknown_fields(&input, &error_format);
             let start_time = Instant::now();
-            let compiler = compilers::detect(&input)?;
-            let mut compiled = compiler.compile(&input)?;
+            let compiler = match compilers::detect(&input) {
+                Ok(c) => c,
+                Err(e) => fail(&error_format, "unsupported_format", &format!("{e:#}"), 2),
+            };
+            let mut compiled = match compiler.compile(&input) {
+                Ok(c) => c,
+                Err(e) => fail(&error_format, "invalid_scene", &format!("{e:#}"), 2),
+            };
             let scene = compiled.as_static_mut();
-            if let Some(comp_name) = composition {
-                scene.apply_profile(&comp_name)?;
+            if let Some(comp_name) = composition
+                && let Err(e) = scene.apply_profile(&comp_name)
+            {
+                fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
             }
-            capabilities::validate_scene_capabilities(scene)?;
+            if let Err(e) = capabilities::validate_scene_capabilities(scene) {
+                fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
+            }
+
+            // Catch missing local assets before the (expensive) render starts,
+            // instead of after ffmpeg has been spawned. Paths are resolved the
+            // same way the asset loader resolves them (relative to the cwd).
+            if let Some(warning) = lint::check_local_assets(scene, None).first() {
+                fail(&error_format, "missing_asset", &warning.message, 1);
+            }
 
             let total_frames = (scene.canvas.duration_secs * scene.canvas.fps as f32).ceil() as u32;
-            println!(
-                "rustren: rendering {}x{} @ {}fps ({} frames, crf={}, preset={}) -> {}",
-                scene.canvas.width,
-                scene.canvas.height,
-                scene.canvas.fps,
-                total_frames,
-                crf,
-                preset,
-                output.display()
-            );
+            match error_format {
+                ErrorFormat::Text => println!(
+                    "rustren: rendering {}x{} @ {}fps ({} frames, crf={}, preset={}) -> {}",
+                    scene.canvas.width,
+                    scene.canvas.height,
+                    scene.canvas.fps,
+                    total_frames,
+                    crf,
+                    preset,
+                    output.display()
+                ),
+                ErrorFormat::Json => eprintln!(
+                    "rustren: rendering {}x{} @ {}fps ({} frames) -> {}",
+                    scene.canvas.width,
+                    scene.canvas.height,
+                    scene.canvas.fps,
+                    total_frames,
+                    output.display()
+                ),
+            }
 
-            render_scene_to_file_with_profile(
+            if let Err(e) = render_scene_to_file_with_profile(
                 scene,
                 &output,
                 Path::new(&cache_dir),
                 crf,
                 &preset,
                 profile,
-            )?;
-            println!(
-                "rustren: done in {:.2}s -> {}",
-                start_time.elapsed().as_secs_f32(),
-                output.display()
-            );
+            ) {
+                fail(&error_format, "render_failed", &format!("{e:#}"), 1);
+            }
+
+            let elapsed = start_time.elapsed().as_secs_f32();
+            match error_format {
+                ErrorFormat::Text => {
+                    println!("rustren: done in {:.2}s -> {}", elapsed, output.display())
+                }
+                ErrorFormat::Json => {
+                    let payload = serde_json::json!({
+                        "ok": true,
+                        "output": output,
+                        "canvas": {
+                            "width": scene.canvas.width,
+                            "height": scene.canvas.height,
+                            "fps": scene.canvas.fps,
+                            "duration_secs": scene.canvas.duration_secs,
+                        },
+                        "frames": total_frames,
+                        "elapsed_secs": elapsed,
+                    });
+                    println!("{}", serde_json::to_string_pretty(&payload).unwrap());
+                }
+            }
         }
         Commands::Snapshot {
             input,
@@ -549,22 +667,53 @@ fn main() -> Result<()> {
             cols,
             cache_dir,
             composition,
+            error_format,
         } => {
+            require_input(&input, &error_format);
+            check_json_unknown_fields(&input, &error_format);
             let start_time = Instant::now();
-            let compiler = compilers::detect(&input)?;
-            let mut compiled = compiler.compile(&input)?;
+            let compiler = match compilers::detect(&input) {
+                Ok(c) => c,
+                Err(e) => fail(&error_format, "unsupported_format", &format!("{e:#}"), 2),
+            };
+            let mut compiled = match compiler.compile(&input) {
+                Ok(c) => c,
+                Err(e) => fail(&error_format, "invalid_scene", &format!("{e:#}"), 2),
+            };
             let scene = compiled.as_static_mut();
-            if let Some(comp_name) = composition {
-                scene.apply_profile(&comp_name)?;
+            if let Some(comp_name) = composition
+                && let Err(e) = scene.apply_profile(&comp_name)
+            {
+                fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
             }
-            capabilities::validate_scene_capabilities(scene)?;
-            let assets = AssetStore::load_for_scene(scene, Path::new(&cache_dir))?;
-            render_snapshots(scene, &assets, &t, &output, sheet, cols)?;
-            println!(
-                "rustren: snapshot(s) rendered in {:.2}s -> {}",
-                start_time.elapsed().as_secs_f32(),
-                output.display()
-            );
+            if let Err(e) = capabilities::validate_scene_capabilities(scene) {
+                fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
+            }
+            let assets = match AssetStore::load_for_scene(scene, Path::new(&cache_dir)) {
+                Ok(a) => a,
+                Err(e) => fail(&error_format, "missing_asset", &format!("{e:#}"), 1),
+            };
+            if let Err(e) = render_snapshots(scene, &assets, &t, &output, sheet, cols) {
+                fail(&error_format, "snapshot_failed", &format!("{e:#}"), 1);
+            }
+            let elapsed = start_time.elapsed().as_secs_f32();
+            match error_format {
+                ErrorFormat::Text => println!(
+                    "rustren: snapshot(s) rendered in {:.2}s -> {}",
+                    elapsed,
+                    output.display()
+                ),
+                ErrorFormat::Json => {
+                    let payload = serde_json::json!({
+                        "ok": true,
+                        "output": output,
+                        "times": t,
+                        "count": t.len(),
+                        "elapsed_secs": elapsed,
+                    });
+                    println!("{}", serde_json::to_string_pretty(&payload).unwrap());
+                }
+            }
         }
         Commands::Layout {
             input,
@@ -572,18 +721,40 @@ fn main() -> Result<()> {
             cache_dir,
             composition,
             diagnose,
+            error_format,
         } => {
-            let compiler = compilers::detect(&input)?;
-            let mut compiled = compiler.compile(&input)?;
+            require_input(&input, &error_format);
+            check_json_unknown_fields(&input, &error_format);
+            let compiler = match compilers::detect(&input) {
+                Ok(c) => c,
+                Err(e) => fail(&error_format, "unsupported_format", &format!("{e:#}"), 2),
+            };
+            let mut compiled = match compiler.compile(&input) {
+                Ok(c) => c,
+                Err(e) => fail(&error_format, "invalid_scene", &format!("{e:#}"), 2),
+            };
             let scene = compiled.as_static_mut();
-            if let Some(comp_name) = composition {
-                scene.apply_profile(&comp_name)?;
+            if let Some(comp_name) = composition
+                && let Err(e) = scene.apply_profile(&comp_name)
+            {
+                fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
             }
-            capabilities::validate_scene_capabilities(scene)?;
-            let assets = AssetStore::load_for_scene(scene, Path::new(&cache_dir))?;
-            let layout = renderer::inspect_layout_at_time(scene, &assets, t)?;
+            if let Err(e) = capabilities::validate_scene_capabilities(scene) {
+                fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
+            }
+            let assets = match AssetStore::load_for_scene(scene, Path::new(&cache_dir)) {
+                Ok(a) => a,
+                Err(e) => fail(&error_format, "missing_asset", &format!("{e:#}"), 1),
+            };
+            let layout = match renderer::inspect_layout_at_time(scene, &assets, t) {
+                Ok(l) => l,
+                Err(e) => fail(&error_format, "layout_failed", &format!("{e:#}"), 1),
+            };
             if diagnose {
-                let diagnostics = renderer::diagnose_layout_at_time(scene, &assets, t)?;
+                let diagnostics = match renderer::diagnose_layout_at_time(scene, &assets, t) {
+                    Ok(d) => d,
+                    Err(e) => fail(&error_format, "layout_failed", &format!("{e:#}"), 1),
+                };
                 eprintln!(
                     "rustren: layout diagnostics: {} issue(s) found",
                     diagnostics.len()
@@ -592,9 +763,9 @@ fn main() -> Result<()> {
                     "layout": layout,
                     "diagnostics": diagnostics,
                 });
-                println!("{}", serde_json::to_string_pretty(&out)?);
+                println!("{}", serde_json::to_string_pretty(&out).unwrap());
             } else {
-                println!("{}", serde_json::to_string_pretty(&layout)?);
+                println!("{}", serde_json::to_string_pretty(&layout).unwrap());
             }
         }
         #[cfg(feature = "pro")]
@@ -652,15 +823,63 @@ fn main() -> Result<()> {
             threshold,
             out,
             cache_dir,
+            error_format,
         } => {
-            run_diff(
+            check_json_unknown_fields(&baseline, &error_format);
+            check_json_unknown_fields(&current, &error_format);
+            require_input(&baseline, &error_format);
+            require_input(&current, &error_format);
+            match run_diff(
                 &baseline,
                 &current,
                 t,
                 threshold,
                 out.as_deref(),
                 &cache_dir,
-            )?;
+            ) {
+                Ok(report) => {
+                    let regressed = report.mae as f32 > threshold;
+                    match error_format {
+                        ErrorFormat::Text => {
+                            println!(
+                                "Diff at t={:.2}s: MAE={:.6} RMSE={:.6} changed_pixels={:.2}% (threshold={:.6})",
+                                t, report.mae, report.rmse, report.changed_pct, threshold
+                            );
+                            if regressed {
+                                fail(
+                                    &error_format,
+                                    "visual_regression",
+                                    &format!(
+                                        "Visual regression detected: MAE {:.6} > threshold {:.6}",
+                                        report.mae, threshold
+                                    ),
+                                    1,
+                                );
+                            }
+                        }
+                        ErrorFormat::Json => {
+                            // One JSON document: `ok: false` already carries the verdict,
+                            // so a regression does not need a second error payload.
+                            // Round f32s so 0.01 does not leak as 0.009999999776482582.
+                            let round = |v: f32| ((v as f64) * 1e6).round() / 1e6;
+                            let payload = serde_json::json!({
+                                "ok": !regressed,
+                                "t": round(t),
+                                "mae": report.mae,
+                                "rmse": report.rmse,
+                                "changed_pixels_pct": report.changed_pct,
+                                "threshold": round(threshold),
+                                "out": out,
+                            });
+                            println!("{}", serde_json::to_string_pretty(&payload).unwrap());
+                            if regressed {
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                }
+                Err(e) => fail(&error_format, "diff_failed", &format!("{e:#}"), 1),
+            }
         }
         #[cfg(feature = "pro")]
         Commands::Studio {
@@ -762,7 +981,10 @@ fn run_examples(name: Option<&str>, tag: Option<&str>, format: &ErrorFormat) -> 
         }
         ErrorFormat::Text => {
             for example in &listed {
-                println!("{} ({}) - {}", example.name, example.format, example.description);
+                println!(
+                    "{} ({}) - {}",
+                    example.name, example.format, example.description
+                );
             }
             println!(
                 "\n{} example(s). Print one with `rustren examples <name>`; tags: {}",
@@ -1041,7 +1263,10 @@ pub fn render_scene_to_file_with_profile(
             }
         };
         println!("--- rustren profile ---");
-        println!("static_prefix_skipped: {static_prefix_len}/{} root layers", scene.layers.len());
+        println!(
+            "static_prefix_skipped: {static_prefix_len}/{} root layers",
+            scene.layers.len()
+        );
         println!(
             "svg_raster_cache:  hits={svg_hits}, misses={svg_misses} ({:.1}% hit)",
             pct(svg_hits, svg_misses)
@@ -1062,10 +1287,7 @@ pub fn render_scene_to_file_with_profile(
         ranked.sort_by(|a, b| b.1.cmp(&a.1));
         println!("top root layers (cumulative CPU time across {total_frames} frames):");
         for (idx, ns) in ranked.into_iter().filter(|(_, ns)| *ns > 0).take(10) {
-            let name = scene.layers[idx]
-                .name
-                .as_deref()
-                .unwrap_or("(unnamed)");
+            let name = scene.layers[idx].name.as_deref().unwrap_or("(unnamed)");
             println!("  layers[{idx}] ({name}): {:.2}ms", ns as f64 / 1_000_000.0);
         }
     }
@@ -1104,15 +1326,18 @@ fn render_snapshots(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    if sheet || frames.len() > 1 && output.extension().and_then(|e| e.to_str()) == Some("png") && sheet {
+    if sheet
+        || frames.len() > 1 && output.extension().and_then(|e| e.to_str()) == Some("png") && sheet
+    {
         // handled below
     }
 
     if !sheet && frames.len() == 1 {
         if let Some(parent) = output.parent()
-            && !parent.as_os_str().is_empty() {
-                fs::create_dir_all(parent)?;
-            }
+            && !parent.as_os_str().is_empty()
+        {
+            fs::create_dir_all(parent)?;
+        }
         frames[0].1.save(output)?;
         return Ok(());
     }
@@ -1130,10 +1355,7 @@ fn render_snapshots(
                 .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("snapshot");
-            let ext = output
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("png");
+            let ext = output.extension().and_then(|e| e.to_str()).unwrap_or("png");
             let parent = output.parent().unwrap_or_else(|| Path::new("."));
             if !parent.as_os_str().is_empty() {
                 fs::create_dir_all(parent)?;
@@ -1173,9 +1395,10 @@ fn render_snapshots(
         image::imageops::overlay(&mut canvas, &thumb, ox as i64, oy as i64);
     }
     if let Some(parent) = output.parent()
-        && !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
+    }
     canvas.save(output)?;
     Ok(())
 }
@@ -1199,9 +1422,10 @@ fn render_preview_once(
     let rgba = renderer::render_frame_at_time(scene, &assets, t)?;
     let img = premul_to_rgba_image(scene.canvas.width, scene.canvas.height, rgba)?;
     if let Some(parent) = output.parent()
-        && !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
+    }
     img.save(output)?;
     let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
     println!(
@@ -1257,7 +1481,9 @@ fn run_watch(
                 let touches_target = event.paths.iter().any(|p| p == &abs_input);
                 if touches_target && last_render.elapsed() >= Duration::from_millis(80) {
                     last_render = Instant::now();
-                    if let Err(e) = render_preview_once(&abs_input, t, output, cache_dir, composition) {
+                    if let Err(e) =
+                        render_preview_once(&abs_input, t, output, cache_dir, composition)
+                    {
                         eprintln!("Render error: {:#}", e);
                     }
                 }
@@ -1268,14 +1494,21 @@ fn run_watch(
     Ok(())
 }
 
+#[derive(Debug)]
+struct DiffReport {
+    mae: f64,
+    rmse: f64,
+    changed_pct: f64,
+}
+
 fn run_diff(
     baseline: &Path,
     current: &Path,
     t: f32,
-    threshold: f32,
+    _threshold: f32,
     out: Option<&Path>,
     cache_dir: &Path,
-) -> Result<()> {
+) -> Result<DiffReport> {
     let base_compiler = compilers::detect(baseline)?;
     let base_compiled = base_compiler.compile(baseline)?;
     let scene_base = base_compiled.as_static();
@@ -1302,8 +1535,10 @@ fn run_diff(
         );
     }
 
-    let img_base = premul_to_rgba_image(scene_base.canvas.width, scene_base.canvas.height, rgba_base)?;
-    let img_curr = premul_to_rgba_image(scene_curr.canvas.width, scene_curr.canvas.height, rgba_curr)?;
+    let img_base =
+        premul_to_rgba_image(scene_base.canvas.width, scene_base.canvas.height, rgba_base)?;
+    let img_curr =
+        premul_to_rgba_image(scene_curr.canvas.width, scene_curr.canvas.height, rgba_curr)?;
 
     let total_channels = (img_base.width() as u64) * (img_base.height() as u64) * 4;
     let mut abs_sum: u64 = 0;
@@ -1334,28 +1569,21 @@ fn run_diff(
 
     let mae = (abs_sum as f64) / (total_channels as f64 * 255.0);
     let rmse = ((sq_sum as f64) / (total_channels as f64)).sqrt() / 255.0;
-    let changed_pct = (diff_pixels as f64) * 100.0 / ((img_base.width() as f64) * (img_base.height() as f64));
+    let changed_pct =
+        (diff_pixels as f64) * 100.0 / ((img_base.width() as f64) * (img_base.height() as f64));
 
     if let Some(out_path) = out {
         if let Some(parent) = out_path.parent()
-            && !parent.as_os_str().is_empty() {
-                fs::create_dir_all(parent)?;
-            }
+            && !parent.as_os_str().is_empty()
+        {
+            fs::create_dir_all(parent)?;
+        }
         diff_img.save(out_path)?;
     }
 
-    println!(
-        "Diff at t={:.2}s: MAE={:.6} RMSE={:.6} changed_pixels={:.2}% (threshold={:.6})",
-        t, mae, rmse, changed_pct, threshold
-    );
-
-    if mae as f32 > threshold {
-        anyhow::bail!(
-            "Visual regression detected: MAE {:.6} > threshold {:.6}",
-            mae,
-            threshold
-        );
-    }
-
-    Ok(())
+    Ok(DiffReport {
+        mae,
+        rmse,
+        changed_pct,
+    })
 }

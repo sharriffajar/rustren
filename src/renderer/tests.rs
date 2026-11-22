@@ -7,7 +7,20 @@ fn test_parse_hex_color() {
     let c = parse_hex_color("#FF0000", 0.5).unwrap();
     assert!((c.red() - 1.0).abs() < 1e-5);
     assert!((c.alpha() - 0.5).abs() < 1e-5);
-    assert!(parse_hex_color("#123", 1.0).is_err());
+}
+
+#[test]
+fn test_parse_hex_color_expands_shorthand() {
+    // schema.json allows `#RGB`, so the renderer must accept it too.
+    let short = parse_hex_color("#FFF", 1.0).unwrap();
+    assert!((short.red() - 1.0).abs() < 1e-5);
+    assert!((short.green() - 1.0).abs() < 1e-5);
+    assert!((short.blue() - 1.0).abs() < 1e-5);
+    let short_alpha = parse_hex_color("#F00F", 1.0).unwrap();
+    assert!((short_alpha.red() - 1.0).abs() < 1e-5);
+    assert_eq!(short_alpha.alpha(), 1.0);
+    let half = parse_hex_color("#0008", 1.0).unwrap();
+    assert!((half.alpha() - 136.0 / 255.0).abs() < 1e-5);
 }
 
 #[test]
@@ -187,7 +200,8 @@ fn test_diagnose_layout_detects_sibling_text_overlap_and_clipping() {
     assert!(
         diags
             .iter()
-            .any(|d| d.kind == LayoutDiagnosticKind::UnexpectedTextWrap && d.path == "layers[3].children[0]"),
+            .any(|d| d.kind == LayoutDiagnosticKind::UnexpectedTextWrap
+                && d.path == "layers[3].children[0]"),
         "Expected UnexpectedTextWrap on layers[3].children[0], got: {diags:?}"
     );
 }
@@ -234,7 +248,10 @@ fn test_25d_perspective_rotation_and_backface_culling() {
     let culled_scene = crate::compilers::html::parse_html_scene(culled_html).unwrap();
     let culled_frame = render_frame_at_time(&culled_scene, &empty_assets, 0.0).unwrap();
     let c_idx = (50 * 100 + 50) * 4;
-    assert_eq!(culled_frame[c_idx], 0, "Backface should be culled when backface-visible=false");
+    assert_eq!(
+        culled_frame[c_idx], 0,
+        "Backface should be culled when backface-visible=false"
+    );
 
     let visible_html = r##"
     <scene width="100" height="100" fps="30" duration="1.0" background="#000000">
@@ -243,7 +260,10 @@ fn test_25d_perspective_rotation_and_backface_culling() {
     "##;
     let visible_scene = crate::compilers::html::parse_html_scene(visible_html).unwrap();
     let visible_frame = render_frame_at_time(&visible_scene, &empty_assets, 0.0).unwrap();
-    assert_eq!(visible_frame[c_idx], 255, "Backface should render when backface-visible=true");
+    assert_eq!(
+        visible_frame[c_idx], 255,
+        "Backface should render when backface-visible=true"
+    );
 }
 
 #[test]
@@ -300,7 +320,10 @@ fn test_surface_effects_and_particles_determinism() {
     let scene = crate::compilers::html::parse_html_scene(html).unwrap();
     let f0_a = render_frame_at_time(&scene, &empty_assets, 0.6).unwrap();
     let f0_b = render_frame_at_time(&scene, &empty_assets, 0.6).unwrap();
-    assert_eq!(f0_a, f0_b, "Surface effects + particles must be byte-for-byte deterministic");
+    assert_eq!(
+        f0_a, f0_b,
+        "Surface effects + particles must be byte-for-byte deterministic"
+    );
 
     // Vignette should darken near corner (14, 14) compared to center (60, 80)
     let corner_luma = f0_a[(14 * 240 + 14) * 4];
@@ -355,9 +378,9 @@ fn test_shadow_container_fx_cache_hits() {
 
 #[cfg(feature = "exp-3d")]
 mod exp_3d_tests {
-    use crate::renderer::mesh3d::{Mesh, render_mesh3d_to_pixmap};
-    use crate::compilers::html::parse_html_scene;
     use crate::assets::AssetStore;
+    use crate::compilers::html::parse_html_scene;
+    use crate::renderer::mesh3d::{Mesh, render_mesh3d_to_pixmap};
     use std::collections::HashMap;
     use tiny_skia::Pixmap;
 
@@ -391,15 +414,19 @@ mod exp_3d_tests {
         render_mesh3d_to_pixmap(
             &mut pixmap.as_mut(),
             &mesh,
-            50.0, 50.0,
-            100.0, 100.0,
+            50.0,
+            50.0,
+            100.0,
+            100.0,
             45.0,
             "#38BDF8",
             [0.5, -1.0, 0.5],
             false,
             1.0,
             1.0,
-            0.0, 0.0, 0.0,
+            0.0,
+            0.0,
+            0.0,
         );
 
         // Check that some pixels were drawn (non-transparent)
@@ -410,7 +437,11 @@ mod exp_3d_tests {
                 non_zero += 1;
             }
         }
-        assert!(non_zero > 100, "Expected many non-transparent pixels, got {}", non_zero);
+        assert!(
+            non_zero > 100,
+            "Expected many non-transparent pixels, got {}",
+            non_zero
+        );
     }
 
     #[test]
@@ -421,33 +452,45 @@ mod exp_3d_tests {
         render_mesh3d_to_pixmap(
             &mut pixmap1.as_mut(),
             &mesh,
-            50.0, 50.0,
-            100.0, 100.0,
+            50.0,
+            50.0,
+            100.0,
+            100.0,
             45.0,
             "#38BDF8",
             [0.5, -1.0, 0.5],
             false,
             1.0,
             1.0,
-            45.0, 30.0, 15.0,
+            45.0,
+            30.0,
+            15.0,
         );
 
         let mut pixmap2 = Pixmap::new(200, 200).unwrap();
         render_mesh3d_to_pixmap(
             &mut pixmap2.as_mut(),
             &mesh,
-            50.0, 50.0,
-            100.0, 100.0,
+            50.0,
+            50.0,
+            100.0,
+            100.0,
             45.0,
             "#38BDF8",
             [0.5, -1.0, 0.5],
             false,
             1.0,
             1.0,
-            45.0, 30.0, 15.0,
+            45.0,
+            30.0,
+            15.0,
         );
 
-        assert_eq!(pixmap1.data(), pixmap2.data(), "Two renders with same params must be byte-for-byte identical");
+        assert_eq!(
+            pixmap1.data(),
+            pixmap2.data(),
+            "Two renders with same params must be byte-for-byte identical"
+        );
     }
 
     #[test]
@@ -487,15 +530,19 @@ mod exp_3d_tests {
         render_mesh3d_to_pixmap(
             &mut pixmap.as_mut(),
             &mesh,
-            20.0, 20.0,
-            160.0, 160.0,
+            20.0,
+            20.0,
+            160.0,
+            160.0,
             45.0,
             "#38BDF8",
             [0.5, -1.0, 0.5],
             false,
             1.0,
             1.0,
-            20.0, 30.0, 0.0,
+            20.0,
+            30.0,
+            0.0,
         );
 
         let data = pixmap.data();
@@ -529,15 +576,19 @@ mod exp_3d_tests {
         render_mesh3d_to_pixmap(
             &mut pixmap.as_mut(),
             &mesh,
-            20.0, 20.0,
-            160.0, 160.0,
+            20.0,
+            20.0,
+            160.0,
+            160.0,
             45.0,
             "#38BDF8",
             [0.5, -1.0, 0.5],
             false,
             1.0,
             1.0,
-            20.0, 30.0, 0.0,
+            20.0,
+            30.0,
+            0.0,
         );
 
         // Interior box is comfortably inside the projected silhouette, so every
@@ -568,15 +619,19 @@ mod exp_3d_tests {
         render_mesh3d_to_pixmap(
             &mut pixmap.as_mut(),
             &mesh,
-            50.0, 50.0,
-            100.0, 100.0,
+            50.0,
+            50.0,
+            100.0,
+            100.0,
             45.0,
             "#38BDF8",
             [0.5, -1.0, 0.5],
             true, // wireframe
             1.0,
             1.0,
-            0.0, 0.0, 0.0,
+            0.0,
+            0.0,
+            0.0,
         );
 
         let data = pixmap.data();
@@ -592,11 +647,14 @@ mod exp_3d_tests {
     #[test]
     fn test_mesh3d_different_primitives_render() {
         for prim_name in ["cube", "sphere", "pyramid", "torus"] {
-            let html = format!(r##"
+            let html = format!(
+                r##"
             <scene width="200" height="200" fps="30" duration="1.0" background="#000000">
                 <mesh3d x="50" y="50" width="100" height="100" primitive="{}" color="#38BDF8" />
             </scene>
-            "##, prim_name);
+            "##,
+                prim_name
+            );
 
             let scene = parse_html_scene(&html).unwrap();
             let assets = AssetStore {
@@ -616,7 +674,11 @@ mod exp_3d_tests {
                     non_zero += 1;
                 }
             }
-            assert!(non_zero > 0, "Primitive '{}' should render pixels", prim_name);
+            assert!(
+                non_zero > 0,
+                "Primitive '{}' should render pixels",
+                prim_name
+            );
         }
     }
 
@@ -632,7 +694,11 @@ mod exp_3d_tests {
         </scene>
         "##;
         let scene = parse_html_scene(html).unwrap();
-        assert_eq!(scene.layers.len(), 3, "all three sibling mesh3d layers must survive parsing");
+        assert_eq!(
+            scene.layers.len(),
+            3,
+            "all three sibling mesh3d layers must survive parsing"
+        );
     }
 
     #[test]

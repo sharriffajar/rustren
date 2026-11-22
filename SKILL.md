@@ -2,7 +2,7 @@
 name: rustren
 description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for 3D, live streaming, or editing existing video timelines frame-by-frame in a GUI.
 metadata:
-  skill_version: "1.1.2"
+  skill_version: "1.1.3"
   rustren_version: "0.3.1"
   schema_version: "1.1"
   renderer_version: "1.1"
@@ -250,6 +250,20 @@ rustren validate scene.json --fix --in-place # rewrite the file
 rustren validate scene.html --fix --in-place # same for HTML scenes (attributes only)
 
 # JSON-scope unknown fields fail with exit code 2 (and an {valid:false,error:{...}} payload)
+# render/snapshot/layout/diff enforce the same unknown-field gate, so a green
+# validate cannot turn into a silently wrong render.
+
+# render / snapshot / diff also take --error-format json:
+#   render   -> {ok, output, canvas, frames, elapsed_secs} (progress moves to stderr)
+#   snapshot -> {ok, output, times, count, elapsed_secs}
+#   diff     -> {ok, t, mae, rmse, changed_pixels_pct, threshold, out}
+# layout already prints JSON; its flag only switches error payloads.
+# Error payload shape on every command: {ok:false, valid:false, error:{code,message}}.
+# Scene errors exit 2 (invalid_scene, unsupported_format, unknown_example*);
+# I/O and runtime errors exit 1 (input_error, missing_asset, render_failed, ...).
+rustren render scene.json -o out.mp4 --error-format json
+rustren snapshot scene.json -t 1,3 -o frames/ --error-format json
+rustren diff a.json b.json --error-format json
 
 # Example catalog as JSON: {count, tags, examples:[{name,description,format,tags}]}
 rustren examples --error-format json
@@ -274,6 +288,22 @@ errors point at the offending tag (`line 2, column 3: <include> is missing a src
 
 ## Changelog
 
+- **1.1.3** (rustren 0.3.1, schema 1.1): closed four gaps where `validate` passed but a render
+  failed or lied. `parse_hex_color` now expands CSS shorthand `#RGB`/`#RGBA`, which `schema.json`
+  already allowed, so `"#FFF"` renders instead of failing after a green validate (and `--fix`
+  normalizes shorthand to 6/8 digits). `render`, `snapshot`, `layout` and `diff` now run the same
+  unknown-field gate as `validate` (exit 2), instead of silently ignoring a misspelled field.
+  A missing audio file now fails before ffmpeg spawns with `audio file not found: <path>`, rather
+  than surfacing later as `Failed to write RGBA frame to ffmpeg stdin / Broken pipe`; `render`
+  also pre-checks every local asset before rendering. `render`,
+  `snapshot` and `diff` gained `--error-format json` (`layout` uses it for errors only, since it
+  already prints JSON), and every command now reports a missing input file as an `input_error`
+  payload when JSON format is requested. JSON error payloads now share one envelope,
+  `{ok:false, valid:false, error:{code,message}}`, and diff emits a single verdict document on
+  stdout instead of a summary plus a separate error. `render`/`snapshot`/`layout` failures use
+  exit 2 for an invalid scene and exit 1 for I/O or render-runtime failures. Separately, Studio now
+  handles `mesh3d` layers (label plus drag offset and scale), so `--features pro,exp-3d` compiles
+  again.
 - **1.1.2** (rustren 0.3.1, schema 1.1): the SDK types are now generated from `schema.json`
   (`scripts/gen_sdk.py`) instead of hand-maintained, and `tests/sdk_parity.rs` fails `cargo test`
   when either SDK file drifts from the schema. `RustrenScene.canvas`, `profiles` and `audio` now

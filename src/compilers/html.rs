@@ -538,6 +538,10 @@ impl Compiler for HtmlCompiler {
     }
 }
 
+/// Parse an HTML scene that has no on-disk base directory. Used by tests and
+/// the example snippets; CLI/compiler paths always know their base dir and call
+/// [`parse_html_scene_with_base`] instead.
+#[allow(dead_code)]
 pub fn parse_html_scene(html_content: &str) -> Result<Scene> {
     parse_html_scene_with_base(html_content, None)
 }

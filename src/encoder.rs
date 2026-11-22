@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -112,12 +112,12 @@ impl FfmpegPipe {
         }
         let size_arg = format!("{}x{}", width, height);
         let fps_arg = fps.to_string();
-        let input_pix_fmt = if cfg!(feature = "pro") && width.is_multiple_of(2) && height.is_multiple_of(2)
-        {
-            "yuv420p"
-        } else {
-            "rgba"
-        };
+        let input_pix_fmt =
+            if cfg!(feature = "pro") && width.is_multiple_of(2) && height.is_multiple_of(2) {
+                "yuv420p"
+            } else {
+                "rgba"
+            };
 
         let mut cmd = Command::new("ffmpeg");
         cmd.args([
@@ -135,6 +135,16 @@ impl FfmpegPipe {
         ]);
 
         for (track, path) in audio_tracks {
+            // Fail before spawning ffmpeg: a missing audio file otherwise
+            // surfaces as a broken pipe several frames later, which points
+            // agents at the encoder instead of the asset.
+            if !path.exists() {
+                return Err(anyhow!(
+                    "audio file not found: {} (src: {:?}); create the file or fix audio[].src",
+                    path.display(),
+                    track.src
+                ));
+            }
             if let Some(ss) = track.trim_start_sec {
                 cmd.args(["-ss", &format!("{:.3}", ss)]);
             }
@@ -178,7 +188,9 @@ impl FfmpegPipe {
                     ));
                 }
                 if track.fade_out_secs > 0.0 {
-                    let end_t = track.trim_end_sec.unwrap_or(track.start_sec + track.fade_out_secs);
+                    let end_t = track
+                        .trim_end_sec
+                        .unwrap_or(track.start_sec + track.fade_out_secs);
                     let fade_start = (end_t - track.fade_out_secs).max(0.0);
                     extra_filters.push(format!(
                         "afade=t=out:st={:.3}:d={:.3}",
@@ -250,7 +262,14 @@ impl FfmpegPipe {
 
         let crf_arg = crf.to_string();
         let vcodec = detect_video_encoder();
-        cmd.args(["-sws_flags", "fast_bilinear", "-c:v", vcodec, "-pix_fmt", "yuv420p"]);
+        cmd.args([
+            "-sws_flags",
+            "fast_bilinear",
+            "-c:v",
+            vcodec,
+            "-pix_fmt",
+            "yuv420p",
+        ]);
         match vcodec {
             "h264_nvenc" => {
                 cmd.args(["-preset", "p4", "-cq", &crf_arg]);
@@ -266,9 +285,9 @@ impl FfmpegPipe {
             }
         }
         cmd.arg(output)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped());
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped());
 
         let mut child = cmd
             .spawn()
