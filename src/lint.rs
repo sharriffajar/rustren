@@ -195,7 +195,26 @@ fn lint_layers(
                     }
                 }
             }
-            LayerKind::Container { children, .. } => {
+            LayerKind::Container {
+                children,
+                background,
+                opacity,
+                ..
+            } => {
+                let child_bg = if let Some(bg_hex) = background.as_deref()
+                    && let Some((r, g, b, a)) = parse_rgb(bg_hex)
+                {
+                    let alpha = (a * (*opacity)).clamp(0.0, 1.0);
+                    let inv = 1.0 - alpha;
+                    (
+                        r * alpha + default_bg.0 * inv,
+                        g * alpha + default_bg.1 * inv,
+                        b * alpha + default_bg.2 * inv,
+                        1.0,
+                    )
+                } else {
+                    default_bg
+                };
                 lint_layers(
                     children,
                     canvas_w,
@@ -204,7 +223,7 @@ fn lint_layers(
                     min_font_px,
                     true,
                     &format!("{path}.children"),
-                    default_bg,
+                    child_bg,
                     groups,
                 );
             }

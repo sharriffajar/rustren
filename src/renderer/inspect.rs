@@ -252,7 +252,12 @@ fn collect_diagnostics_for_siblings(
             let overlap_y1 = (a.y + a.h).min(b.y + b.h);
             let overlap_w = overlap_x1 - overlap_x0;
             let overlap_h = overlap_y1 - overlap_y0;
-            if overlap_w > 2.0 && overlap_h > 2.0 {
+            let min_h_tol = if a.layer_type == "text" && b.layer_type == "text" {
+                (a.h.min(b.h) * 0.2).clamp(2.0, 16.0)
+            } else {
+                2.0
+            };
+            if overlap_w > 2.0 && overlap_h > min_h_tol {
                 let target = if b.layer_type == "text" { b } else { a };
                 out.push(LayoutDiagnostic {
                     kind: LayoutDiagnosticKind::SiblingOverlap,

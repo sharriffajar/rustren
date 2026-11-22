@@ -13,6 +13,16 @@ pub struct CapabilityRegistry {
     pub schema_version: &'static str,
     pub min_schema_version: &'static str,
     pub capabilities: Capabilities,
+    pub http_api: HttpApiCapabilities,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct HttpApiCapabilities {
+    pub snapshot: &'static str,
+    pub layout: &'static str,
+    pub validate: &'static str,
+    pub jobs: &'static str,
+    pub discovery: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -219,6 +229,13 @@ impl CapabilityRegistry {
                     audio: true,
                     video: true,
                 },
+            },
+            http_api: HttpApiCapabilities {
+                snapshot: "POST /snapshot — JSON {\"scene\", \"time\"?, \"times\"?, \"sheet\"?, \"cols\"?} -> image/png (max 16 timestamps)",
+                layout: "POST /layout — JSON {\"scene\", \"time\"?} -> JSON {\"time\", \"layers\", \"diagnostics\"}",
+                validate: "POST /validate — Scene JSON -> JSON {\"valid\", \"warnings\"}",
+                jobs: "POST /jobs -> 202 {\"job_id\"}, GET /jobs/:id -> status, GET /jobs/:id/video -> video/mp4",
+                discovery: "GET / and GET /llms.txt -> Markdown API guide",
             },
         }
     }
