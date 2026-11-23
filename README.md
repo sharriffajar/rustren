@@ -6,6 +6,11 @@
 
 Browserless 2.5D video render engine in Rust — built to be **fast** and **predictable for AI-generated video**.
 
+> **Try Online (Zero Install):**
+> - **Web Studio (PWA, BYOK AI Director + Browser WebM/PNG + MP4 via API):** https://nvm.web.id/rustren/studio/
+> - **Hosted Render API (Experimental, AI-discoverable):** https://nvm.web.id/rustren/api/ ([`llms.txt`](https://nvm.web.id/rustren/llms.txt) · [Request API token](https://nvm.web.id/contact/))
+> - **Project Homepage:** https://nvm.web.id/rustren/
+
 ```
 AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Previews (snapshot / layout) → Renderer executes → MP4 out
 ```
