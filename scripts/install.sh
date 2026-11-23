@@ -34,6 +34,15 @@ install -m 755 "${TMP_DIR}/rustren" "${INSTALL_DIR}/rustren"
 
 echo "Installed rustren to ${INSTALL_DIR}/rustren"
 
+# Install agent skill for Claude Code / AI coding agents (disable with RUSTREN_NO_SKILLS=1)
+if [ "${RUSTREN_NO_SKILLS:-0}" != "1" ]; then
+  SKILL_DIR="${HOME}/.claude/skills/rustren"
+  SKILL_URL="https://raw.githubusercontent.com/${REPO}/main/SKILL.md"
+  if mkdir -p "$SKILL_DIR" 2>/dev/null && curl -fsSL "$SKILL_URL" -o "${SKILL_DIR}/SKILL.md" 2>/dev/null; then
+    echo "Installed agent skill to ${SKILL_DIR}/SKILL.md"
+  fi
+fi
+
 case ":$PATH:" in
   *":${INSTALL_DIR}:"*) ;;
   *)

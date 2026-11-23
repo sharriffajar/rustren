@@ -27,6 +27,19 @@ try {
     }
 
     Write-Host "Installed rustren to $(Join-Path $InstallDir 'rustren.exe')"
+
+    # Install agent skill for Claude Code / AI coding agents (disable with RUSTREN_NO_SKILLS=1)
+    if ($env:RUSTREN_NO_SKILLS -ne "1") {
+        try {
+            $SkillDir = Join-Path $HOME ".claude\skills\rustren"
+            $SkillUrl = "https://raw.githubusercontent.com/$Repo/main/SKILL.md"
+            New-Item -ItemType Directory -Path $SkillDir -Force | Out-Null
+            Invoke-WebRequest -Uri $SkillUrl -OutFile (Join-Path $SkillDir "SKILL.md") -UseBasicParsing
+            Write-Host "Installed agent skill to $(Join-Path $SkillDir 'SKILL.md')"
+        } catch {
+            # Best-effort; do not fail binary install if offline/rate-limited
+        }
+    }
     if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
         Write-Host ""
         Write-Host "Note: ffmpeg was not found in PATH (required for MP4 encoding)."
