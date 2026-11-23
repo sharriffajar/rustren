@@ -29,6 +29,35 @@ pub struct AssetStore {
     pub mesh3d: HashMap<String, std::sync::Arc<crate::renderer::mesh3d::Mesh>>,
 }
 
+/// Convert straight (non-premultiplied) RGBA8 pixels to premultiplied RGBA8 in
+/// place.
+///
+/// Everything the compositor touches is premultiplied: `tiny_skia::Pixmap`
+/// documents its data as premultiplied RGBA, and the SIMD image resize runs with
+/// `use_alpha(false)` so it filters all four channels linearly (which is only
+/// correct for premultiplied data). PNG encoders commonly store a fully
+/// transparent pixel as `A=0, RGB=255`; passed through untouched it composites
+/// as opaque white and bleeds a halo around logos. Premultiplying maps those
+/// pixels to `(0,0,0,0)` — the only valid premultiplied value for `A=0`.
+pub fn premultiply_rgba(pixels: &mut [u8]) {
+    for px in pixels.as_chunks_mut::<4>().0 {
+        let a = px[3];
+        if a == 255 {
+            continue; // fully opaque: premultiplied == straight
+        }
+        if a == 0 {
+            px[0] = 0;
+            px[1] = 0;
+            px[2] = 0;
+            continue;
+        }
+        let scale = a as f32 / 255.0;
+        px[0] = (px[0] as f32 * scale).round() as u8;
+        px[1] = (px[1] as f32 * scale).round() as u8;
+        px[2] = (px[2] as f32 * scale).round() as u8;
+    }
+}
+
 /// Resolve a local asset path exactly the way the loader does, for linters.
 ///
 /// Relative paths are tried against the scene file's directory first and then
@@ -173,9 +202,12 @@ fn collect_layer_assets(
             LayerKind::Image { src, .. } => {
                 if !images.contains_key(src) {
                     let path = resolve_to_path_with_base(src, cache_dir, base_dir)?;
-                    let img = image::open(&path)
+                    let mut img = image::open(&path)
                         .with_context(|| format!("Failed to decode image: {}", path.display()))?
                         .to_rgba8();
+                    // Premultiply once at load time so resize + compositing see
+                    // premultiplied pixels (see `premultiply_rgba`).
+                    premultiply_rgba(img.as_flat_samples_mut().as_mut_slice());
                     images.insert(src.clone(), img);
                 }
             }

@@ -1230,3 +1230,100 @@ mod exp_3d_phase2_tests {
         );
     }
 }
+
+#[test]
+fn test_transparent_png_does_not_bleed_white_onto_background() {
+    // PNG encoders routinely leave fully transparent pixels as RGB=255.
+    // tiny-skia pixmaps are premultiplied, so a `A=0, RGB=255` pixel composites
+    // as "white on top of everything" and paints a halo around the logo. The
+    // loader must premultiply those pixels before they are resized/composited.
+    let dir = std::env::temp_dir().join("rustren_premultiplied_png");
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("transparent_white.png");
+
+    // 16x16 fully transparent white with an opaque white 8x8 core.
+    let mut img = image::RgbaImage::from_pixel(16, 16, image::Rgba([255, 255, 255, 0]));
+    for y in 4..12 {
+        for x in 4..12 {
+            img.put_pixel(x, y, image::Rgba([255, 255, 255, 255]));
+        }
+    }
+    img.save(&path).unwrap();
+    let img_path = path.to_string_lossy().replace('\\', "/");
+
+    let json = format!(
+        r##"{{
+        "canvas": {{ "width": 16, "height": 16, "fps": 30, "duration_secs": 1.0, "background": "#000000" }},
+        "layers": [
+            {{ "type": "image", "x": 4, "y": 4, "width": 8, "height": 8, "src": "{img_path}" }}
+        ]
+    }}"##
+    );
+    let scene: Scene = serde_json::from_str(&json).unwrap();
+    let assets = AssetStore::load_for_scene_with_base(&scene, &dir.join("cache"), None).unwrap();
+
+    let px = |frame: &[u8], x: u32, y: u32| -> [u8; 4] {
+        let i = ((y * scene.canvas.width + x) * 4) as usize;
+        [frame[i], frame[i + 1], frame[i + 2], frame[i + 3]]
+    };
+
+    // The loader must have zeroed the `A=0, RGB=255` source pixels.
+    let loaded = assets.images.values().next().expect("image asset loaded");
+    assert_eq!(
+        loaded.get_pixel(0, 0).0,
+        [0, 0, 0, 0],
+        "transparent-white pixel was not premultiplied at load"
+    );
+    assert_eq!(loaded.get_pixel(8, 8).0, [255, 255, 255, 255]);
+
+    let frame = render_frame(&scene, &assets, 0).unwrap();
+    // Outside the layer: untouched background.
+    assert_eq!(px(&frame, 0, 0), [0, 0, 0, 255], "corner must stay black");
+    assert_eq!(px(&frame, 15, 15), [0, 0, 0, 255], "corner must stay black");
+    // Inside the layer, but on a fully transparent source pixel (resized from
+    // the image's transparent-white border). No white bleed allowed.
+    assert_eq!(
+        px(&frame, 4, 4),
+        [0, 0, 0, 255],
+        "transparent source pixel painted white: {:?}",
+        px(&frame, 4, 4)
+    );
+    assert_eq!(
+        px(&frame, 11, 11),
+        [0, 0, 0, 255],
+        "transparent source pixel painted white: {:?}",
+        px(&frame, 11, 11)
+    );
+    // The opaque white core still renders white.
+    assert_eq!(
+        px(&frame, 8, 8),
+        [255, 255, 255, 255],
+        "opaque core must stay white: {:?}",
+        px(&frame, 8, 8)
+    );
+
+    // Same asset at native size (no resize) must behave identically.
+    let json_native = format!(
+        r##"{{
+        "canvas": {{ "width": 16, "height": 16, "fps": 30, "duration_secs": 1.0, "background": "#000000" }},
+        "layers": [
+            {{ "type": "image", "x": 0, "y": 0, "width": 16, "height": 16, "src": "{img_path}" }}
+        ]
+    }}"##
+    );
+    let scene_native: Scene = serde_json::from_str(&json_native).unwrap();
+    let frame_native = render_frame(&scene_native, &assets, 0).unwrap();
+    assert_eq!(
+        px(&frame_native, 0, 0),
+        [0, 0, 0, 255],
+        "native-size transparent pixel painted white: {:?}",
+        px(&frame_native, 0, 0)
+    );
+    assert_eq!(
+        px(&frame_native, 7, 7),
+        [255, 255, 255, 255],
+        "opaque core must stay white"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
