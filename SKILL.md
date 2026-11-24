@@ -290,6 +290,7 @@ errors point at the offending tag (`line 2, column 3: <include> is missing a src
 
 ## Changelog
 
+- **1.4.0** (rustren 0.5.0, schema 1.1): added non-uniform `scale_x`/`scale_y` + custom `pivot_x`/`pivot_y`, per-character/word `text_animator`, multiline `line_height` & `anchor: "center"` without `max_width`, `clip_feather`, `wave_warp`, anti-OOM windowed `video` decoder (`playback_rate`, `loop`, `focal_x`/`focal_y`, `luma_key`), transparent PNG premultiply alpha, HTTP API `GET /` & `/llms.txt` discovery + `POST /snapshot` & `POST /layout`, and installer auto-setup of `~/.claude/skills/rustren/SKILL.md`.
 - **1.3.0** (rustren 0.4.0, schema 1.1): agent autonomy pass. MCP now actuates (scene actions are
   written back to disk atomically) and senses (`validate_scene`, `snapshot_scene`, `inspect_layout`,
   `diff_scenes`, `render_video`), and is available in every build (no `pro` gate). Asset paths
