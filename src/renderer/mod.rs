@@ -557,6 +557,69 @@ pub fn render_frame_at_time_with_base_profile(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn video_frame_index_at(
+    local_t: f32,
+    trim_start_sec: f32,
+    trim_end_sec: Option<f32>,
+    playback_rate: f32,
+    loop_video: bool,
+    fps: f32,
+    frame_count: usize,
+) -> usize {
+    if frame_count == 0 {
+        return 0;
+    }
+    let fps = if fps > 1e-6 { fps } else { 30.0 };
+    let duration = frame_count as f32 / fps;
+    let lo = trim_start_sec.clamp(0.0, duration);
+    let hi = trim_end_sec.unwrap_or(duration).clamp(lo, duration);
+    let span = (hi - lo).max(1.0 / fps);
+    let rate = if playback_rate.abs() < 1e-6 {
+        1.0
+    } else {
+        playback_rate
+    };
+    let mut pos = if rate >= 0.0 {
+        lo + local_t * rate
+    } else {
+        hi + local_t * rate
+    };
+    if loop_video {
+        let wrapped = (pos - lo).rem_euclid(span);
+        // A reverse loop starts on the last frame of the segment, not the first.
+        pos = if rate < 0.0 && wrapped < 1e-6 {
+            hi
+        } else {
+            lo + wrapped
+        };
+    } else {
+        pos = pos.clamp(lo, hi);
+    }
+    let max_idx = frame_count.saturating_sub(1) as isize;
+    ((pos * fps).floor() as isize).clamp(0, max_idx) as usize
+}
+
+/// Convert a straight-alpha frame into premultiplied RGBA, using luminance as
+/// the alpha key so black (or darker-than-threshold) pixels become transparent.
+fn apply_luma_key(raw: &[u8], key: f32) -> Vec<u8> {
+    let key = key.clamp(0.0, 1.0);
+    let inv = (1.0 - key).max(1e-6);
+    let mut out = Vec::with_capacity(raw.len());
+    for px in raw.as_chunks::<4>().0 {
+        let r = px[0] as f32 / 255.0;
+        let g = px[1] as f32 / 255.0;
+        let b = px[2] as f32 / 255.0;
+        let luma = 0.299 * r + 0.587 * g + 0.114 * b;
+        let a = (px[3] as f32 / 255.0) * ((luma - key) / inv).clamp(0.0, 1.0);
+        out.push((r * a * 255.0).round() as u8);
+        out.push((g * a * 255.0).round() as u8);
+        out.push((b * a * 255.0).round() as u8);
+        out.push((a * 255.0).round() as u8);
+    }
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
 fn draw_rgba_frame(
     pixmap: &mut Pixmap,
     layer: &Layer,
@@ -571,6 +634,8 @@ fn draw_rgba_frame(
     rotation: f32,
     scale: f32,
     fit: FitSpec,
+    focal_x: f32,
+    focal_y: f32,
     src_w: u32,
     src_h: u32,
     raw_rgba: &[u8],
@@ -609,7 +674,22 @@ fn draw_rgba_frame(
     );
     let s = eval_property(&layer.animations, AnimProperty::Scale, time_sec, scale);
 
-    if w <= 0.0 || h <= 0.0 || op <= 0.0 || s <= 0.0 {
+    let eff_sx = s
+        * eval_property(
+            &layer.animations,
+            AnimProperty::ScaleX,
+            time_sec,
+            layer.scale_x,
+        );
+    let eff_sy = s
+        * eval_property(
+            &layer.animations,
+            AnimProperty::ScaleY,
+            time_sec,
+            layer.scale_y,
+        );
+
+    if w <= 0.0 || h <= 0.0 || op <= 0.0 || eff_sx <= 0.0 || eff_sy <= 0.0 {
         return Ok(());
     }
 
@@ -622,10 +702,29 @@ fn draw_rgba_frame(
         quality: FilterQuality::Bilinear,
         ..PixmapPaint::default()
     };
-    let pivot_xf = build_pivot_transform_with_skew(x, y, w, h, s, rot, sk_x, sk_y);
+    let pivot_xf = build_pivot_transform_with_skew(
+        x,
+        y,
+        w,
+        h,
+        eff_sx,
+        eff_sy,
+        rot,
+        sk_x,
+        sk_y,
+        layer.pivot_x,
+        layer.pivot_y,
+    );
 
     // Axis-aligned SIMD fast-path (AVX2/SSE4.1/NEON via `fast_image_resize`) for Fill, Contain & Cover.
-    if rot.abs() < 1e-4 && sk_x.abs() < 1e-4 && sk_y.abs() < 1e-4 {
+    if rot.abs() < 1e-4
+        && sk_x.abs() < 1e-4
+        && sk_y.abs() < 1e-4
+        && (eff_sx - eff_sy).abs() < 1e-6
+        && (layer.pivot_x - 0.5).abs() < 1e-6
+        && (layer.pivot_y - 0.5).abs() < 1e-6
+    {
+        let s = eff_sx;
         let cx = x + w * 0.5;
         let cy = y + h * 0.5;
         let (eff_sx, eff_sy, img_x0, img_y0, box_x0, box_y0, box_x1, box_y1) = match fit {
@@ -660,15 +759,15 @@ fn draw_rgba_frame(
             }
             FitSpec::Cover => {
                 let u = (w / src_w as f32).max(h / src_h as f32);
-                let half_dw = src_w as f32 * u * 0.5 * s;
-                let half_dh = src_h as f32 * u * 0.5 * s;
                 let half_w = w * 0.5 * s;
                 let half_h = h * 0.5 * s;
+                let crop_x = (src_w as f32 * u - w) * s * focal_x;
+                let crop_y = (src_h as f32 * u - h) * s * focal_y;
                 (
                     u * s,
                     u * s,
-                    cx - half_dw,
-                    cy - half_dh,
+                    cx - half_w - crop_x,
+                    cy - half_h - crop_y,
                     cx - half_w,
                     cy - half_h,
                     cx + half_w,
@@ -778,8 +877,8 @@ fn draw_rgba_frame(
             let u = (w / src_w as f32).max(h / src_h as f32);
             let draw_w = src_w as f32 * u;
             let draw_h = src_h as f32 * u;
-            let ox = (w - draw_w) * 0.5;
-            let oy = (h - draw_h) * 0.5;
+            let ox = -(draw_w - w) * focal_x;
+            let oy = -(draw_h - h) * focal_y;
             let direct_xf = Transform::from_scale(u, u)
                 .post_translate(x + ox, y + oy)
                 .post_concat(pivot_xf);
@@ -1461,6 +1560,20 @@ fn render_layer_inner(
             let op = eval_property(&layer.animations, AnimProperty::Opacity, time_sec, *opacity)
                 * parent_opacity;
             let s = eval_property(&layer.animations, AnimProperty::Scale, time_sec, *scale);
+            let eff_sx = s
+                * eval_property(
+                    &layer.animations,
+                    AnimProperty::ScaleX,
+                    time_sec,
+                    layer.scale_x,
+                );
+            let eff_sy = s
+                * eval_property(
+                    &layer.animations,
+                    AnimProperty::ScaleY,
+                    time_sec,
+                    layer.scale_y,
+                );
             let rot = eval_property(
                 &layer.animations,
                 AnimProperty::Rotation,
@@ -1502,7 +1615,7 @@ fn render_layer_inner(
                 None
             };
 
-            if w <= 0.0 || h <= 0.0 || op <= 0.0 || s <= 0.0 {
+            if w <= 0.0 || h <= 0.0 || op <= 0.0 || eff_sx <= 0.0 || eff_sy <= 0.0 {
                 return Ok(());
             }
 
@@ -1522,7 +1635,19 @@ fn render_layer_inner(
                 layer.skew_y,
             );
             if let Some(path) = build_rounded_rect(x, y, w, h, eff_radius) {
-                let xform = build_pivot_transform_with_skew(x, y, w, h, s, rot, sk_x, sk_y);
+                let xform = build_pivot_transform_with_skew(
+                    x,
+                    y,
+                    w,
+                    h,
+                    eff_sx,
+                    eff_sy,
+                    rot,
+                    sk_x,
+                    sk_y,
+                    layer.pivot_x,
+                    layer.pivot_y,
+                );
                 let perimeter = 2.0 * (w + h);
                 let stroke_dash = build_progress_stroke_dash(perimeter, prog, dash_offset, None);
                 draw_styled_path(
@@ -1568,6 +1693,18 @@ fn render_layer_inner(
                 + eval_property(&layer.animations, AnimProperty::Cy, time_sec, *cy)
                 + eval_property(&layer.animations, AnimProperty::Y, time_sec, 0.0);
             let scale_val = eval_property(&layer.animations, AnimProperty::Scale, time_sec, *scale);
+            let scale_x = eval_property(
+                &layer.animations,
+                AnimProperty::ScaleX,
+                time_sec,
+                layer.scale_x,
+            );
+            let scale_y = eval_property(
+                &layer.animations,
+                AnimProperty::ScaleY,
+                time_sec,
+                layer.scale_y,
+            );
             let op = eval_property(&layer.animations, AnimProperty::Opacity, time_sec, *opacity)
                 * parent_opacity;
             let r = eval_property(&layer.animations, AnimProperty::R, time_sec, *r) * scale_val;
@@ -1606,21 +1743,29 @@ fn render_layer_inner(
                 None
             };
 
-            if r <= 0.0 || op <= 0.0 {
+            if r <= 0.0 || op <= 0.0 || scale_x <= 0.0 || scale_y <= 0.0 {
                 return Ok(());
             }
+
+            let xform = build_pivot_transform_with_skew(
+                cx - r,
+                cy - r,
+                r * 2.0,
+                r * 2.0,
+                scale_x,
+                scale_y,
+                0.0,
+                0.0,
+                0.0,
+                layer.pivot_x,
+                layer.pivot_y,
+            );
 
             if let Some(path) = PathBuilder::from_circle(cx, cy, r) {
                 let mut paint = Paint::default();
                 paint.set_color(parse_hex_color(&eff_color, op)?);
                 paint.anti_alias = true;
-                pixmap.fill_path(
-                    &path,
-                    &paint,
-                    FillRule::Winding,
-                    Transform::identity(),
-                    None,
-                );
+                pixmap.fill_path(&path, &paint, FillRule::Winding, xform, None);
 
                 if let Some(b_hex) = eff_border_color.as_deref()
                     && *border_width > 0.0
@@ -1634,7 +1779,7 @@ fn render_layer_inner(
                         dash: build_progress_stroke_dash(circumference, prog, dash_offset, None),
                         ..Stroke::default()
                     };
-                    pixmap.stroke_path(&path, &b_paint, &stroke, Transform::identity(), None);
+                    pixmap.stroke_path(&path, &b_paint, &stroke, xform, None);
                 }
             }
         }
@@ -1679,6 +1824,8 @@ fn render_layer_inner(
                 *rotation,
                 *scale,
                 *fit,
+                0.5,
+                0.5,
                 img.width(),
                 img.height(),
                 img.as_raw(),
@@ -1800,6 +1947,10 @@ fn render_layer_inner(
             trim_start_sec,
             trim_end_sec,
             playback_rate,
+            loop_video,
+            focal_x,
+            focal_y,
+            luma_key,
             opacity,
             rotation,
             scale,
@@ -1810,12 +1961,35 @@ fn render_layer_inner(
                 .get(src)
                 .ok_or_else(|| anyhow!("Video not preloaded: {}", src))?;
             let local_t = (time_sec - layer.start_sec).max(0.0);
-            let mut video_t = *trim_start_sec + local_t * playback_rate.max(0.1);
-            if let Some(te) = trim_end_sec {
-                video_t = video_t.min(*te);
-            }
-            let frame_idx =
-                ((video_t * video.fps).floor() as usize).min(video.frames.len().saturating_sub(1));
+            let frame_idx = video_frame_index_at(
+                local_t,
+                *trim_start_sec,
+                *trim_end_sec,
+                *playback_rate,
+                *loop_video,
+                video.fps,
+                video.frames.len(),
+            );
+            let eff_focal_x = eval_property(
+                &layer.animations,
+                AnimProperty::FocalX,
+                time_sec,
+                *focal_x,
+            )
+            .clamp(0.0, 1.0);
+            let eff_focal_y = eval_property(
+                &layer.animations,
+                AnimProperty::FocalY,
+                time_sec,
+                *focal_y,
+            )
+            .clamp(0.0, 1.0);
+            let keyed_frame = luma_key
+                .as_ref()
+                .map(|k| apply_luma_key(&video.frames[frame_idx], *k));
+            let frame_data: &[u8] = keyed_frame
+                .as_deref()
+                .unwrap_or(video.frames[frame_idx].as_slice());
             draw_rgba_frame(
                 pixmap,
                 layer,
@@ -1830,9 +2004,11 @@ fn render_layer_inner(
                 *rotation,
                 *scale,
                 *fit,
+                eff_focal_x,
+                eff_focal_y,
                 video.width,
                 video.height,
-                &video.frames[frame_idx],
+                frame_data,
             )?;
         }
         LayerKind::Svg {
@@ -1924,6 +2100,18 @@ fn render_layer_inner(
                     time_sec,
                     layer.skew_y,
                 );
+                let scale_x = eval_property(
+                    &layer.animations,
+                    AnimProperty::ScaleX,
+                    time_sec,
+                    layer.scale_x,
+                );
+                let scale_y = eval_property(
+                    &layer.animations,
+                    AnimProperty::ScaleY,
+                    time_sec,
+                    layer.scale_y,
+                );
                 let sx = w / svg_size.width().max(1.0);
                 let sy = h / svg_size.height().max(1.0);
                 let animated_stroke =
@@ -1956,8 +2144,19 @@ fn render_layer_inner(
                             quality: FilterQuality::Bilinear,
                             ..PixmapPaint::default()
                         };
-                        let pivot_xf =
-                            build_pivot_transform_with_skew(x, y, w, h, 1.0, rot, sk_x, sk_y);
+                        let pivot_xf = build_pivot_transform_with_skew(
+                            x,
+                            y,
+                            w,
+                            h,
+                            scale_x,
+                            scale_y,
+                            rot,
+                            sk_x,
+                            sk_y,
+                            layer.pivot_x,
+                            layer.pivot_y,
+                        );
                         let xform = Transform::from_translate(x, y).post_concat(pivot_xf);
                         pixmap.draw_pixmap(0, 0, cached.as_ref(), &paint, xform, None);
                         Ok(())
@@ -1981,11 +2180,20 @@ fn render_layer_inner(
                     quality: FilterQuality::Bilinear,
                     ..PixmapPaint::default()
                 };
-                let xform = if rot != 0.0 {
-                    Transform::from_translate(x, y).post_rotate_at(rot, x + w * 0.5, y + h * 0.5)
-                } else {
-                    Transform::from_translate(x, y)
-                };
+                let pivot_xf = build_pivot_transform_with_skew(
+                    x,
+                    y,
+                    w,
+                    h,
+                    scale_x,
+                    scale_y,
+                    rot,
+                    sk_x,
+                    sk_y,
+                    layer.pivot_x,
+                    layer.pivot_y,
+                );
+                let xform = Transform::from_translate(x, y).post_concat(pivot_xf);
                 pixmap.draw_pixmap(0, 0, svg_pixmap.as_ref(), &paint, xform, None);
                 Ok(())
             })?;
@@ -2159,6 +2367,20 @@ fn render_layer_inner(
             let op = eval_property(&layer.animations, AnimProperty::Opacity, time_sec, *opacity)
                 * parent_opacity;
             let s = eval_property(&layer.animations, AnimProperty::Scale, time_sec, *scale);
+            let eff_sx = s
+                * eval_property(
+                    &layer.animations,
+                    AnimProperty::ScaleX,
+                    time_sec,
+                    layer.scale_x,
+                );
+            let eff_sy = s
+                * eval_property(
+                    &layer.animations,
+                    AnimProperty::ScaleY,
+                    time_sec,
+                    layer.scale_y,
+                );
             let rot = eval_property(
                 &layer.animations,
                 AnimProperty::Rotation,
@@ -2166,7 +2388,7 @@ fn render_layer_inner(
                 *rotation,
             );
 
-            if op <= 0.0 || s <= 0.0 {
+            if op <= 0.0 || eff_sx <= 0.0 || eff_sy <= 0.0 {
                 return Ok(());
             }
 
@@ -2190,7 +2412,19 @@ fn render_layer_inner(
                 time_sec,
                 layer.skew_y,
             );
-            let xform = build_pivot_transform_with_skew(cx, cy, cw, ch, s, rot, sk_x, sk_y);
+            let xform = build_pivot_transform_with_skew(
+                cx,
+                cy,
+                cw,
+                ch,
+                eff_sx,
+                eff_sy,
+                rot,
+                sk_x,
+                sk_y,
+                layer.pivot_x,
+                layer.pivot_y,
+            );
 
             let eff_bg = eval_color_property(
                 &layer.animations,
@@ -2257,8 +2491,12 @@ fn render_layer_inner(
                 active_children.sort_by(|a, b| a.4.total_cmp(&b.4));
             }
 
-            let needs_offscreen =
-                *clip || rot != 0.0 || sk_x != 0.0 || sk_y != 0.0 || (s - 1.0).abs() > 1e-6;
+            let needs_offscreen = *clip
+                || rot != 0.0
+                || sk_x != 0.0
+                || sk_y != 0.0
+                || (eff_sx - 1.0).abs() > 1e-6
+                || (eff_sy - 1.0).abs() > 1e-6;
             if needs_offscreen {
                 let pw = (cw.ceil() as u32).max(1);
                 let ph = (ch.ceil() as u32).max(1);

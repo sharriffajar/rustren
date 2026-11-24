@@ -123,6 +123,14 @@ pub struct Layer {
     pub shadow: Option<ShadowSpec>,
     #[serde(default)]
     pub anchor: AnchorSpec,
+    #[serde(default = "default_scale")]
+    pub scale_x: f32,
+    #[serde(default = "default_scale")]
+    pub scale_y: f32,
+    #[serde(default = "default_pivot")]
+    pub pivot_x: f32,
+    #[serde(default = "default_pivot")]
+    pub pivot_y: f32,
     #[serde(default)]
     pub skew_x: f32,
     #[serde(default)]
@@ -528,6 +536,14 @@ pub enum LayerKind {
         trim_end_sec: Option<f32>,
         #[serde(default = "default_scale")]
         playback_rate: f32,
+        #[serde(default, alias = "loop")]
+        loop_video: bool,
+        #[serde(default = "default_pivot")]
+        focal_x: f32,
+        #[serde(default = "default_pivot")]
+        focal_y: f32,
+        #[serde(default)]
+        luma_key: Option<f32>,
         #[serde(default = "default_opacity")]
         volume: f32,
         #[serde(default)]
@@ -848,6 +864,10 @@ fn default_scale() -> f32 {
     1.0
 }
 
+fn default_pivot() -> f32 {
+    0.5
+}
+
 fn default_font_size() -> f32 {
     48.0
 }
@@ -956,6 +976,10 @@ pub const ANIM_PROPERTY_NAMES: &[&str] = &[
     "height",
     "opacity",
     "scale",
+    "scale_x",
+    "scale_y",
+    "focal_x",
+    "focal_y",
     "rotation",
     "skew_x",
     "skew_y",
@@ -984,6 +1008,10 @@ pub enum AnimProperty {
     Height,
     Opacity,
     Scale,
+    ScaleX,
+    ScaleY,
+    FocalX,
+    FocalY,
     Rotation,
     SkewX,
     SkewY,

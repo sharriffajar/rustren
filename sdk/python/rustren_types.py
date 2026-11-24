@@ -18,7 +18,7 @@ FitMode = Literal["fill", "cover", "contain"]
 
 Easing = Literal["linear", "ease_in", "ease_out", "ease_in_out", "ease_in_quad", "ease_out_quad", "ease_in_out_quad", "ease_in_expo", "ease_out_expo", "ease_in_out_expo", "ease_in_back", "ease_out_back", "ease_in_out_back", "ease_out_bounce", "cubic_bezier", "spring"]
 
-AnimProperty = Literal["x", "y", "width", "height", "opacity", "scale", "rotation", "skew_x", "skew_y", "rotate_x", "rotate_y", "perspective", "z", "rotate_z", "z_index", "cx", "cy", "r", "radius", "color", "background", "border_color", "path_progress", "stroke_dashoffset", "volume"]
+AnimProperty = Literal["x", "y", "width", "height", "opacity", "scale", "scale_x", "scale_y", "focal_x", "focal_y", "rotation", "skew_x", "skew_y", "rotate_x", "rotate_y", "perspective", "z", "rotate_z", "z_index", "cx", "cy", "r", "radius", "color", "background", "border_color", "path_progress", "stroke_dashoffset", "volume"]
 
 Anchor = Literal["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"]
 
@@ -103,7 +103,7 @@ class Echo(TypedDict, total=False):
 Animation = TypedDict(
     "Animation",
     {
-        "property": Literal["x", "y", "width", "height", "opacity", "scale", "rotation", "skew_x", "skew_y", "rotate_x", "rotate_y", "perspective", "z", "rotate_z", "z_index", "cx", "cy", "r", "radius", "color", "background", "border_color", "path_progress", "stroke_dashoffset", "volume"],
+        "property": Literal["x", "y", "width", "height", "opacity", "scale", "scale_x", "scale_y", "focal_x", "focal_y", "rotation", "skew_x", "skew_y", "rotate_x", "rotate_y", "perspective", "z", "rotate_z", "z_index", "cx", "cy", "r", "radius", "color", "background", "border_color", "path_progress", "stroke_dashoffset", "volume"],
         "expr": str,
         "from": Union[float, str],
         "to": Union[float, str],
@@ -137,6 +137,10 @@ class BaseLayer(TypedDict, total=False):
     shadow: Shadow
     opacity: float
     anchor: Literal["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"]
+    scale_x: float
+    scale_y: float
+    pivot_x: float
+    pivot_y: float
     skew_x: float
     skew_y: float
     track_matte: Literal["none", "alpha", "alpha_inverted", "luma", "luma_inverted"]
@@ -266,6 +270,11 @@ class VideoLayer(TypedDict, total=False):
     trim_start_sec: float
     trim_end_sec: float
     playback_rate: float
+    loop_video: bool
+    loop: bool
+    focal_x: float
+    focal_y: float
+    luma_key: float
     volume: float
     muted: bool
     rotation: float

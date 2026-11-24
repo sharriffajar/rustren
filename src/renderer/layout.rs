@@ -34,18 +34,21 @@ pub(super) fn build_pivot_transform_with_skew(
     y: f32,
     w: f32,
     h: f32,
-    scale: f32,
+    scale_x: f32,
+    scale_y: f32,
     rotation: f32,
     skew_x: f32,
     skew_y: f32,
+    pivot_x: f32,
+    pivot_y: f32,
 ) -> Transform {
-    let px = x + w * 0.5;
-    let py = y + h * 0.5;
+    let px = x + w * pivot_x;
+    let py = y + h * pivot_y;
     let mut t = Transform::identity();
-    if (scale - 1.0).abs() > 1e-6 {
+    if (scale_x - 1.0).abs() > 1e-6 || (scale_y - 1.0).abs() > 1e-6 {
         t = t
             .post_translate(-px, -py)
-            .post_scale(scale, scale)
+            .post_scale(scale_x, scale_y)
             .post_translate(px, py);
     }
     if skew_x != 0.0 || skew_y != 0.0 {

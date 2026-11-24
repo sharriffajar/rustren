@@ -241,6 +241,10 @@
             "height",
             "opacity",
             "scale",
+            "scale_x",
+            "scale_y",
+            "focal_x",
+            "focal_y",
             "rotation",
             "skew_x",
             "skew_y",
@@ -395,6 +399,10 @@
           ],
           "default": "top_left"
         },
+        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
+        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
+        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
+        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
         "track_matte": {
@@ -553,6 +561,10 @@
           ],
           "default": "top_left"
         },
+        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
+        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
+        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
+        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
         "rotate_y": { "type": "number", "default": 0.0 },
@@ -672,6 +684,10 @@
           ],
           "default": "top_left"
         },
+        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
+        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
+        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
+        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
         "rotate_y": { "type": "number", "default": 0.0 },
@@ -779,6 +795,10 @@
           ],
           "default": "top_left"
         },
+        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
+        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
+        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
+        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
         "track_matte": {
@@ -953,6 +973,10 @@
           ],
           "default": "top_left"
         },
+        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
+        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
+        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
+        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
         "rotate_y": { "type": "number", "default": 0.0 },
@@ -1064,6 +1088,10 @@
           ],
           "default": "top_left"
         },
+        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
+        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
+        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
+        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
         "rotate_y": { "type": "number", "default": 0.0 },
@@ -1176,9 +1204,38 @@
         },
         "playback_rate": {
           "type": "number",
-          "exclusiveMinimum": 0,
           "default": 1.0,
-          "description": "Video and audio playback speed (1.0 = normal)"
+          "description": "Video playback speed (1.0 = normal, negative = reverse)"
+        },
+        "loop_video": {
+          "type": "boolean",
+          "default": false,
+          "description": "Loop the trimmed video segment"
+        },
+        "loop": {
+          "type": "boolean",
+          "default": false,
+          "description": "Alias for loop_video"
+        },
+        "focal_x": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5,
+          "description": "Normalized horizontal focal point for cover cropping"
+        },
+        "focal_y": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5,
+          "description": "Normalized vertical focal point for cover cropping"
+        },
+        "luma_key": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Luma key threshold (0 - 1); black pixels become transparent"
         },
         "volume": {
           "type": "number",
@@ -1213,6 +1270,10 @@
           ],
           "default": "top_left"
         },
+        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
+        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
+        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
+        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
         "rotate_y": { "type": "number", "default": 0.0 },
@@ -1295,6 +1356,10 @@
           ],
           "default": "top_left"
         },
+        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
+        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
+        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
+        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
         "track_matte": {
@@ -1398,6 +1463,10 @@
           ],
           "default": "top_left"
         },
+        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
+        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
+        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
+        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
         "track_matte": {
@@ -1540,6 +1609,10 @@
           ],
           "default": "top_left"
         },
+        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
+        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
+        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
+        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
         "rotate_y": { "type": "number", "default": 0.0 },
@@ -1662,6 +1735,10 @@
           ],
           "default": "top_left"
         },
+        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
+        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
+        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
+        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
         "skew_x": { "type": "number", "default": 0.0 },
         "skew_y": { "type": "number", "default": 0.0 },
         "perspective": {

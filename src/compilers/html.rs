@@ -11,7 +11,7 @@
 //! - `<text>`: layer text (x, y, content atau text body, font-size, line-height, letter-spacing, font-family, font-weight, text-align, direction, color, opacity, scale)
 //! - `<image>`: layer image (x, y, width, height, src, fit, opacity, rotation, scale)
 //! - `<svg>`: layer svg (x, y, width, height, src, path-progress, stroke-dashoffset, opacity, rotation)
-//! - `<video>`: layer video (x, y, width, height, src, fit, trim-start, trim-end, playback-rate, volume, muted, opacity, scale)
+//! - `<video>`: layer video (x, y, width, height, src, fit, trim-start, trim-end, playback-rate, loop, focal-x, focal-y, luma-key, volume, muted, opacity, scale)
 //! - `<waveform>`: layer waveform (x, y, width, height, bars, bar-gap, color, seed, speed, opacity, scale)
 //! - `<lottie>`: layer lottie (x, y, width, height, src, loop, speed, opacity, scale)
 //! - `<container>`: layer container (x, y, width, height, layout direction, justify-content, align-items, gap, padding, background, timeline, children)
@@ -921,6 +921,10 @@ struct CommonLayerMeta {
     blur: f32,
     shadow: Option<ShadowSpec>,
     anchor: AnchorSpec,
+    scale_x: f32,
+    scale_y: f32,
+    pivot_x: f32,
+    pivot_y: f32,
     skew_x: f32,
     skew_y: f32,
     rotate_x: f32,
@@ -955,6 +959,10 @@ impl CommonLayerMeta {
             blur: self.blur,
             shadow: self.shadow,
             anchor: self.anchor,
+            scale_x: self.scale_x,
+            scale_y: self.scale_y,
+            pivot_x: self.pivot_x,
+            pivot_y: self.pivot_y,
             skew_x: self.skew_x,
             skew_y: self.skew_y,
             rotate_x: self.rotate_x,
@@ -1038,6 +1046,18 @@ fn parse_common_layer_meta(
     };
 
     let anchor = parse_anchor(get_attr_str(elem, "anchor").as_deref());
+    let scale_x = get_attr_f32(elem, "scale-x")
+        .or_else(|| get_attr_f32(elem, "scale_x"))
+        .unwrap_or(1.0);
+    let scale_y = get_attr_f32(elem, "scale-y")
+        .or_else(|| get_attr_f32(elem, "scale_y"))
+        .unwrap_or(1.0);
+    let pivot_x = get_attr_f32(elem, "pivot-x")
+        .or_else(|| get_attr_f32(elem, "pivot_x"))
+        .unwrap_or(0.5);
+    let pivot_y = get_attr_f32(elem, "pivot-y")
+        .or_else(|| get_attr_f32(elem, "pivot_y"))
+        .unwrap_or(0.5);
     let skew_x = get_attr_f32(elem, "skew-x")
         .or_else(|| get_attr_f32(elem, "skew_x"))
         .unwrap_or(0.0);
@@ -1115,6 +1135,10 @@ fn parse_common_layer_meta(
         blur,
         shadow,
         anchor,
+        scale_x,
+        scale_y,
+        pivot_x,
+        pivot_y,
         skew_x,
         skew_y,
         rotate_x,
@@ -1530,6 +1554,17 @@ fn parse_layer_element(
             let trim_start_sec = get_attr_f32(elem, "trim-start").unwrap_or(0.0);
             let trim_end_sec = get_attr_f32(elem, "trim-end");
             let playback_rate = get_attr_f32(elem, "playback-rate").unwrap_or(1.0);
+            let loop_video = get_attr_str(elem, "loop")
+                .or_else(|| get_attr_str(elem, "loop-video"))
+                .is_some();
+            let focal_x = get_attr_f32(elem, "focal-x")
+                .or_else(|| get_attr_f32(elem, "focal_x"))
+                .unwrap_or(0.5);
+            let focal_y = get_attr_f32(elem, "focal-y")
+                .or_else(|| get_attr_f32(elem, "focal_y"))
+                .unwrap_or(0.5);
+            let luma_key = get_attr_f32(elem, "luma-key")
+                .or_else(|| get_attr_f32(elem, "luma_key"));
             let volume = get_attr_f32(elem, "volume").unwrap_or(1.0);
             let muted = get_attr_str(elem, "muted").is_some();
             let opacity = get_attr_f32(elem, "opacity").unwrap_or(1.0);
@@ -1546,6 +1581,10 @@ fn parse_layer_element(
                 trim_start_sec,
                 trim_end_sec,
                 playback_rate,
+                loop_video,
+                focal_x,
+                focal_y,
+                luma_key,
                 volume,
                 muted,
                 opacity,
@@ -1894,7 +1933,11 @@ fn parse_animation_elem(a_elem: &ElementRef) -> Result<Animation> {
         "width" | "w" => AnimProperty::Width,
         "height" | "h" => AnimProperty::Height,
         "opacity" => AnimProperty::Opacity,
-        "scale" | "scale_x" | "scale-x" | "scale_y" | "scale-y" => AnimProperty::Scale,
+        "scale" => AnimProperty::Scale,
+        "scale_x" | "scale-x" => AnimProperty::ScaleX,
+        "scale_y" | "scale-y" => AnimProperty::ScaleY,
+        "focal_x" | "focal-x" => AnimProperty::FocalX,
+        "focal_y" | "focal-y" => AnimProperty::FocalY,
         "rotation" => AnimProperty::Rotation,
         "skew_x" | "skew-x" => AnimProperty::SkewX,
         "skew_y" | "skew-y" => AnimProperty::SkewY,

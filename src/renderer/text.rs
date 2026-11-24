@@ -699,8 +699,20 @@ pub(super) fn render_text_layer(
     let op = eval_property(&layer.animations, AnimProperty::Opacity, time_sec, *opacity)
         * parent_opacity;
     let s = eval_property(&layer.animations, AnimProperty::Scale, time_sec, *scale);
+    let scale_x = eval_property(
+        &layer.animations,
+        AnimProperty::ScaleX,
+        time_sec,
+        layer.scale_x,
+    );
+    let scale_y = eval_property(
+        &layer.animations,
+        AnimProperty::ScaleY,
+        time_sec,
+        layer.scale_y,
+    );
 
-    if op <= 0.0 || s <= 0.0 {
+    if op <= 0.0 || s <= 0.0 || scale_x <= 0.0 || scale_y <= 0.0 {
         return Ok(());
     }
 
@@ -725,15 +737,36 @@ pub(super) fn render_text_layer(
     let (x, y) = apply_anchor(x, y, bw, mh, layer.anchor);
     let sk_x = eval_property(&layer.animations, AnimProperty::SkewX, time_sec, layer.skew_x);
     let sk_y = eval_property(&layer.animations, AnimProperty::SkewY, time_sec, layer.skew_y);
-    let text_xform = build_pivot_transform_with_skew(x, y, bw, mh, 1.0, 0.0, sk_x, sk_y);
+    let text_xform = build_pivot_transform_with_skew(
+        x,
+        y,
+        bw,
+        mh,
+        scale_x,
+        scale_y,
+        0.0,
+        sk_x,
+        sk_y,
+        layer.pivot_x,
+        layer.pivot_y,
+    );
 
     let is_rtl_text = is_rtl_content(&resolved_content, effective_spans, *direction);
     let use_fx_buffer = gradient.is_some() || outline.as_ref().is_some_and(|o| o.width > 0.0);
-    let buf_w = if effective_max_w.is_some()
-        || !matches!(*text_align, TextAlignSpec::Left | TextAlignSpec::Start)
-        || is_rtl_text
-    {
-        effective_max_w.unwrap_or(pixmap.width() as f32)
+    let aligned_nontrivial = match text_align {
+        TextAlignSpec::Left => false,
+        TextAlignSpec::Center | TextAlignSpec::Right => true,
+        TextAlignSpec::Start => is_rtl_text,
+        TextAlignSpec::End => !is_rtl_text,
+    };
+    let buf_w = if let Some(mw) = effective_max_w {
+        mw
+    } else if let Some(b) = layout_override {
+        b.w
+    } else if aligned_nontrivial {
+        // Center/right alignment must be measured against the text box itself;
+        // using the canvas width here shifts the glyphs away from the anchor.
+        bw.max(1.0)
     } else {
         (bw + 16.0).max(64.0)
     };
@@ -971,14 +1004,22 @@ pub(super) fn render_text_layer(
     if let Some((pm_arc, ox, oy, needs_op)) = entry {
         let base_x = if use_fx_buffer { x + ox } else { (x as i32) as f32 + ox };
         let base_y = if use_fx_buffer { y + oy } else { (y as i32) as f32 + oy };
-        let dst_xform = if sk_x == 0.0 && sk_y == 0.0 {
+        let dst_xform = if sk_x == 0.0
+            && sk_y == 0.0
+            && (scale_x - 1.0).abs() < 1e-6
+            && (scale_y - 1.0).abs() < 1e-6
+        {
             Transform::from_translate(base_x, base_y)
         } else {
             Transform::from_translate(base_x, base_y).post_concat(text_xform)
         };
         let paint = PixmapPaint {
             opacity: if needs_op { op.clamp(0.0, 1.0) } else { 1.0 },
-            quality: if sk_x == 0.0 && sk_y == 0.0 {
+            quality: if sk_x == 0.0
+                && sk_y == 0.0
+                && (scale_x - 1.0).abs() < 1e-6
+                && (scale_y - 1.0).abs() < 1e-6
+            {
                 FilterQuality::Nearest
             } else {
                 FilterQuality::Bilinear

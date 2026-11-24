@@ -143,6 +143,8 @@ Use these primitives to keep AI-generated JSON compact and expressive:
 - `type` (required): `"container"` | `"rect"` | `"circle"` | `"text"` | `"svg"` | `"image"` | `"video"` | `"waveform"` | `"lottie"` | `"particles"`
 - `position` (optional, default `"relative"`): `"relative"` | `"absolute"`
 - `anchor` (optional, default `"top_left"`): `"top_left"` | `"top_center"` | `"top_right"` | `"center_left"` | `"center"` | `"center_right"` | `"bottom_left"` | `"bottom_center"` | `"bottom_right"`
+- `scale_x`, `scale_y` (optional, default `1.0`): f32 (per-axis scale composed with the layer's `scale`)
+- `pivot_x`, `pivot_y` (optional, default `0.5`): f32 (normalized transform pivot; `0.0` = left/top, `1.0` = right/bottom)
 - `skew_x`, `skew_y` (optional, default `0.0`): f32 (degrees)
 - `rotate_x`, `rotate_y` (optional, default `0.0`): f32 (2.5D perspective tilt in degrees)
 - `perspective` (optional, default `800.0`): f32 (focal distance in px for 2.5D ray-plane homography)
@@ -206,7 +208,11 @@ Use these primitives to keep AI-generated JSON compact and expressive:
 
 ### 7. `video`
 - `x`, `y` (default `0.0`), `width`, `height` (optional, defaults to source video dimensions), `src` (required: file path or URL for MP4/MOV/WEBM), `fit` (default `"fill"`: `"fill"` | `"cover"` | `"contain"`)
-- `trim_start_sec` (default `0.0`), `trim_end_sec` (optional), `playback_rate` (default `1.0`, affects both video & audio), `volume` (default `1.0`), `muted` (default `false`)
+- `trim_start_sec` (default `0.0`), `trim_end_sec` (optional), `playback_rate` (default `1.0`; negative values play the video in reverse)
+- `loop_video` *(alias: `loop`)* (default `false`): bool (loop the trimmed segment)
+- `focal_x`, `focal_y` (default `0.5`): f32 (`0.0..1.0` focal point used for `fit: "cover"` cropping; animatable)
+- `luma_key` (optional): f32 (`0.0..1.0`; pixels darker than the threshold become transparent with premultiplied alpha)
+- `volume` (default `1.0`), `muted` (default `false`)
 - `opacity` (default `1.0`), `rotation` (default `0.0`), `scale` (default `1.0`)
 
 ## `animations[]`
@@ -220,7 +226,7 @@ Use these primitives to keep AI-generated JSON compact and expressive:
   "easing": "spring"
 }
 ```
-- `property`: `"x"` | `"y"` | `"width"` | `"height"` | `"opacity"` | `"scale"` | `"rotation"` | `"skew_x"` | `"skew_y"` | `"rotate_x"` | `"rotate_y"` | `"perspective"` | `"z_index"` | `"cx"` | `"cy"` | `"r"` | `"radius"` | `"color"` *(alias: `"background"`)* | `"border_color"` | `"path_progress"` | `"stroke_dashoffset"` | `"volume"`
+- `property`: `"x"` | `"y"` | `"width"` | `"height"` | `"opacity"` | `"scale"` | `"scale_x"` | `"scale_y"` | `"focal_x"` | `"focal_y"` | `"rotation"` | `"skew_x"` | `"skew_y"` | `"rotate_x"` | `"rotate_y"` | `"perspective"` | `"z_index"` | `"cx"` | `"cy"` | `"r"` | `"radius"` | `"color"` *(alias: `"background"`)* | `"border_color"` | `"path_progress"` | `"stroke_dashoffset"` | `"volume"`
 - `from`, `to`: number (`f32`) or hex color (`"#RRGGBB"` / `"#RRGGBBAA"`) for `color` / `background` / `border_color`
 - `keyframes` *(optional alternative to `from`/`to`/`start_sec`/`end_sec`)*: array of `{ "time": 0.0, "value": 0.0, "easing": "ease_out" }` for multi-stop timelines in one block (e.g., fade-in → hold → fade-out)
 - `easing`: `"linear"` | `"ease_in"` | `"ease_out"` | `"ease_in_out"` | `"ease_in_quad"` | `"ease_out_quad"` | `"ease_in_out_quad"` | `"ease_in_expo"` | `"ease_out_expo"` | `"ease_in_out_expo"` | `"ease_in_back"` | `"ease_out_back"` | `"ease_in_out_back"` | `"ease_out_bounce"` | `"cubic_bezier"` | `"spring"`
@@ -240,6 +246,7 @@ Use these primitives to keep AI-generated JSON compact and expressive:
   - `cx`, `cy`, `r` apply to `circle` (enabling pulse & ripple animations).
   - `rotation` applies to `container`, `rect`, `image`, `video`, and `svg`.
   - `scale` applies to `container`, `rect`, `text`, `image`, `video`, and `circle`.
+  - `scale_x` / `scale_y` multiply the layer `scale` per axis for transform-capable layers; `focal_x` / `focal_y` drive video `cover` cropping.
 - **Spring Overshoot, Clamping & Error Handling**:
   - `spring` can slightly overshoot `to` before settling. Animated `opacity` is clamped to `[0.0, 1.0]`, and layers with `width <= 0`, `height <= 0`, `r <= 0`, `scale <= 0`, or `opacity <= 0` are not drawn. If two animations on the same property overlap in time, the later one in the array wins.
   - Missing or unreadable `src` (`image`, `video`, `svg`, `audio`, `fonts`) fails immediately with a non-zero exit code. Unknown `font_family` falls back to system sans-serif.
@@ -271,7 +278,7 @@ Use these primitives to keep AI-generated JSON compact and expressive:
 
 ## Coordinate System & Anchor
 - **Origin**: `(0, 0)` at **top-left**, `+x` right, `+y` down, units in **px**.
-- **Anchor & Pivot**: Default `anchor` is `"top_left"` (use `"center"` to position by center). `circle` is centered at `(cx, cy)`. `rect`, `container`, `image`, `svg`, and `text` apply `rotation`/`skew_x`/`skew_y` around the center of their bounding box.
+- **Anchor & Pivot**: Default `anchor` is `"top_left"` (use `"center"` to position by center). `circle` is centered at `(cx, cy)`. `rect`, `container`, `image`, `svg`, and `text` apply `rotation`/`skew_x`/`skew_y`/`scale_x`/`scale_y` around the normalized pivot `(pivot_x, pivot_y)` (default `0.5, 0.5` = bounding-box center).
 
 ## Complete Scene Example (1 Scene + Progress Bar)
 ```json

@@ -1327,3 +1327,270 @@ fn test_transparent_png_does_not_bleed_white_onto_background() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+fn test_assets() -> AssetStore {
+    AssetStore {
+        fonts: vec![],
+        images: HashMap::new(),
+        videos: HashMap::new(),
+        svgs: HashMap::new(),
+        audio_paths: vec![],
+        #[cfg(feature = "exp-3d")]
+        mesh3d: HashMap::new(),
+    }
+}
+
+fn test_pixel(frame: &[u8], width: u32, x: u32, y: u32) -> [u8; 4] {
+    let idx = ((y * width + x) * 4) as usize;
+    [frame[idx], frame[idx + 1], frame[idx + 2], frame[idx + 3]]
+}
+
+#[test]
+fn test_layer_scale_x_and_scale_y_render_independently() {
+    let json = r##"{
+        "canvas": { "width": 100, "height": 100, "fps": 30, "duration_secs": 1.0, "background": "#000000" },
+        "layers": [
+            {
+                "type": "rect",
+                "x": 40, "y": 40, "width": 20, "height": 20,
+                "color": "#FF0000",
+                "scale_x": 2.0,
+                "scale_y": 0.5
+            }
+        ]
+    }"##;
+    let scene: Scene = serde_json::from_str(json).unwrap();
+    let frame = render_frame(&scene, &test_assets(), 0).unwrap();
+
+    // Scaling happens about the default center (50, 50): 40x10 box (30..70, 45..55).
+    assert_eq!(
+        test_pixel(&frame, 100, 35, 50),
+        [255, 0, 0, 255],
+        "horizontal scale must widen the rect"
+    );
+    assert_eq!(
+        test_pixel(&frame, 100, 50, 47),
+        [255, 0, 0, 255],
+        "vertical scale must keep the squashed rect visible near the center"
+    );
+    assert_eq!(
+        test_pixel(&frame, 100, 35, 44),
+        [0, 0, 0, 255],
+        "scale_y must not be applied to the horizontal axis"
+    );
+    assert_eq!(
+        test_pixel(&frame, 100, 71, 50),
+        [0, 0, 0, 255],
+        "scaled bounds must stop at x = 70"
+    );
+}
+
+#[test]
+fn test_layer_custom_pivot_anchors_scaling() {
+    let json = r##"{
+        "canvas": { "width": 100, "height": 100, "fps": 30, "duration_secs": 1.0, "background": "#000000" },
+        "layers": [
+            {
+                "type": "rect",
+                "x": 40, "y": 40, "width": 20, "height": 20,
+                "color": "#00FF00",
+                "scale": 2.0,
+                "pivot_x": 0.0,
+                "pivot_y": 0.0
+            }
+        ]
+    }"##;
+    let scene: Scene = serde_json::from_str(json).unwrap();
+    let frame = render_frame(&scene, &test_assets(), 0).unwrap();
+
+    // Pivot (0, 0) keeps the top-left at (40, 40), so the rect covers 40..80.
+    assert_eq!(test_pixel(&frame, 100, 75, 75), [0, 255, 0, 255]);
+    assert_eq!(
+        test_pixel(&frame, 100, 35, 35),
+        [0, 0, 0, 255],
+        "with a top-left pivot the rect must not grow up or left"
+    );
+}
+
+#[test]
+fn test_center_anchor_and_text_align_without_max_width() {
+    let json = r##"{
+        "canvas": { "width": 400, "height": 120, "fps": 30, "duration_secs": 1.0, "background": "#000000" },
+        "layers": [
+            {
+                "type": "text",
+                "x": 200, "y": 60,
+                "content": "MMMM",
+                "font_size": 40,
+                "anchor": "center",
+                "text_align": "center",
+                "color": "#FFFFFF"
+            }
+        ]
+    }"##;
+    let scene: Scene = serde_json::from_str(json).unwrap();
+    let frame = render_frame(&scene, &test_assets(), 0).unwrap();
+
+    let mut min_x = u32::MAX;
+    let mut max_x = 0u32;
+    for y in 0..120u32 {
+        for x in 0..400u32 {
+            let px = test_pixel(&frame, 400, x, y);
+            if px[0] > 200 && px[1] > 200 && px[2] > 200 {
+                min_x = min_x.min(x);
+                max_x = max_x.max(x);
+            }
+        }
+    }
+    assert!(max_x > min_x, "text must render visible glyphs");
+    let center = (min_x + max_x) as f32 * 0.5;
+    assert!(
+        (center - 200.0).abs() <= 4.0,
+        "centered text must be centered on x=200 without max_width, got center={center} (bounds {min_x}..{max_x})"
+    );
+}
+
+#[test]
+fn test_multiline_text_line_height_scales_with_newlines() {
+    let render_height = |line_height: f32| -> u32 {
+        let json = format!(
+            r##"{{
+            "canvas": {{ "width": 200, "height": 300, "fps": 30, "duration_secs": 1.0, "background": "#000000" }},
+            "layers": [
+                {{
+                    "type": "text",
+                    "x": 20, "y": 20,
+                    "content": "HH\nHH",
+                    "font_size": 10,
+                    "line_height": {line_height},
+                    "color": "#FFFFFF"
+                }}
+            ]
+        }}"##
+        );
+        let scene: Scene = serde_json::from_str(&json).unwrap();
+        let frame = render_frame(&scene, &test_assets(), 0).unwrap();
+        let mut min_y = u32::MAX;
+        let mut max_y = 0u32;
+        for y in 0..300u32 {
+            for x in 0..200u32 {
+                let px = test_pixel(&frame, 200, x, y);
+                if px[0] > 200 && px[1] > 200 && px[2] > 200 {
+                    min_y = min_y.min(y);
+                    max_y = max_y.max(y);
+                }
+            }
+        }
+        assert!(max_y > min_y, "multiline text must render glyphs");
+        max_y - min_y
+    };
+
+    let tight = render_height(20.0);
+    let loose = render_height(80.0);
+    assert!(
+        loose as f32 >= tight as f32 * 1.8,
+        "line_height must space explicit \\n lines: tight={tight}px loose={loose}px"
+    );
+}
+
+fn video_scene(duration: f32, rate: f32, luma_key: Option<f32>) -> Scene {
+    let luma = luma_key
+        .map(|k| format!(r#", "luma_key": {k}"#))
+        .unwrap_or_default();
+    let json = format!(
+        r##"{{
+        "canvas": {{ "width": 16, "height": 16, "fps": 30, "duration_secs": {duration}, "background": "#00FF00" }},
+        "layers": [
+            {{
+                "type": "video",
+                "x": 0, "y": 0, "width": 16, "height": 16,
+                "src": "test.mp4",
+                "fit": "fill",
+                "playback_rate": {rate}{luma}
+            }}
+        ]
+    }}"##
+    );
+    serde_json::from_str(&json).unwrap()
+}
+
+fn solid_frame(r: u8, g: u8, b: u8) -> Vec<u8> {
+    let mut data = Vec::with_capacity(16 * 16 * 4);
+    for _ in 0..16 * 16 {
+        data.extend_from_slice(&[r, g, b, 255]);
+    }
+    data
+}
+
+fn video_assets(frames: Vec<Vec<u8>>) -> AssetStore {
+    let mut assets = test_assets();
+    assets.videos.insert(
+        "test.mp4".to_string(),
+        crate::assets::VideoAsset {
+            width: 16,
+            height: 16,
+            fps: 1.0,
+            has_audio: false,
+            frames,
+            path: std::path::PathBuf::from("test.mp4"),
+        },
+    );
+    assets
+}
+
+#[test]
+fn test_video_reverse_playback_rate_steps_backwards() {
+    let assets = video_assets(vec![
+        solid_frame(255, 0, 0),
+        solid_frame(0, 255, 0),
+        solid_frame(0, 0, 255),
+    ]);
+
+    // fps=1, 3 frames => 3s clip. Reverse starts at the last frame.
+    let backward = video_scene(4.0, -1.0, None);
+    let start = render_frame_at_time(&backward, &assets, 0.0).unwrap();
+    assert_eq!(
+        test_pixel(&start, 16, 8, 8),
+        [0, 0, 255, 255],
+        "negative playback_rate must start from the end of the clip"
+    );
+    let mid = render_frame_at_time(&backward, &assets, 2.0).unwrap();
+    assert_eq!(
+        test_pixel(&mid, 16, 8, 8),
+        [0, 255, 0, 255],
+        "reverse playback must step toward earlier frames"
+    );
+
+    let forward = video_scene(4.0, 1.0, None);
+    let fwd = render_frame_at_time(&forward, &assets, 2.0).unwrap();
+    assert_eq!(
+        test_pixel(&fwd, 16, 8, 8),
+        [0, 0, 255, 255],
+        "positive playback_rate must play forward"
+    );
+}
+
+#[test]
+fn test_video_luma_key_makes_black_pixels_transparent() {
+    let mut frame = Vec::with_capacity(16 * 16 * 4);
+    for _y in 0..16 {
+        for x in 0..16 {
+            let c = if x < 8 { [0, 0, 0, 255] } else { [255, 255, 255, 255] };
+            frame.extend_from_slice(&c);
+        }
+    }
+    let assets = video_assets(vec![frame]);
+
+    let keyed = video_scene(1.0, 1.0, Some(0.1));
+    let out = render_frame_at_time(&keyed, &assets, 0.0).unwrap();
+    assert_eq!(
+        test_pixel(&out, 16, 4, 8),
+        [0, 255, 0, 255],
+        "black video pixels must be luma-keyed to transparent (background shows through)"
+    );
+    assert_eq!(
+        test_pixel(&out, 16, 12, 8),
+        [255, 255, 255, 255],
+        "bright video pixels must stay opaque"
+    );
+}

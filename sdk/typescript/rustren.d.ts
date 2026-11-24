@@ -45,6 +45,10 @@ export type AnimProperty =
   | "height"
   | "opacity"
   | "scale"
+  | "scale_x"
+  | "scale_y"
+  | "focal_x"
+  | "focal_y"
   | "rotation"
   | "skew_x"
   | "skew_y"
@@ -180,7 +184,7 @@ export interface Echo {
 
 export interface Animation {
   /** Animatable layer property */
-  property: "x" | "y" | "width" | "height" | "opacity" | "scale" | "rotation" | "skew_x" | "skew_y" | "rotate_x" | "rotate_y" | "perspective" | "z" | "rotate_z" | "z_index" | "cx" | "cy" | "r" | "radius" | "color" | "background" | "border_color" | "path_progress" | "stroke_dashoffset" | "volume";
+  property: "x" | "y" | "width" | "height" | "opacity" | "scale" | "scale_x" | "scale_y" | "focal_x" | "focal_y" | "rotation" | "skew_x" | "skew_y" | "rotate_x" | "rotate_y" | "perspective" | "z" | "rotate_z" | "z_index" | "cx" | "cy" | "r" | "radius" | "color" | "background" | "border_color" | "path_progress" | "stroke_dashoffset" | "volume";
   /** Mathematical expression evaluated per frame (e.g. 'sin(t*2.0)*50 + val') */
   expr?: string;
   from?: number | HexColor;
@@ -224,6 +228,14 @@ export interface BaseLayer {
   opacity?: number;
   /** default: "top_left" */
   anchor?: "top_left" | "top_center" | "top_right" | "center_left" | "center" | "center_right" | "bottom_left" | "bottom_center" | "bottom_right";
+  /** Horizontal scale multiplier composed with scale; default: 1.0 */
+  scale_x?: number;
+  /** Vertical scale multiplier composed with scale; default: 1.0 */
+  scale_y?: number;
+  /** Normalized horizontal transform pivot (0 = left, 1 = right); default: 0.5 */
+  pivot_x?: number;
+  /** Normalized vertical transform pivot (0 = top, 1 = bottom); default: 0.5 */
+  pivot_y?: number;
   /** default: 0.0 */
   skew_x?: number;
   /** default: 0.0 */
@@ -421,8 +433,18 @@ export interface VideoLayer extends BaseLayer {
   trim_start_sec?: number;
   /** Video trim end point (seconds, optional); min: 0 */
   trim_end_sec?: number;
-  /** Video and audio playback speed (1.0 = normal); default: 1.0 */
+  /** Video playback speed (1.0 = normal, negative = reverse); default: 1.0 */
   playback_rate?: number;
+  /** Loop the trimmed video segment; default: false */
+  loop_video?: boolean;
+  /** Alias for loop_video; default: false */
+  loop?: boolean;
+  /** Normalized horizontal focal point for cover cropping; default: 0.5; min: 0; max: 1 */
+  focal_x?: number;
+  /** Normalized vertical focal point for cover cropping; default: 0.5; min: 0; max: 1 */
+  focal_y?: number;
+  /** Luma key threshold (0 - 1); black pixels become transparent; min: 0; max: 1 */
+  luma_key?: number;
   /** Audio volume of video clip (0.0 - 1.0); default: 1.0; min: 0; max: 1 */
   volume?: number;
   /** Mute audio from video clip; default: false */

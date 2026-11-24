@@ -115,6 +115,11 @@ pub struct TypographyCapabilities {
 pub struct MediaCapabilities {
     pub audio: bool,
     pub video: bool,
+    pub video_playback_rate: bool,
+    pub video_reverse: bool,
+    pub video_loop: bool,
+    pub video_focal_point: bool,
+    pub video_luma_key: bool,
 }
 
 impl CapabilityRegistry {
@@ -161,6 +166,10 @@ impl CapabilityRegistry {
                         "height",
                         "opacity",
                         "scale",
+                        "scale_x",
+                        "scale_y",
+                        "focal_x",
+                        "focal_y",
                         "rotation",
                         "skew_x",
                         "skew_y",
@@ -228,6 +237,11 @@ impl CapabilityRegistry {
                 media: MediaCapabilities {
                     audio: true,
                     video: true,
+                    video_playback_rate: true,
+                    video_reverse: true,
+                    video_loop: true,
+                    video_focal_point: true,
+                    video_luma_key: true,
                 },
             },
             http_api: HttpApiCapabilities {
