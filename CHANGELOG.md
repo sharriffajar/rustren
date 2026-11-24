@@ -3,7 +3,7 @@
 All notable changes to `rustren` are documented in this file.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.5.0] - 2026-11-24
 
 ### Added
 - **Non-Uniform Scaling & Custom Pivot**: Independent `scale_x` / `scale_y` (plus `AnimProperty::ScaleX` / `ScaleY`) and `pivot_x` / `pivot_y` (`transform_origin`) on layers.
