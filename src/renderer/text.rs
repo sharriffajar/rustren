@@ -13,7 +13,7 @@ use tiny_skia::{
 use crate::animation::{apply_easing, eval_color_property, eval_property};
 use crate::schema::{
     AnimProperty, DynamicTextSpec, FontWeightSpec, GradientTypeSpec, Layer, LayerKind,
-    TextAlignSpec, TextDirectionSpec, TextSpan,
+    TextAlignSpec, TextAnimatorModeSpec, TextDirectionSpec, TextSpan,
 };
 
 use super::layout::{
@@ -658,6 +658,75 @@ fn compute_text_raster_key(
     (h, content.len(), bw.to_bits(), mh.to_bits())
 }
 
+struct TextAnimatorUnit {
+    x0: f32,
+    y0: f32,
+    x1: f32,
+    y1: f32,
+}
+
+fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
+}
+
+fn word_ordinal(line: &str, byte_start: usize) -> usize {
+    let upto = &line[..byte_start.min(line.len())];
+    let mut idx = 0usize;
+    let mut prev_ws = true;
+    for ch in upto.chars() {
+        if ch.is_whitespace() {
+            prev_ws = true;
+        } else {
+            if prev_ws {
+                idx += 1;
+            }
+            prev_ws = false;
+        }
+    }
+    if prev_ws { idx } else { idx.saturating_sub(1) }
+}
+
+fn collect_text_units(
+    buffer: &Buffer,
+    mode: TextAnimatorModeSpec,
+    font_size: f32,
+) -> Vec<TextAnimatorUnit> {
+    let mut units: Vec<TextAnimatorUnit> = Vec::new();
+    let mut index_of: HashMap<(usize, usize), usize> = HashMap::new();
+    for run in buffer.layout_runs() {
+        let line_top = run.line_top;
+        let line_bottom = run.line_top + run.line_height.max(font_size);
+        for glyph in run.glyphs.iter() {
+            let key = match mode {
+                TextAnimatorModeSpec::Char => (run.line_i, glyph.start),
+                TextAnimatorModeSpec::Word => (run.line_i, word_ordinal(run.text, glyph.start)),
+            };
+            let pg = glyph.physical((0.0, 0.0), 1.0);
+            let gx0 = pg.x as f32 - 2.0;
+            let gx1 = pg.x as f32 + glyph.w.max(1.0) + 2.0;
+            match index_of.get(&key) {
+                Some(&i) => {
+                    let u = &mut units[i];
+                    u.x0 = u.x0.min(gx0);
+                    u.y0 = u.y0.min(line_top);
+                    u.x1 = u.x1.max(gx1);
+                    u.y1 = u.y1.max(line_bottom);
+                }
+                None => {
+                    index_of.insert(key, units.len());
+                    units.push(TextAnimatorUnit {
+                        x0: gx0,
+                        y0: line_top,
+                        x1: gx1,
+                        y1: line_bottom,
+                    });
+                }
+            }
+        }
+    }
+    units
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render_text_layer(
     layer: &Layer,
@@ -688,6 +757,7 @@ pub(super) fn render_text_layer(
         opacity,
         max_width,
         scale,
+        text_animator,
     } = &layer.kind
     else {
         return Ok(());
@@ -1000,6 +1070,118 @@ pub(super) fn render_text_layer(
         }
         built
     };
+
+    if let Some(anim) = text_animator.as_ref() {
+        if let Some((pm_arc, ox, oy, needs_op)) = entry {
+            let c = parse_hex_color(&eff_color, raster_op)?;
+            let text_color = CosmicColor::rgba(
+                (c.red() * 255.0) as u8,
+                (c.green() * 255.0) as u8,
+                (c.blue() * 255.0) as u8,
+                (c.alpha() * 255.0) as u8,
+            );
+            let buffer = build_text_buffer(
+                font_system,
+                &resolved_content,
+                effective_spans,
+                *font_size,
+                *line_height,
+                font_family.as_deref(),
+                *font_weight,
+                *text_align,
+                *direction,
+                text_color,
+                raster_op,
+                Some(buf_w),
+                None,
+                s,
+            )?;
+            let units = collect_text_units(&buffer, anim.mode, *font_size);
+            let base_x = if use_fx_buffer {
+                x + ox
+            } else {
+                (x as i32) as f32 + ox
+            };
+            let base_y = if use_fx_buffer {
+                y + oy
+            } else {
+                (y as i32) as f32 + oy
+            };
+            let base_paint_op = if needs_op { op.clamp(0.0, 1.0) } else { 1.0 };
+            let pm = pm_arc.as_ref().as_ref();
+            let pm_w = pm.width() as i32;
+            let pm_h = pm.height() as i32;
+            let layer_t = (time_sec - layer.start_sec).max(0.0);
+            for (idx, unit) in units.iter().enumerate() {
+                let unit_start = anim.start_sec + idx as f32 * anim.stagger_secs;
+                let raw = if anim.duration_secs > 1e-6 {
+                    ((layer_t - unit_start) / anim.duration_secs).clamp(0.0, 1.0)
+                } else if layer_t >= unit_start {
+                    1.0
+                } else {
+                    0.0
+                };
+                let progress = apply_easing(raw, anim.easing);
+                let unit_op = base_paint_op * lerp(anim.opacity_from, 1.0, progress);
+                if unit_op <= 0.0 {
+                    continue;
+                }
+                let unit_scale = lerp(anim.scale_from, 1.0, progress).max(0.0);
+                if unit_scale <= 0.0 {
+                    continue;
+                }
+                let off_x = anim.x_offset * (1.0 - progress);
+                let off_y = anim.y_offset * (1.0 - progress);
+
+                let sx0 = (unit.x0 - ox).floor().max(0.0) as i32;
+                let sy0 = (unit.y0 - oy).floor().max(0.0) as i32;
+                let sx1 = (unit.x1 - ox).ceil().min(pm_w as f32) as i32;
+                let sy1 = (unit.y1 - oy).ceil().min(pm_h as f32) as i32;
+                if sx1 <= sx0 || sy1 <= sy0 {
+                    continue;
+                }
+                let sw = (sx1 - sx0) as u32;
+                let sh = (sy1 - sy0) as u32;
+                let Some(mut temp) = Pixmap::new(sw, sh) else {
+                    continue;
+                };
+                let src = pm.data();
+                let dst = temp.data_mut();
+                let row_bytes = (sw * 4) as usize;
+                for row in 0..sh {
+                    let d = row as usize * row_bytes;
+                    let s_off =
+                        ((((sy0 as u32 + row) * pm.width()) + sx0 as u32) * 4) as usize;
+                    dst[d..d + row_bytes].copy_from_slice(&src[s_off..s_off + row_bytes]);
+                }
+
+                let layout_x0 = sx0 as f32 + ox;
+                let layout_y0 = sy0 as f32 + oy;
+                let cx = layout_x0 + sw as f32 * 0.5;
+                let cy = layout_y0 + sh as f32 * 0.5;
+                let place = Transform::from_translate(layout_x0, layout_y0);
+                let scale_t = if (unit_scale - 1.0).abs() > 1e-6 {
+                    Transform::from_translate(cx, cy)
+                        .post_concat(Transform::from_scale(unit_scale, unit_scale))
+                        .post_concat(Transform::from_translate(-cx, -cy))
+                } else {
+                    Transform::identity()
+                };
+                let xform = Transform::from_translate(base_x + off_x, base_y + off_y)
+                    .post_concat(text_xform)
+                    .post_concat(Transform::from_translate(-ox, -oy))
+                    .post_concat(scale_t)
+                    .post_concat(place);
+                let paint = PixmapPaint {
+                    opacity: unit_op,
+                    quality: FilterQuality::Bilinear,
+                    ..PixmapPaint::default()
+                };
+                pixmap.draw_pixmap(0, 0, temp.as_ref(), &paint, xform, None);
+            }
+        }
+        return Ok(());
+    }
 
     if let Some((pm_arc, ox, oy, needs_op)) = entry {
         let base_x = if use_fx_buffer { x + ox } else { (x as i32) as f32 + ox };

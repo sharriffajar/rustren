@@ -935,6 +935,7 @@ struct CommonLayerMeta {
     grain: f32,
     vignette: f32,
     halftone: f32,
+    wave_warp: Option<WaveWarpSpec>,
     track_matte: TrackMatteMode,
     matte_layer: Option<Box<Layer>>,
     echo: Option<EchoSpec>,
@@ -973,6 +974,7 @@ impl CommonLayerMeta {
             grain: self.grain,
             vignette: self.vignette,
             halftone: self.halftone,
+            wave_warp: self.wave_warp,
             track_matte: self.track_matte,
             matte_layer: self.matte_layer,
             echo: self.echo,
@@ -1149,9 +1151,48 @@ fn parse_common_layer_meta(
         grain,
         vignette,
         halftone,
+        wave_warp: parse_wave_warp(elem),
         track_matte,
         matte_layer,
         echo,
+    })
+}
+
+fn parse_wave_warp(elem: &ElementRef) -> Option<WaveWarpSpec> {
+    let amplitude = get_attr_f32(elem, "wave-warp-amplitude")?;
+    let wavelength = get_attr_f32(elem, "wave-warp-wavelength").unwrap_or(80.0);
+    if wavelength <= 0.0 {
+        return None;
+    }
+    let axis = match get_attr_str(elem, "wave-warp-axis").as_deref() {
+        Some("y") => WaveAxisSpec::Y,
+        _ => WaveAxisSpec::X,
+    };
+    Some(WaveWarpSpec {
+        amplitude,
+        wavelength,
+        speed: get_attr_f32(elem, "wave-warp-speed").unwrap_or(0.0),
+        phase: get_attr_f32(elem, "wave-warp-phase").unwrap_or(0.0),
+        axis,
+    })
+}
+
+fn parse_text_animator(elem: &ElementRef) -> Option<TextAnimatorSpec> {
+    let mode = match get_attr_str(elem, "text-animator").as_deref() {
+        Some("word") => TextAnimatorModeSpec::Word,
+        Some(_) => TextAnimatorModeSpec::Char,
+        None => return None,
+    };
+    Some(TextAnimatorSpec {
+        mode,
+        start_sec: get_attr_f32(elem, "text-animator-start").unwrap_or(0.0),
+        stagger_secs: get_attr_f32(elem, "text-animator-stagger").unwrap_or(0.05),
+        duration_secs: get_attr_f32(elem, "text-animator-duration").unwrap_or(0.4),
+        y_offset: get_attr_f32(elem, "text-animator-y-offset").unwrap_or(0.0),
+        x_offset: get_attr_f32(elem, "text-animator-x-offset").unwrap_or(0.0),
+        opacity_from: get_attr_f32(elem, "text-animator-opacity-from").unwrap_or(1.0),
+        scale_from: get_attr_f32(elem, "text-animator-scale-from").unwrap_or(1.0),
+        easing: parse_easing_attr(get_attr_str(elem, "text-animator-easing").as_deref()),
     })
 }
 
@@ -1281,6 +1322,7 @@ fn try_parse_animated_svg_layers(
                 rotation: 0.0,
                 scale: 1.0,
                 clip: false,
+                clip_feather: 0.0,
                 cascade_opacity: false,
                 timeline: TimelineMode::Global,
                 stagger_secs: 0.0,
@@ -1479,6 +1521,7 @@ fn parse_layer_element(
                 opacity,
                 max_width,
                 scale,
+                text_animator: parse_text_animator(elem),
             }
         }
         "image" | "img" => {
@@ -1824,6 +1867,7 @@ fn parse_layer_element(
                 rotation,
                 scale,
                 clip,
+                clip_feather: get_attr_f32(elem, "clip-feather").unwrap_or(0.0),
                 cascade_opacity,
                 timeline,
                 stagger_secs,

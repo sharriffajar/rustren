@@ -1526,14 +1526,14 @@ fn video_assets(frames: Vec<Vec<u8>>) -> AssetStore {
     let mut assets = test_assets();
     assets.videos.insert(
         "test.mp4".to_string(),
-        crate::assets::VideoAsset {
-            width: 16,
-            height: 16,
-            fps: 1.0,
-            has_audio: false,
+        crate::assets::VideoAsset::from_frames(
+            16,
+            16,
+            1.0,
+            false,
             frames,
-            path: std::path::PathBuf::from("test.mp4"),
-        },
+            std::path::PathBuf::from("test.mp4"),
+        ),
     );
     assets
 }
@@ -1593,4 +1593,265 @@ fn test_video_luma_key_makes_black_pixels_transparent() {
         [255, 255, 255, 255],
         "bright video pixels must stay opaque"
     );
+}
+
+#[test]
+fn test_text_animator_staggers_chars_and_words() {
+    let render = |animator: &str, time: f32| -> usize {
+        let json = format!(
+            r##"{{
+            "canvas": {{ "width": 360, "height": 120, "fps": 30, "duration_secs": 2.5, "background": "#000000" }},
+            "layers": [
+                {{
+                    "type": "text",
+                    "x": 20, "y": 20,
+                    "content": "AB CD",
+                    "font_size": 48,
+                    "color": "#FFFFFF"{animator}
+                }}
+            ]
+        }}"##
+        );
+        let scene: Scene = serde_json::from_str(&json).unwrap();
+        let frame = render_frame_at_time(&scene, &test_assets(), time).unwrap();
+        let mut lit = 0usize;
+        for y in 0..120u32 {
+            for x in 0..360u32 {
+                let p = test_pixel(&frame, 360, x, y);
+                if p[0] > 180 && p[1] > 180 && p[2] > 180 {
+                    lit += 1;
+                }
+            }
+        }
+        lit
+    };
+
+    let base = render("", 0.4);
+    assert!(base > 0, "text must render visible glyphs");
+
+    let word = r#", "text_animator": { "mode": "word", "start_sec": 0.0, "stagger_secs": 0.5, "duration_secs": 0.4, "opacity_from": 0.0, "easing": "linear" }"#;
+    let partial = render(word, 0.4);
+    assert!(partial > 0, "first word must be visible once its stagger completes");
+    assert!(
+        partial < base,
+        "with word stagger the second word must still be hidden (partial={partial} full={base})"
+    );
+    let settled = render(word, 2.0);
+    assert_eq!(
+        settled, base,
+        "after the stagger settles the text must match the unanimated render"
+    );
+
+    let ch = r#", "text_animator": { "mode": "char", "start_sec": 0.0, "stagger_secs": 0.1, "duration_secs": 0.1, "opacity_from": 0.0, "easing": "linear" }"#;
+    let few = render(ch, 0.15);
+    assert!(few > 0, "earliest characters must be visible");
+    assert!(
+        few < base,
+        "char stagger must reveal glyphs progressively (few={few} full={base})"
+    );
+}
+
+#[test]
+fn test_container_clip_feather_softens_mask_edge() {
+    let render = |feather: f32| -> Vec<u8> {
+        let json = format!(
+            r##"{{
+            "canvas": {{ "width": 100, "height": 100, "fps": 30, "duration_secs": 1.0, "background": "#000000" }},
+            "layers": [
+                {{
+                    "type": "container",
+                    "x": 40, "y": 40, "width": 40, "height": 40,
+                    "clip": true,
+                    "clip_feather": {feather},
+                    "children": [
+                        {{ "type": "rect", "x": 0, "y": 0, "width": 40, "height": 40, "color": "#FF0000" }}
+                    ]
+                }}
+            ]
+        }}"##
+        );
+        let scene: Scene = serde_json::from_str(&json).unwrap();
+        render_frame(&scene, &test_assets(), 0).unwrap()
+    };
+
+    let hard = render(0.0);
+    let soft = render(8.0);
+    assert_eq!(
+        test_pixel(&hard, 100, 60, 60),
+        [255, 0, 0, 255],
+        "hard clip center must stay opaque"
+    );
+    assert_eq!(
+        test_pixel(&soft, 100, 60, 60),
+        [255, 0, 0, 255],
+        "feather must not dim the container center"
+    );
+    let hard_edge = test_pixel(&hard, 100, 40, 60)[0];
+    let soft_edge = test_pixel(&soft, 100, 40, 60)[0];
+    assert_eq!(hard_edge, 255, "hard clip edge must stay fully opaque");
+    assert!(
+        soft_edge < 220,
+        "feather must ramp the mask at the container edge (hard={hard_edge} soft={soft_edge})"
+    );
+    assert_eq!(
+        test_pixel(&soft, 100, 35, 60),
+        [0, 0, 0, 255],
+        "feather must not spill outside the container"
+    );
+}
+
+fn red_right_edge(frame: &[u8], width: u32, y: u32, total_w: u32) -> u32 {
+    let mut last = 0u32;
+    for x in 0..total_w {
+        let p = test_pixel(frame, width, x, y);
+        if p[0] > 180 && p[2] < 80 {
+            last = x;
+        }
+    }
+    last
+}
+
+#[test]
+fn test_wave_warp_displaces_pixels_deterministically() {
+    let render = |wave: bool| -> Vec<u8> {
+        let wave = if wave {
+            r#", "wave_warp": { "amplitude": 10.0, "wavelength": 20.0, "speed": 0.0, "phase": 0.0, "axis": "x" }"#
+        } else {
+            ""
+        };
+        let json = format!(
+            r##"{{
+            "canvas": {{ "width": 100, "height": 100, "fps": 30, "duration_secs": 1.0, "background": "#0000FF" }},
+            "layers": [
+                {{ "type": "rect", "x": 0, "y": 0, "width": 50, "height": 100, "color": "#FF0000"{wave} }}
+            ]
+        }}"##
+        );
+        let scene: Scene = serde_json::from_str(&json).unwrap();
+        render_frame(&scene, &test_assets(), 0).unwrap()
+    };
+
+    let plain = render(false);
+    let warped = render(true);
+    let plain_again = render(false);
+    let warped_again = render(true);
+    assert_eq!(plain, plain_again, "plain render must be deterministic");
+    assert_eq!(warped, warped_again, "wave warp must be deterministic");
+
+    // axis x drives displacement from sin(y): right at y=5, left at y=15.
+    let base_edge = red_right_edge(&plain, 100, 50, 100);
+    let right_edge = red_right_edge(&warped, 100, 5, 100);
+    let left_edge = red_right_edge(&warped, 100, 15, 100);
+    let warped_mid = red_right_edge(&warped, 100, 50, 100);
+    assert_eq!(base_edge, 49, "unwarped half-rect right edge must be at x=49");
+    assert!(
+        right_edge > base_edge + 4,
+        "positive wave phase must stretch the boundary right (base={base_edge} warped={right_edge})"
+    );
+    assert!(
+        left_edge + 4 < warped_mid,
+        "negative wave phase must pull the boundary left (warped={left_edge} mid={warped_mid})"
+    );
+}
+
+#[test]
+fn test_video_windowed_decode_is_bounded_and_deterministic() {
+    let dir = std::env::temp_dir().join(format!("rustren_windowed_{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let video_path = dir.join("windowed.mp4");
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=red:s=32x32:d=7.5:r=10",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=blue:s=32x32:d=7.5:r=10",
+            "-filter_complex",
+            "[0:v][1:v]concat=n=2:v=1:a=0",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-pix_fmt",
+            "yuv420p",
+        ])
+        .arg(&video_path)
+        .status()
+        .expect("ffmpeg must be available for the windowed decode test");
+    assert!(status.success(), "ffmpeg failed to generate the windowed test clip");
+
+    let json = format!(
+        r##"{{
+        "canvas": {{ "width": 32, "height": 32, "fps": 10, "duration_secs": 15.0, "background": "#000000" }},
+        "layers": [
+            {{ "type": "video", "x": 0, "y": 0, "width": 32, "height": 32, "src": "{}" }}
+        ]
+    }}"##,
+        video_path.display()
+    );
+    let scene: Scene = serde_json::from_str(&json).unwrap();
+    let assets = AssetStore::load_for_scene(&scene, &dir).unwrap();
+    let asset = assets
+        .videos
+        .get(&video_path.display().to_string())
+        .expect("video asset must be loaded");
+
+    assert_eq!(asset.frame_count, 150, "clip must report 150 decoded frames");
+    assert!(
+        asset.cache_capacity <= 96,
+        "window must stay bounded (capacity={})",
+        asset.cache_capacity
+    );
+    assert_eq!(
+        asset.cached_frame_count(),
+        0,
+        "loading must not decode the whole clip into RAM"
+    );
+
+    let center = |idx: usize| -> [u8; 4] {
+        let f = asset.frame(idx).unwrap();
+        let off = (16 * 32 + 16) * 4;
+        [f[off], f[off + 1], f[off + 2], f[off + 3]]
+    };
+
+    let first = center(0);
+    assert!(first[0] > 200 && first[2] < 60, "frame 0 must be red: {first:?}");
+    let last = center(149);
+    assert!(last[2] > 200 && last[0] < 60, "frame 149 must be blue: {last:?}");
+
+    for idx in 0..150usize {
+        let _ = asset.frame(idx).unwrap();
+        assert!(
+            asset.cached_frame_count() <= asset.cache_capacity,
+            "cache exceeded its window at frame {idx}: {} > {}",
+            asset.cached_frame_count(),
+            asset.cache_capacity
+        );
+        assert!(
+            asset.cached_frame_count() <= 96,
+            "no more than 96 frames may stay resident"
+        );
+    }
+    assert!(
+        asset.decode_count() > 1,
+        "a 150-frame clip must be decoded in more than one window (got {})",
+        asset.decode_count()
+    );
+
+    let stored_149 = asset.frame(149).unwrap();
+    let _ = center(0);
+    let again_149 = asset.frame(149).unwrap();
+    assert_eq!(
+        stored_149.as_slice(),
+        again_149.as_slice(),
+        "windowed decoding must return identical bytes after the cache window moved"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
 }

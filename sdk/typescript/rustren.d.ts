@@ -96,6 +96,8 @@ export type TextAlign =
 
 export type TextDirection = "auto" | "ltr" | "rtl";
 
+export type TextAnimatorMode = "char" | "word";
+
 export interface GradientStop {
   offset: number;
   color: HexColor;
@@ -182,6 +184,38 @@ export interface Echo {
   decay?: number;
 }
 
+export interface TextAnimator {
+  mode?: TextAnimatorMode;
+  /** Delay before the first unit animates; default: 0.0 */
+  start_sec?: number;
+  /** Delay between consecutive units; default: 0.05; min: 0 */
+  stagger_secs?: number;
+  /** Per-unit animation duration; default: 0.4; min: 0 */
+  duration_secs?: number;
+  /** Starting vertical offset in pixels; default: 0.0 */
+  y_offset?: number;
+  /** Starting horizontal offset in pixels; default: 0.0 */
+  x_offset?: number;
+  /** Starting opacity; default: 1.0; min: 0; max: 1 */
+  opacity_from?: number;
+  /** Starting scale; default: 1.0; min: 0 */
+  scale_from?: number;
+  easing?: Easing;
+}
+
+export interface WaveWarp {
+  /** Peak displacement in pixels */
+  amplitude: number;
+  /** Sine wavelength in pixels */
+  wavelength: number;
+  /** Phase advance per second; default: 0.0 */
+  speed?: number;
+  /** Constant phase offset in radians; default: 0.0 */
+  phase?: number;
+  /** Displacement axis; default: "x" */
+  axis?: "x" | "y";
+}
+
 export interface Animation {
   /** Animatable layer property */
   property: "x" | "y" | "width" | "height" | "opacity" | "scale" | "scale_x" | "scale_y" | "focal_x" | "focal_y" | "rotation" | "skew_x" | "skew_y" | "rotate_x" | "rotate_y" | "perspective" | "z" | "rotate_z" | "z_index" | "cx" | "cy" | "r" | "radius" | "color" | "background" | "border_color" | "path_progress" | "stroke_dashoffset" | "volume";
@@ -266,6 +300,7 @@ export interface BaseLayer {
   vignette?: number;
   /** 45-degree halftone dot screen intensity; default: 0.0; min: 0 */
   halftone?: number;
+  wave_warp?: WaveWarp;
   echo?: Echo;
 }
 
@@ -285,6 +320,8 @@ export interface ContainerLayer extends BaseLayer {
   rotation?: number;
   /** If true, children are clipped to container bounds and radius (overflow: hidden); default: false */
   clip?: boolean;
+  /** Soften the clip mask edge by this many pixels (requires clip=true); default: 0.0; min: 0 */
+  clip_feather?: number;
   /** If true, container opacity multiplies into children; default: false */
   cascade_opacity?: boolean;
   /** global = canvas time; local = relative to container start_sec; series = sequential children; default: "global" */
@@ -373,6 +410,7 @@ export interface TextLayer extends BaseLayer {
   outline?: Record<string, unknown>;
   /** Scale factor for font_size and line_height; default: 1.0 */
   scale?: number;
+  text_animator?: TextAnimator;
   /** Text wrapping max width (px); recommended inside containers */
   max_width?: number;
 }

@@ -55,6 +55,7 @@ const NUMERIC_FIELDS: &[&str] = &[
     "grain",
     "vignette",
     "halftone",
+    "clip_feather",
     "path_progress",
     "stroke_dashoffset",
     "overlap_secs",

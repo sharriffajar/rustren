@@ -20,6 +20,8 @@ Easing = Literal["linear", "ease_in", "ease_out", "ease_in_out", "ease_in_quad",
 
 AnimProperty = Literal["x", "y", "width", "height", "opacity", "scale", "scale_x", "scale_y", "focal_x", "focal_y", "rotation", "skew_x", "skew_y", "rotate_x", "rotate_y", "perspective", "z", "rotate_z", "z_index", "cx", "cy", "r", "radius", "color", "background", "border_color", "path_progress", "stroke_dashoffset", "volume"]
 
+TextAnimatorMode = Literal["char", "word"]
+
 Anchor = Literal["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"]
 
 TrackMatte = Literal["none", "alpha", "alpha_inverted", "luma", "luma_inverted"]
@@ -100,6 +102,26 @@ class Echo(TypedDict, total=False):
     step_sec: float
     decay: float
 
+class TextAnimator(TypedDict, total=False):
+    """TextAnimator."""
+    mode: TextAnimatorMode
+    start_sec: float
+    stagger_secs: float
+    duration_secs: float
+    y_offset: float
+    x_offset: float
+    opacity_from: float
+    scale_from: float
+    easing: Easing
+
+class WaveWarp(TypedDict, total=False):
+    """WaveWarp. Required: amplitude, wavelength."""
+    amplitude: float
+    wavelength: float
+    speed: float
+    phase: float
+    axis: Literal["x", "y"]
+
 Animation = TypedDict(
     "Animation",
     {
@@ -159,6 +181,7 @@ class BaseLayer(TypedDict, total=False):
     grain: float
     vignette: float
     halftone: float
+    wave_warp: WaveWarp
     echo: Echo
 
 class ContainerLayer(TypedDict, total=False):
@@ -172,6 +195,7 @@ class ContainerLayer(TypedDict, total=False):
     scale: float
     rotation: float
     clip: bool
+    clip_feather: float
     cascade_opacity: bool
     timeline: Literal["global", "local", "series"]
     stagger_secs: float
@@ -231,6 +255,7 @@ class TextLayer(TypedDict, total=False):
     gradient: LinearGradient
     outline: dict[str, Any]
     scale: float
+    text_animator: TextAnimator
     max_width: float
 
 class SvgLayer(TypedDict, total=False):

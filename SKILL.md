@@ -20,6 +20,8 @@ them in an editor to catch a misspelled field before running `validate`).
 
 ## 1. Prerequisites (check first)
 
+> **Key capabilities in current engine:** `scale_x`/`scale_y` + custom `pivot_x`/`pivot_y`, `text_animator` (per-char/word stagger), multiline `line_height` & `anchor: "center"` without `max_width`, `clip_feather`, `wave_warp`, windowed anti-OOM `video` decoder (`playback_rate`, `loop`, `focal_x`/`focal_y`, `luma_key`), and HTTP API `POST /snapshot` + `POST /layout`. Always verify exact fields with `rustren capabilities` or `schema.json`.
+
 ```bash
 rustren --version          # binary present?
 ffmpeg -version            # required; ffprobe also needed for `video` layers

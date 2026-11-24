@@ -153,6 +153,7 @@ Use these primitives to keep AI-generated JSON compact and expressive:
 - `grain` (optional, default `0.0`): f32 (`0.0..1.0` deterministic film grain intensity)
 - `vignette` (optional, default `0.0`): f32 (`0.0..1.0` radial edge darkening)
 - `halftone` (optional, default `0.0`): f32 (`> 0.0` rotated 45-deg halftone dot screen)
+- `wave_warp` (optional): `{ "amplitude": 8.0, "wavelength": 120.0, "speed": 1.0, "phase": 0.0, "axis": "x" }` — deterministic sine pixel displacement (stretched/liquid/elastic looks)
 - `start_sec` (optional, default `0.0`): f32
 - `end_sec` (optional, default `canvas.duration_secs`): f32
 - `duration_secs` (optional): f32 (alternative `end_sec = start_sec + duration_secs`, useful for `series` sequencing)
@@ -170,7 +171,7 @@ Use these primitives to keep AI-generated JSON compact and expressive:
 - `x`, `y` (default `0.0`), `width`, `height` (optional, auto-sizes to content if omitted)
 - `radius` (default `0.0`), `background` (optional hex `#RGB` / `#RRGGBB` / `#RRGGBBAA`)
 - `gradient` (optional): `{ "from": "#22D3EE", "to": "#818CF8", "angle": 90 }`
-- `border_color` (optional), `border_width` (default `0.0`), `opacity` (default `1.0`), `scale` (default `1.0`), `rotation` (default `0.0`, degrees), `clip` (default `false`), `cascade_opacity` (default `false`)
+- `border_color` (optional), `border_width` (default `0.0`), `opacity` (default `1.0`), `scale` (default `1.0`), `rotation` (default `0.0`, degrees), `clip` (default `false`), `clip_feather` (default `0.0`, px — softens the clip mask edge when `clip` is true), `cascade_opacity` (default `false`)
 - `timeline` (optional, default `"global"`): `"global"` | `"local"` (child animation times relative to container `start_sec`) | `"series"` (children sequenced automatically via `duration_secs` & `overlap_secs`)
 - `stagger_secs` (optional, default `0.0`): f32 (progressive delay `i * stagger_secs` applied to each child)
 - `layout`:
@@ -199,6 +200,7 @@ Use these primitives to keep AI-generated JSON compact and expressive:
 - `font_size` (default `48.0`), `line_height` (optional, default `1.25 × font_size`), `letter_spacing` (default `0.0`, px), `font_family` (optional), `font_weight`: `"normal"` | `"bold"`
 - `text_align`: `"left"` | `"center"` | `"right"`
 - `color` (default `"#FFFFFF"`), `gradient` (optional, overrides `color` fill), `outline` (optional: `{ "color": "#000000", "width": 2.0 }`), `opacity` (default `1.0`), `scale` (default `1.0`), `max_width` (optional, recommended)
+- `text_animator` (optional): `{ "mode": "char" | "word", "start_sec": 0.0, "stagger_secs": 0.05, "duration_secs": 0.4, "y_offset": 0.0, "x_offset": 0.0, "opacity_from": 1.0, "scale_from": 1.0, "easing": "ease_out" }` — deterministic per-character/word stagger of offset, opacity and scale
 
 ### 5. `svg`
 - `x`, `y` (default `0.0`), `width`, `height` (optional), `src` (required: file path, URL, or inline `<svg ...>...</svg>`), `path_progress` (default `1.0`), `stroke_dashoffset` (optional), `stroke_dasharray` (optional array of f32), `opacity` (default `1.0`), `rotation` (default `0.0`, degrees)

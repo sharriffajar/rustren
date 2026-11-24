@@ -3,6 +3,23 @@
 All notable changes to `rustren` are documented in this file.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Non-Uniform Scaling & Custom Pivot**: Independent `scale_x` / `scale_y` (plus `AnimProperty::ScaleX` / `ScaleY`) and `pivot_x` / `pivot_y` (`transform_origin`) on layers.
+- **Built-in `text_animator`**: Per-character (`char`) and per-word (`word`) staggered text animations (`start_sec`, `stagger_secs`, `duration_secs`, `x_offset`, `y_offset`, `opacity_from`, `scale_from`, `easing`).
+- **Feathered Container Clip (`clip_feather`)**: Soft alpha-feathered container clipping for rack-focus, soft vignettes, and half-screen scrims in pure JSON/HTML.
+- **Built-in `wave_warp` Effect**: Deterministic pixel displacement (`amplitude`, `wavelength`, `speed`, `phase`, `axis`) for elastic / stretched-type / liquid motion.
+- **Advanced `video` Layer Controls & Anti-OOM Windowed Decoder**: Bounded LRU windowed video decoding for long clips (1–3+ min) without OOM, plus `playback_rate` (negative for reverse), `loop`, animatable `focal_x` / `focal_y` (dynamic 9:16 reframing), and `luma_key` (black-background transparency).
+- **Zero-Encode HTTP API Preview & AI Discovery**: Added `GET /` and `GET /llms.txt` (with `RUSTREN_PUBLIC_BASE_URL` and `RUSTREN_API_NOTICE`), `POST /snapshot` (single PNG or contact sheet), `POST /layout` (bounding boxes + diagnostics), and `http_api` contracts in `GET /capabilities`.
+- **Installer Agent Skill Auto-Install**: `scripts/install.sh` and `scripts/install.ps1` automatically install `SKILL.md` into `~/.claude/skills/rustren/SKILL.md`.
+
+### Fixed
+- **Transparent PNG Premultiply Alpha**: `premultiply_rgba` on image load eliminates white halo bleed from `(255, 255, 255, 0)` pixels during resize/compositing.
+- **Multiline Text `line_height` & `anchor: "center"`**: Consistent `line_height` on `\n` multiline text and accurate `anchor: "center"` / `text_align: "center"` without requiring `max_width`.
+- **`track_matte` inside 2.5D Containers & `waveform` Color Animation**: `matte_layer` now inherits container `layout_override`; `LayerKind::Waveform` now evaluates `AnimProperty::Color`.
+- **Linter & Layout Diagnostics**: Parent container `background` is now used for text contrast checks (eliminating false positives on dark pills over light canvases), and stacked text layers have a small vertical line-height overlap tolerance.
+
 ## [0.4.1] - 2026-11-22
 
 ### Added

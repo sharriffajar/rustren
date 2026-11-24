@@ -71,6 +71,7 @@ pub struct StyleCapabilities {
     pub opacity: bool,
     pub cascade_opacity: bool,
     pub clip: bool,
+    pub clip_feather: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -100,6 +101,7 @@ pub struct EffectCapabilities {
     pub blur: bool,
     pub box_shadow: bool,
     pub blend_mode: bool,
+    pub wave_warp: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -109,6 +111,7 @@ pub struct TypographyCapabilities {
     pub rich_text: bool,
     pub letter_spacing: bool,
     pub rtl_direction: bool,
+    pub text_animator: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -120,6 +123,7 @@ pub struct MediaCapabilities {
     pub video_loop: bool,
     pub video_focal_point: bool,
     pub video_luma_key: bool,
+    pub video_windowed_decode: bool,
 }
 
 impl CapabilityRegistry {
@@ -151,6 +155,7 @@ impl CapabilityRegistry {
                     opacity: true,
                     cascade_opacity: true,
                     clip: true,
+                    clip_feather: true,
                 },
                 layout: LayoutCapabilities {
                     flexbox: true,
@@ -226,6 +231,7 @@ impl CapabilityRegistry {
                     blur: true,
                     box_shadow: true,
                     blend_mode: true,
+                    wave_warp: true,
                 },
                 typography: TypographyCapabilities {
                     custom_fonts: true,
@@ -233,6 +239,7 @@ impl CapabilityRegistry {
                     rich_text: true,
                     letter_spacing: true,
                     rtl_direction: true,
+                    text_animator: true,
                 },
                 media: MediaCapabilities {
                     audio: true,
@@ -242,6 +249,7 @@ impl CapabilityRegistry {
                     video_loop: true,
                     video_focal_point: true,
                     video_luma_key: true,
+                    video_windowed_decode: true,
                 },
             },
             http_api: HttpApiCapabilities {

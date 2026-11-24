@@ -1,20 +1,193 @@
 use anyhow::{Context, Result, anyhow};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 
 use crate::schema::{Layer, LayerKind, Scene};
+
+/// Maximum number of decoded frames kept per video. A windowed cache keeps a
+/// 1–3 minute clip from being decoded into RAM in full.
+const VIDEO_CACHE_MAX_FRAMES: usize = 96;
+/// Byte budget for a single video's frame window (anti-OOM guard for 4K clips).
+const VIDEO_CACHE_MAX_BYTES: usize = 512 * 1024 * 1024;
+
+#[allow(dead_code)]
+enum VideoBackend {
+    /// Short clips and unit tests: every frame is already in memory.
+    Preloaded(Vec<Arc<Vec<u8>>>),
+    /// Real files: decode a window on demand and keep it in `cache`.
+    File,
+}
+
+#[derive(Default)]
+struct FrameCache {
+    frames: HashMap<usize, Arc<Vec<u8>>>,
+    order: VecDeque<usize>,
+    decodes: u64,
+}
 
 pub struct VideoAsset {
     pub width: u32,
     pub height: u32,
     pub fps: f32,
     pub has_audio: bool,
-    pub frames: Vec<Vec<u8>>,
     pub path: PathBuf,
+    pub frame_count: usize,
+    /// Number of frames a windowed decode keeps resident.
+    pub cache_capacity: usize,
+    backend: VideoBackend,
+    cache: Mutex<FrameCache>,
+}
+
+impl VideoAsset {
+    /// Build an in-memory asset (tests and callers that already decoded a clip).
+    #[allow(dead_code)]
+    pub fn from_frames(
+        width: u32,
+        height: u32,
+        fps: f32,
+        has_audio: bool,
+        frames: Vec<Vec<u8>>,
+        path: PathBuf,
+    ) -> Self {
+        let frames: Vec<Arc<Vec<u8>>> = frames.into_iter().map(Arc::new).collect();
+        let frame_count = frames.len();
+        Self {
+            width,
+            height,
+            fps,
+            has_audio,
+            path,
+            frame_count,
+            cache_capacity: VIDEO_CACHE_MAX_FRAMES.min(frame_count.max(1)),
+            backend: VideoBackend::Preloaded(frames),
+            cache: Mutex::new(FrameCache::default()),
+        }
+    }
+
+    /// Fetch one decoded frame. File-backed assets decode a deterministic
+    /// window around `idx` with ffmpeg and retain it in an LRU window.
+    pub fn frame(&self, idx: usize) -> Result<Arc<Vec<u8>>> {
+        if self.frame_count == 0 {
+            return Err(anyhow!("Video has no frames: {}", self.path.display()));
+        }
+        let idx = idx.min(self.frame_count - 1);
+        match &self.backend {
+            VideoBackend::Preloaded(frames) => Ok(frames[idx].clone()),
+            VideoBackend::File => self.frame_from_file(idx),
+        }
+    }
+
+    fn frame_from_file(&self, idx: usize) -> Result<Arc<Vec<u8>>> {
+        {
+            let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(frame) = cache.frames.get(&idx).cloned() {
+                if let Some(pos) = cache.order.iter().position(|&i| i == idx) {
+                    cache.order.remove(pos);
+                }
+                cache.order.push_back(idx);
+                return Ok(frame);
+            }
+        }
+
+        let window = self.cache_capacity.max(1);
+        let start = idx - idx % window;
+        let count = (self.frame_count - start).min(window);
+        let decoded = self.decode_window(start, count)?;
+
+        let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
+        cache.decodes += 1;
+        for (offset, data) in decoded.into_iter().enumerate() {
+            let frame_idx = start + offset;
+            if frame_idx >= self.frame_count {
+                break;
+            }
+            if cache.frames.insert(frame_idx, Arc::new(data)).is_none() {
+                cache.order.push_back(frame_idx);
+            }
+        }
+        while cache.order.len() > self.cache_capacity {
+            if let Some(old) = cache.order.pop_front() {
+                cache.frames.remove(&old);
+            }
+        }
+        cache
+            .frames
+            .get(&idx)
+            .cloned()
+            .ok_or_else(|| anyhow!("Failed to decode frame {} of {}", idx, self.path.display()))
+    }
+
+    fn decode_window(&self, start: usize, count: usize) -> Result<Vec<Vec<u8>>> {
+        let fps = if self.fps > 1e-6 { self.fps } else { 30.0 };
+        // Seek half a frame before the window start so the first emitted frame
+        // is deterministically `start` (input seeking discards earlier frames).
+        let seek = ((start as f64 - 0.5).max(0.0)) / fps as f64;
+        let output = Command::new("ffmpeg")
+            .args(["-v", "error", "-ss", &format!("{seek:.6}"), "-i"])
+            .arg(&self.path)
+            .args([
+                "-frames:v",
+                &count.to_string(),
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgba",
+                "-",
+            ])
+            .output()
+            .with_context(|| {
+                format!(
+                    "Failed to decode video window [{start}..{}] from {}",
+                    start + count,
+                    self.path.display()
+                )
+            })?;
+        if !output.status.success() {
+            return Err(anyhow!(
+                "ffmpeg video window decode failed on {}: {}",
+                self.path.display(),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+        let frame_bytes = (self.width as usize) * (self.height as usize) * 4;
+        let frames: Vec<Vec<u8>> = output
+            .stdout
+            .chunks_exact(frame_bytes)
+            .map(|c| c.to_vec())
+            .collect();
+        if frames.is_empty() {
+            return Err(anyhow!(
+                "Decoded 0 video frames from {} starting at frame {}",
+                self.path.display(),
+                start
+            ));
+        }
+        Ok(frames)
+    }
+
+    /// Number of frames currently resident in the window cache.
+    #[allow(dead_code)]
+    pub fn cached_frame_count(&self) -> usize {
+        self.cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .frames
+            .len()
+    }
+
+    /// Number of ffmpeg window decodes performed so far (test/metrics hook).
+    #[allow(dead_code)]
+    pub fn decode_count(&self) -> u64 {
+        self.cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .decodes
+    }
 }
 
 pub struct AssetStore {
@@ -255,7 +428,9 @@ fn load_video_asset(path: &Path) -> Result<VideoAsset> {
             "-v",
             "error",
             "-show_entries",
-            "stream=codec_type,width,height,r_frame_rate",
+            "stream=codec_type,width,height,r_frame_rate,avg_frame_rate,nb_frames,duration",
+            "-show_entries",
+            "format=duration",
             "-of",
             "json",
         ])
@@ -281,6 +456,8 @@ fn load_video_asset(path: &Path) -> Result<VideoAsset> {
     let mut fps = 30.0f32;
     let mut has_audio = false;
     let mut has_video = false;
+    let mut nb_frames: Option<usize> = None;
+    let mut duration: Option<f64> = None;
 
     for st in streams {
         match st["codec_type"].as_str() {
@@ -289,51 +466,100 @@ fn load_video_asset(path: &Path) -> Result<VideoAsset> {
                 height = st["height"].as_u64().unwrap_or(0) as u32;
                 fps = st["r_frame_rate"]
                     .as_str()
+                    .or_else(|| st["avg_frame_rate"].as_str())
                     .map(parse_fps_rational)
+                    .filter(|f| f.is_finite() && *f > 0.0)
                     .unwrap_or(30.0);
+                nb_frames = st["nb_frames"]
+                    .as_str()
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .or_else(|| st["nb_frames"].as_u64().map(|n| n as usize))
+                    .filter(|n| *n > 0);
+                duration = st["duration"]
+                    .as_str()
+                    .and_then(|s| s.parse::<f64>().ok());
                 has_video = true;
             }
             Some("audio") => has_audio = true,
             _ => {}
         }
     }
+    if duration.is_none() {
+        duration = info["format"]["duration"]
+            .as_str()
+            .and_then(|s| s.parse::<f64>().ok());
+    }
 
     if !has_video || width == 0 || height == 0 {
         return Err(anyhow!("No valid video stream in {}", path.display()));
     }
 
-    let decode = Command::new("ffmpeg")
-        .args(["-v", "error", "-i"])
-        .arg(path)
-        .args(["-f", "rawvideo", "-pix_fmt", "rgba", "-"])
-        .output()
-        .with_context(|| format!("Failed to decode video frames from {}", path.display()))?;
-    if !decode.status.success() {
-        return Err(anyhow!(
-            "ffmpeg video decode failed on {}: {}",
-            path.display(),
-            String::from_utf8_lossy(&decode.stderr)
-        ));
-    }
+    let frame_count = nb_frames
+        .or_else(|| {
+            duration
+                .filter(|d| d.is_finite() && *d > 0.0)
+                .map(|d| (d * fps as f64).round().max(1.0) as usize)
+        })
+        .or_else(|| probe_frame_count(path).ok())
+        .filter(|n| *n > 0)
+        .ok_or_else(|| anyhow!("Could not determine frame count for {}", path.display()))?;
 
     let frame_bytes = (width as usize) * (height as usize) * 4;
-    let frames: Vec<Vec<u8>> = decode
-        .stdout
-        .chunks_exact(frame_bytes)
-        .map(|c| c.to_vec())
-        .collect();
-    if frames.is_empty() {
-        return Err(anyhow!("Decoded 0 video frames from {}", path.display()));
-    }
+    let byte_capacity = (VIDEO_CACHE_MAX_BYTES / frame_bytes.max(1)).max(1);
+    let cache_capacity = VIDEO_CACHE_MAX_FRAMES
+        .min(byte_capacity)
+        .min(frame_count.max(1));
 
     Ok(VideoAsset {
         width,
         height,
         fps,
         has_audio,
-        frames,
         path: path.to_path_buf(),
+        frame_count,
+        cache_capacity,
+        backend: VideoBackend::File,
+        cache: Mutex::new(FrameCache::default()),
     })
+}
+
+/// Last-resort frame count for containers that omit `nb_frames` and duration.
+fn probe_frame_count(path: &Path) -> Result<usize> {
+    let probe = Command::new("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-count_frames",
+            "-show_entries",
+            "stream=nb_read_frames",
+            "-of",
+            "json",
+        ])
+        .arg(path)
+        .output()
+        .with_context(|| format!("Failed to run ffprobe -count_frames on {}", path.display()))?;
+    if !probe.status.success() {
+        return Err(anyhow!(
+            "ffprobe -count_frames failed on {}: {}",
+            path.display(),
+            String::from_utf8_lossy(&probe.stderr)
+        ));
+    }
+    let info: serde_json::Value = serde_json::from_slice(&probe.stdout)
+        .context("Failed to parse ffprobe -count_frames JSON output")?;
+    let count = info["streams"]
+        .as_array()
+        .and_then(|s| s.first())
+        .and_then(|st| st["nb_read_frames"].as_str())
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    if count == 0 {
+        Err(anyhow!("No frames counted in {}", path.display()))
+    } else {
+        Ok(count)
+    }
 }
 
 /// Resolve a remote URL into the cache, or a local path against the scene

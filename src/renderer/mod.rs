@@ -54,7 +54,8 @@ use crate::schema::{
 };
 
 use self::fx::{
-    apply_surface_effects_cropped, build_shadow_pixmap_cropped, can_use_blur_cache,
+    apply_surface_effects_cropped, apply_wave_warp, build_shadow_pixmap_cropped,
+    can_use_blur_cache,
     combine_shadow_and_foreground, crop_pixmap_padded, fast_blur_rgba, find_alpha_bounds,
     finished_cursor_blink_signature, hash_silhouette_alpha, is_extrinsic_pose_prop,
     layer_base_opacity, layer_pose_offset_and_scale, map_blend_mode, set_layer_base_scale,
@@ -156,6 +157,10 @@ fn is_layer_fully_static(layer: &Layer, scene_duration: f32) -> bool {
         || layer.grain > 0.0
         || layer.z_index != 0.0
         || !layer.animations.is_empty()
+        || layer
+            .wave_warp
+            .as_ref()
+            .is_some_and(|w| w.speed.abs() > 1e-6)
     {
         return false;
     }
@@ -172,6 +177,10 @@ fn is_layer_fully_static(layer: &Layer, scene_duration: f32) -> bool {
         | LayerKind::Waveform { .. }
         | LayerKind::Lottie { .. }
         | LayerKind::Particles { .. } => false,
+        LayerKind::Text {
+            text_animator: Some(_),
+            ..
+        } => false,
         LayerKind::Container { children, .. } => children
             .iter()
             .all(|c| is_layer_fully_static(c, scene_duration)),
@@ -252,7 +261,14 @@ fn fnv1a_feed(h: &mut u64, bytes: &[u8]) {
 }
 
 fn hash_active_layer_state(layer: &Layer, time_sec: f32, parent_dur: f32, h: &mut u64) -> bool {
-    if layer.grain > 0.0 || layer.echo.is_some() || layer.track_matte != TrackMatteMode::None {
+    if layer.grain > 0.0
+        || layer.echo.is_some()
+        || layer.track_matte != TrackMatteMode::None
+        || layer
+            .wave_warp
+            .as_ref()
+            .is_some_and(|w| w.speed.abs() > 1e-6)
+    {
         return false;
     }
 
@@ -274,6 +290,12 @@ fn hash_active_layer_state(layer: &Layer, time_sec: f32, parent_dur: f32, h: &mu
             return false;
         }
         LayerKind::Particles { count, .. } if *count > 0 => {
+            return false;
+        }
+        LayerKind::Text {
+            text_animator: Some(_),
+            ..
+        } => {
             return false;
         }
         LayerKind::Text {
@@ -617,6 +639,63 @@ fn apply_luma_key(raw: &[u8], key: f32) -> Vec<u8> {
         out.push((a * 255.0).round() as u8);
     }
     out
+}
+
+/// Soften the edge of a container clip mask so it fades out over `radius`
+/// pixels instead of a hard cut (rack-focus / vignette / scrim looks).
+/// Samples outside the mask count as transparent, so the outer boundary fades.
+fn feather_mask_alpha(mask: &mut Mask, radius: f32) {
+    let w = mask.width() as i32;
+    let h = mask.height() as i32;
+    if w <= 0 || h <= 0 {
+        return;
+    }
+    let r = radius.round().clamp(1.0, 64.0) as i32;
+    let cnt = (2 * r + 1) as u32;
+    let data = mask.data_mut();
+    let mut tmp = vec![0u8; data.len()];
+
+    for y in 0..h {
+        let row = (y * w) as usize;
+        let mut sum: u32 = 0;
+        for dx in -r..=r {
+            if dx >= 0 && dx < w {
+                sum += data[row + dx as usize] as u32;
+            }
+        }
+        for x in 0..w {
+            tmp[row + x as usize] = (sum / cnt) as u8;
+            let out_x = x - r;
+            if out_x >= 0 && out_x < w {
+                sum -= data[row + out_x as usize] as u32;
+            }
+            let in_x = x + r + 1;
+            if in_x >= 0 && in_x < w {
+                sum += data[row + in_x as usize] as u32;
+            }
+        }
+    }
+
+    for x in 0..w {
+        let mut sum: u32 = 0;
+        for dy in 0..=2 * r {
+            let sy = dy - r;
+            if sy >= 0 && sy < h {
+                sum += tmp[(sy * w + x) as usize] as u32;
+            }
+        }
+        for y in 0..h {
+            data[(y * w + x) as usize] = (sum / cnt) as u8;
+            let out_y = y - r;
+            if out_y >= 0 && out_y < h {
+                sum -= tmp[(out_y * w + x) as usize] as u32;
+            }
+            let in_y = y + r + 1;
+            if in_y >= 0 && in_y < h {
+                sum += tmp[(in_y * w + x) as usize] as u32;
+            }
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1083,6 +1162,7 @@ fn render_layer_scoped(
     let needs_fx = layer.shadow.is_some()
         || layer.blur > 0.0
         || layer.blend_mode != BlendModeSpec::Normal
+        || layer.wave_warp.is_some()
         || has_surface_fx
         || has_3d;
     if !needs_fx {
@@ -1450,14 +1530,19 @@ fn render_layer_scoped(
         None
     };
 
+    let wave_pad = layer
+        .wave_warp
+        .as_ref()
+        .map(|w| w.amplitude.abs().ceil() as u32 + 1)
+        .unwrap_or(0);
     let (mut fg_pm, fg_x, fg_y) = if layer.blur > 0.0 {
-        let pad = (layer.blur * 1.6).ceil() as u32 + 2;
+        let pad = (layer.blur * 1.6).ceil() as u32 + 2 + wave_pad;
         let (mut blur_pm, bx, by) = crop_pixmap_padded(&layer_pixmap, x0, y0, x1, y1, pad)?;
         let (bw, bh) = (blur_pm.width(), blur_pm.height());
         fast_blur_rgba(blur_pm.data_mut(), bw, bh, layer.blur);
         (blur_pm, bx, by)
     } else {
-        crop_pixmap_padded(&layer_pixmap, x0, y0, x1, y1, 0)?
+        crop_pixmap_padded(&layer_pixmap, x0, y0, x1, y1, wave_pad)?
     };
     return_fx_scratch_pixmap(layer_pixmap, bounds);
 
@@ -1471,6 +1556,10 @@ fn render_layer_scoped(
             layer.halftone,
             time_sec,
         );
+    }
+
+    if let Some(spec) = layer.wave_warp.as_ref() {
+        apply_wave_warp(&mut fg_pm, fg_x, fg_y, spec, time_sec);
     }
 
     let paint = PixmapPaint {
@@ -1968,7 +2057,7 @@ fn render_layer_inner(
                 *playback_rate,
                 *loop_video,
                 video.fps,
-                video.frames.len(),
+                video.frame_count,
             );
             let eff_focal_x = eval_property(
                 &layer.animations,
@@ -1984,12 +2073,11 @@ fn render_layer_inner(
                 *focal_y,
             )
             .clamp(0.0, 1.0);
+            let frame = video.frame(frame_idx)?;
             let keyed_frame = luma_key
                 .as_ref()
-                .map(|k| apply_luma_key(&video.frames[frame_idx], *k));
-            let frame_data: &[u8] = keyed_frame
-                .as_deref()
-                .unwrap_or(video.frames[frame_idx].as_slice());
+                .map(|k| apply_luma_key(frame.as_slice(), *k));
+            let frame_data: &[u8] = keyed_frame.as_deref().unwrap_or(frame.as_slice());
             draw_rgba_frame(
                 pixmap,
                 layer,
@@ -2332,6 +2420,7 @@ fn render_layer_inner(
             scale,
             rotation,
             clip,
+            clip_feather,
             cascade_opacity,
             timeline,
             stagger_secs,
@@ -2528,6 +2617,9 @@ fn render_layer_inner(
                     && let Some(mut mask) = Mask::new(pw, ph)
                 {
                     mask.fill_path(&mask_path, FillRule::Winding, true, Transform::identity());
+                    if *clip_feather > 0.0 {
+                        feather_mask_alpha(&mut mask, *clip_feather);
+                    }
                     child_pixmap.apply_mask(&mask);
                 }
                 let paint = PixmapPaint {

@@ -294,7 +294,7 @@ def emit_ts(schema: dict) -> str:
         "TextDirection": defs["TextLayer"]["properties"]["direction"],
     }
     for name in ("BlendMode", "FitMode", "Easing", "AnimProperty", "Anchor",
-                 "TrackMatte", "TextAlign", "TextDirection"):
+                 "TrackMatte", "TextAlign", "TextDirection", "TextAnimatorMode"):
         definition = defs.get(name)
         if definition is None:
             definition = inline_enums.get(name)
@@ -338,7 +338,7 @@ def emit_ts(schema: dict) -> str:
     )
 
     for name in ("LinearGradient", "Layout", "Shadow", "TextSpan", "SpringConfig",
-                 "Echo", "Animation"):
+                 "Echo", "TextAnimator", "WaveWarp", "Animation"):
         definition = defs[name]
         props = definition.get("properties", {})
         required = definition.get("required", [])
@@ -435,7 +435,7 @@ def emit_py(schema: dict) -> str:
     out = [HEADER_PY]
 
     out.append("HexColor = str\n")
-    for name in ("BlendMode", "FitMode", "Easing", "AnimProperty"):
+    for name in ("BlendMode", "FitMode", "Easing", "AnimProperty", "TextAnimatorMode"):
         definition = defs.get(name) or {
             "Easing": defs["Animation"]["properties"]["easing"],
             "FitMode": defs["ImageLayer"]["properties"]["fit"],
@@ -475,7 +475,7 @@ def emit_py(schema: dict) -> str:
     )
     out.append("")
 
-    for name in ("LinearGradient", "Layout", "Shadow", "TextSpan", "SpringConfig", "Echo", "Animation"):
+    for name in ("LinearGradient", "Layout", "Shadow", "TextSpan", "SpringConfig", "Echo", "TextAnimator", "WaveWarp", "Animation"):
         definition = defs[name]
         required = definition.get("required", [])
         doc = doc_line(definition) or name

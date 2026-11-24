@@ -17,6 +17,8 @@ AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Pr
 
 `rustren` compiles declarative **JSON** or **HTML** scenes into an MP4 video or PNG frame snapshots without spawning a headless browser, DOM, or Chromium engine. Every stage of the pipeline is explicit, inspectable, and deterministic.
 
+**Highlights:** 2.5D perspective & `track_matte`, non-uniform `scale_x`/`scale_y` & custom `pivot`, built-in per-char/word `text_animator`, `clip_feather`, `wave_warp`, anti-OOM windowed `video` decoder (`playback_rate`, `loop`, `focal_x`/`focal_y`, `luma_key`), zero-encode `snapshot` & `layout` diagnostics (CLI, MCP, and HTTP API), and auto-installed AI agent skill (`SKILL.md`).
+
 ## Teaser — Rustren Showreel (60s, 30fps, 16 Scenes)
 **100% Rust, no browser. `JSON / HTML in → MP4 out.`**
 

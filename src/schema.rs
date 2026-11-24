@@ -152,6 +152,8 @@ pub struct Layer {
     #[serde(default)]
     pub halftone: f32,
     #[serde(default)]
+    pub wave_warp: Option<WaveWarpSpec>,
+    #[serde(default)]
     pub track_matte: TrackMatteMode,
     #[serde(default)]
     pub matte_layer: Option<Box<Layer>>,
@@ -185,6 +187,26 @@ pub enum TrackMatteMode {
     AlphaInverted,
     Luma,
     LumaInverted,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WaveAxisSpec {
+    #[default]
+    X,
+    Y,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct WaveWarpSpec {
+    pub amplitude: f32,
+    pub wavelength: f32,
+    #[serde(default)]
+    pub speed: f32,
+    #[serde(default)]
+    pub phase: f32,
+    #[serde(default)]
+    pub axis: WaveAxisSpec,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -287,6 +309,44 @@ fn default_text_outline_color() -> String {
 
 fn default_text_outline_width() -> f32 {
     2.0
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TextAnimatorModeSpec {
+    #[default]
+    Char,
+    Word,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TextAnimatorSpec {
+    #[serde(default)]
+    pub mode: TextAnimatorModeSpec,
+    #[serde(default)]
+    pub start_sec: f32,
+    #[serde(default = "default_text_animator_stagger")]
+    pub stagger_secs: f32,
+    #[serde(default = "default_text_animator_duration")]
+    pub duration_secs: f32,
+    #[serde(default)]
+    pub y_offset: f32,
+    #[serde(default)]
+    pub x_offset: f32,
+    #[serde(default = "default_opacity")]
+    pub opacity_from: f32,
+    #[serde(default = "default_scale")]
+    pub scale_from: f32,
+    #[serde(default)]
+    pub easing: Easing,
+}
+
+fn default_text_animator_stagger() -> f32 {
+    0.05
+}
+
+fn default_text_animator_duration() -> f32 {
+    0.4
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
@@ -483,6 +543,8 @@ pub enum LayerKind {
         max_width: Option<f32>,
         #[serde(default = "default_scale")]
         scale: f32,
+        #[serde(default)]
+        text_animator: Option<TextAnimatorSpec>,
     },
     Image {
         #[serde(default)]
@@ -663,6 +725,8 @@ pub enum LayerKind {
         rotation: f32,
         #[serde(default)]
         clip: bool,
+        #[serde(default)]
+        clip_feather: f32,
         #[serde(default)]
         cascade_opacity: bool,
         #[serde(default)]

@@ -416,6 +416,12 @@
           "default": false,
           "description": "If true, children are clipped to container bounds and radius (overflow: hidden)"
         },
+        "clip_feather": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0,
+          "description": "Soften the clip mask edge by this many pixels (requires clip=true)"
+        },
         "cascade_opacity": {
           "type": "boolean",
           "default": false,
@@ -487,6 +493,7 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
+        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
         "echo": { "$ref": "#/$defs/Echo" }
       }
     },
@@ -605,6 +612,7 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
+        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
         "track_matte": {
           "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
           "default": "none"
@@ -728,6 +736,7 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
+        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
         "track_matte": {
           "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
           "default": "none"
@@ -849,6 +858,7 @@
           "default": 1.0,
           "description": "Scale factor for font_size and line_height"
         },
+        "text_animator": { "$ref": "#/$defs/TextAnimator" },
         "max_width": {
           "type": "number",
           "description": "Text wrapping max width (px); recommended inside containers"
@@ -899,6 +909,7 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
+        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
         "echo": { "$ref": "#/$defs/Echo" }
       }
     },
@@ -1017,6 +1028,7 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
+        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
         "track_matte": {
           "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
           "default": "none"
@@ -1132,6 +1144,7 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
+        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
         "track_matte": {
           "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
           "default": "none"
@@ -1314,6 +1327,7 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
+        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
         "track_matte": {
           "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
           "default": "none"
@@ -1426,6 +1440,7 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
+        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
         "echo": { "$ref": "#/$defs/Echo" }
       }
     },
@@ -1531,6 +1546,7 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
+        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
         "echo": { "$ref": "#/$defs/Echo" }
       }
     },
@@ -1541,6 +1557,38 @@
         "count": { "type": "integer", "minimum": 0, "default": 5 },
         "step_sec": { "type": "number", "default": 0.03 },
         "decay": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.65 }
+      }
+    },
+    "TextAnimatorMode": {
+      "enum": ["char", "word"],
+      "default": "char",
+      "description": "Stagger unit: individual characters or whole words"
+    },
+    "TextAnimator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "$ref": "#/$defs/TextAnimatorMode" },
+        "start_sec": { "type": "number", "default": 0.0, "description": "Delay before the first unit animates" },
+        "stagger_secs": { "type": "number", "minimum": 0, "default": 0.05, "description": "Delay between consecutive units" },
+        "duration_secs": { "type": "number", "minimum": 0, "default": 0.4, "description": "Per-unit animation duration" },
+        "y_offset": { "type": "number", "default": 0.0, "description": "Starting vertical offset in pixels" },
+        "x_offset": { "type": "number", "default": 0.0, "description": "Starting horizontal offset in pixels" },
+        "opacity_from": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0, "description": "Starting opacity" },
+        "scale_from": { "type": "number", "minimum": 0, "default": 1.0, "description": "Starting scale" },
+        "easing": { "$ref": "#/$defs/Easing" }
+      }
+    },
+    "WaveWarp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amplitude", "wavelength"],
+      "properties": {
+        "amplitude": { "type": "number", "description": "Peak displacement in pixels" },
+        "wavelength": { "type": "number", "exclusiveMinimum": 0, "description": "Sine wavelength in pixels" },
+        "speed": { "type": "number", "default": 0.0, "description": "Phase advance per second" },
+        "phase": { "type": "number", "default": 0.0, "description": "Constant phase offset in radians" },
+        "axis": { "enum": ["x", "y"], "default": "x", "description": "Displacement axis" }
       }
     },
     "ParticlesLayer": {
@@ -1653,6 +1701,7 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
+        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
         "track_matte": {
           "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
           "default": "none"
@@ -1777,6 +1826,7 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
+        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
         "track_matte": {
           "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
           "default": "none"

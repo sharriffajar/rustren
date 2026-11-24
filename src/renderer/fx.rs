@@ -2,7 +2,10 @@ use anyhow::{anyhow, Result};
 use tiny_skia::{BlendMode as SkiaBlendMode, Pixmap};
 
 use crate::animation::eval_property;
-use crate::schema::{AnimProperty, BlendModeSpec, DynamicTextSpec, Layer, LayerKind, PositionSpec};
+use crate::schema::{
+    AnimProperty, BlendModeSpec, DynamicTextSpec, Layer, LayerKind, PositionSpec, WaveAxisSpec,
+    WaveWarpSpec,
+};
 
 use super::layout::{resolve_xy, LayoutBox};
 use super::parse_hex_color;
@@ -528,6 +531,73 @@ pub(super) fn apply_surface_effects_cropped(
     });
 }
 
+/// Deterministic per-pixel sine displacement over the cropped foreground.
+/// `ox`/`oy` are the canvas-space origin of `pm`, so the wave stays stable
+/// when the crop window changes.
+pub(super) fn apply_wave_warp(
+    pm: &mut Pixmap,
+    ox: i32,
+    oy: i32,
+    spec: &WaveWarpSpec,
+    time_sec: f32,
+) {
+    if spec.amplitude.abs() < 1e-6 || spec.wavelength.abs() < 1e-6 {
+        return;
+    }
+    let w = pm.width() as usize;
+    let h = pm.height() as usize;
+    if w == 0 || h == 0 {
+        return;
+    }
+    let src = pm.data().to_vec();
+    let dst = pm.data_mut();
+    let k = std::f32::consts::TAU / spec.wavelength;
+    let phase = spec.phase + spec.speed * time_sec;
+
+    let sample = |fx: f32, fy: f32| -> [f32; 4] {
+        if fx < 0.0 || fy < 0.0 || fx >= w as f32 || fy >= h as f32 {
+            return [0.0; 4];
+        }
+        let x0 = fx.floor() as usize;
+        let y0 = fy.floor() as usize;
+        let x1 = (x0 + 1).min(w - 1);
+        let y1 = (y0 + 1).min(h - 1);
+        let tx = fx - x0 as f32;
+        let ty = fy - y0 as f32;
+        let mut out = [0.0f32; 4];
+        for c in 0..4 {
+            let p00 = src[(y0 * w + x0) * 4 + c] as f32;
+            let p10 = src[(y0 * w + x1) * 4 + c] as f32;
+            let p01 = src[(y1 * w + x0) * 4 + c] as f32;
+            let p11 = src[(y1 * w + x1) * 4 + c] as f32;
+            let top = p00 + (p10 - p00) * tx;
+            let bottom = p01 + (p11 - p01) * tx;
+            out[c] = top + (bottom - top) * ty;
+        }
+        out
+    };
+
+    for y in 0..h {
+        for x in 0..w {
+            let (fx, fy) = match spec.axis {
+                WaveAxisSpec::X => {
+                    let wave = (k * (oy + y as i32) as f32 + phase).sin();
+                    (x as f32 - spec.amplitude * wave, y as f32)
+                }
+                WaveAxisSpec::Y => {
+                    let wave = (k * (ox + x as i32) as f32 + phase).sin();
+                    (x as f32, y as f32 - spec.amplitude * wave)
+                }
+            };
+            let px = sample(fx, fy);
+            let idx = (y * w + x) * 4;
+            for c in 0..4 {
+                dst[idx + c] = px[c].round().clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
+}
+
 /// Perform exact analytical ray-plane inverse homography warp for 2.5D `scale`, `rotate_x`,
 /// `rotate_y`, and `perspective`, operating strictly on the tight cropped `src` bounding box.
 /// Returns `Ok(None)` when culled (backface invisible or outside bounds).
@@ -862,16 +932,26 @@ fn layer_kind_fx_static(kind: &LayerKind, time_sec: f32) -> bool {
         | LayerKind::Waveform { .. }
         | LayerKind::Lottie { .. }
         | LayerKind::Particles { .. } => false,
-        LayerKind::Text { dynamic, .. } => match dynamic {
-            None => true,
-            Some(DynamicTextSpec::Typewriter {
-                end_sec: Some(e), ..
-            })
-            | Some(DynamicTextSpec::Counter {
-                end_sec: Some(e), ..
-            }) => time_sec >= *e,
-            _ => false,
-        },
+        LayerKind::Text {
+            dynamic,
+            text_animator,
+            ..
+        } => {
+            if text_animator.is_some() {
+                false
+            } else {
+                match dynamic {
+                    None => true,
+                    Some(DynamicTextSpec::Typewriter {
+                        end_sec: Some(e), ..
+                    })
+                    | Some(DynamicTextSpec::Counter {
+                        end_sec: Some(e), ..
+                    }) => time_sec >= *e,
+                    _ => false,
+                }
+            }
+        }
         LayerKind::Svg {
             path_progress,
             stroke_dashoffset,
@@ -953,6 +1033,9 @@ pub(super) fn can_use_blur_cache(
     _eff_op: f32,
     time_sec: f32,
 ) -> bool {
+    if layer.wave_warp.is_some() {
+        return false;
+    }
     let has_fx = layer.blur > 0.0
         || layer.shadow.is_some()
         || layer.vignette > 0.0

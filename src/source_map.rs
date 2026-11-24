@@ -233,7 +233,8 @@ pub struct SourceIssue {
 
 /// HTML attribute names the compiler reads as numbers (`get_attr_f32`).
 const NUMERIC_ATTRIBUTES: &[&str] = &[
-    "angle", "bar-gap", "bars", "blur", "border-radius", "border-width", "column-gap", "count",
+    "angle", "bar-gap", "bars", "blur", "border-radius", "border-width", "clip-feather",
+    "column-gap", "count",
     "cx", "cy", "decimals", "delay", "dur", "duration", "duration-sec", "duration-secs",
     "duration_secs", "dynamic-end", "dynamic-start", "echo-count", "echo-decay", "echo-step",
     "echo_count", "echo_decay", "echo_step", "end", "end-sec", "fade-in", "fade-in-secs",
@@ -246,7 +247,10 @@ const NUMERIC_ATTRIBUTES: &[&str] = &[
     "spread", "stagger", "stagger-secs",
     "start", "start-sec", "stroke-dashoffset", "stroke-width", "to", "trim-end", "trim-end-sec",
     "trim-start", "trim-start-sec", "vignette", "volume", "w", "width", "x", "y", "z", "z-index",
-    "z_index",
+    "z_index", "wave-warp-amplitude", "wave-warp-wavelength", "wave-warp-speed", "wave-warp-phase",
+    "text-animator-start", "text-animator-stagger", "text-animator-duration",
+    "text-animator-y-offset", "text-animator-x-offset", "text-animator-opacity-from",
+    "text-animator-scale-from",
 ];
 
 /// Attributes that may hold a CSS box shorthand (`"4 10"`, `"1 2 3 4"`).

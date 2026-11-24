@@ -559,6 +559,7 @@ pub(crate) const COMMON_LAYER_FIELDS: &[&str] = &[
     "grain",
     "vignette",
     "halftone",
+    "wave_warp",
     "track_matte",
     "matte_layer",
     "echo",
@@ -623,6 +624,7 @@ pub(crate) const LAYER_KIND_FIELDS: &[(&str, &[&str])] = &[
             "opacity",
             "max_width",
             "scale",
+            "text_animator",
         ],
     ),
     (
@@ -739,6 +741,7 @@ pub(crate) const LAYER_KIND_FIELDS: &[(&str, &[&str])] = &[
             "scale",
             "rotation",
             "clip",
+            "clip_feather",
             "cascade_opacity",
             "timeline",
             "stagger_secs",
