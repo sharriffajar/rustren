@@ -162,10 +162,7 @@ pub(super) fn build_text_buffer(
         Some(name) => Family::Name(name),
         None => Family::SansSerif,
     };
-    let weight = match font_weight {
-        FontWeightSpec::Normal => Weight::NORMAL,
-        FontWeightSpec::Bold => Weight::BOLD,
-    };
+    let weight = Weight(font_weight.to_u16());
     let is_rtl = is_rtl_content(content, spans, direction);
     let align = match text_align {
         TextAlignSpec::Left => Align::Left,
@@ -234,10 +231,7 @@ pub(super) fn build_text_buffer(
                 a = a.family(Family::Name(fam));
             }
             if let Some(w) = sp.font_weight {
-                a = a.weight(match w {
-                    FontWeightSpec::Normal => Weight::NORMAL,
-                    FontWeightSpec::Bold => Weight::BOLD,
-                });
+                a = a.weight(Weight(w.to_u16()));
             }
             if let Some(fs) = sp.font_size {
                 let sfs = fs * scale;
@@ -375,10 +369,7 @@ pub(super) fn measure_text_size_and_lines(
             feed(sp.text.as_bytes());
             feed(&[0xfe]);
             if let Some(fw) = sp.font_weight {
-                feed(&[match fw {
-                    FontWeightSpec::Normal => 1,
-                    FontWeightSpec::Bold => 2,
-                }]);
+                feed(&fw.to_u16().to_le_bytes());
             }
             if let Some(ref ff) = sp.font_family {
                 feed(ff.as_bytes());
@@ -392,10 +383,7 @@ pub(super) fn measure_text_size_and_lines(
         if let Some(ff) = font_family {
             feed(ff.as_bytes());
         }
-        feed(&[match font_weight {
-            FontWeightSpec::Normal => 1,
-            FontWeightSpec::Bold => 2,
-        }]);
+        feed(&font_weight.to_u16().to_le_bytes());
         feed(&max_width.map(f32::to_bits).unwrap_or(u32::MAX).to_le_bytes());
         feed(&scale.to_bits().to_le_bytes());
         h
@@ -594,10 +582,7 @@ fn compute_text_raster_key(
         }
         feed(&[0xfd]);
         if let Some(fw) = sp.font_weight {
-            feed(&[match fw {
-                FontWeightSpec::Normal => 1,
-                FontWeightSpec::Bold => 2,
-            }]);
+            feed(&fw.to_u16().to_le_bytes());
         }
         if let Some(ref ff) = sp.font_family {
             feed(ff.as_bytes());
@@ -611,10 +596,7 @@ fn compute_text_raster_key(
     if let Some(ff) = font_family {
         feed(ff.as_bytes());
     }
-    feed(&[match font_weight {
-        FontWeightSpec::Normal => 1,
-        FontWeightSpec::Bold => 2,
-    }]);
+    feed(&font_weight.to_u16().to_le_bytes());
     feed(&[match text_align {
         TextAlignSpec::Left => 1,
         TextAlignSpec::Center => 2,

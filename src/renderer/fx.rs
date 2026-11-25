@@ -588,6 +588,14 @@ pub(super) fn apply_wave_warp(
                     let wave = (k * (ox + x as i32) as f32 + phase).sin();
                     (x as f32, y as f32 - spec.amplitude * wave)
                 }
+                WaveAxisSpec::StretchX => {
+                    let wave = (k * (ox + x as i32) as f32 + phase).sin();
+                    (x as f32 - spec.amplitude * wave, y as f32)
+                }
+                WaveAxisSpec::StretchY => {
+                    let wave = (k * (oy + y as i32) as f32 + phase).sin();
+                    (x as f32, y as f32 - spec.amplitude * wave)
+                }
             };
             let px = sample(fx, fy);
             let idx = (y * w + x) * 4;

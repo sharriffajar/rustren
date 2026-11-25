@@ -161,7 +161,7 @@ export interface Shadow {
 export interface TextSpan {
   text: string;
   color?: HexColor;
-  font_weight?: "normal" | "bold";
+  font_weight?: "thin" | "extralight" | "light" | "normal" | "medium" | "semibold" | "bold" | "extrabold" | "black" | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
   font_family?: string;
   font_size?: number;
 }
@@ -212,8 +212,8 @@ export interface WaveWarp {
   speed?: number;
   /** Constant phase offset in radians; default: 0.0 */
   phase?: number;
-  /** Displacement axis; default: "x" */
-  axis?: "x" | "y";
+  /** Displacement axis (x/y = transverse wave, stretch_x/stretch_y = longitudinal rubber-band stretch); default: "x" */
+  axis?: "x" | "y" | "stretch_x" | "stretch_y";
 }
 
 export interface Animation {

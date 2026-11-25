@@ -195,6 +195,8 @@ pub enum WaveAxisSpec {
     #[default]
     X,
     Y,
+    StretchX,
+    StretchY,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -1138,10 +1140,97 @@ pub enum TextAlignSpec {
     End,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum FontWeightSpec {
+    Thin,
+    ExtraLight,
+    Light,
     #[default]
     Normal,
+    Medium,
+    SemiBold,
     Bold,
+    ExtraBold,
+    Black,
+}
+
+impl FontWeightSpec {
+    pub fn to_u16(self) -> u16 {
+        match self {
+            FontWeightSpec::Thin => 100,
+            FontWeightSpec::ExtraLight => 200,
+            FontWeightSpec::Light => 300,
+            FontWeightSpec::Normal => 400,
+            FontWeightSpec::Medium => 500,
+            FontWeightSpec::SemiBold => 600,
+            FontWeightSpec::Bold => 700,
+            FontWeightSpec::ExtraBold => 800,
+            FontWeightSpec::Black => 900,
+        }
+    }
+
+    pub fn from_u16(n: u16) -> Option<Self> {
+        match n {
+            100 => Some(FontWeightSpec::Thin),
+            200 => Some(FontWeightSpec::ExtraLight),
+            300 => Some(FontWeightSpec::Light),
+            400 => Some(FontWeightSpec::Normal),
+            500 => Some(FontWeightSpec::Medium),
+            600 => Some(FontWeightSpec::SemiBold),
+            700 => Some(FontWeightSpec::Bold),
+            800 => Some(FontWeightSpec::ExtraBold),
+            900 => Some(FontWeightSpec::Black),
+            _ => None,
+        }
+    }
+
+    pub fn from_str_loose(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "thin" | "100" => Some(FontWeightSpec::Thin),
+            "extralight" | "extra_light" | "extra-light" | "200" => Some(FontWeightSpec::ExtraLight),
+            "light" | "300" => Some(FontWeightSpec::Light),
+            "normal" | "regular" | "400" => Some(FontWeightSpec::Normal),
+            "medium" | "500" => Some(FontWeightSpec::Medium),
+            "semibold" | "semi_bold" | "semi-bold" | "600" => Some(FontWeightSpec::SemiBold),
+            "bold" | "700" => Some(FontWeightSpec::Bold),
+            "extrabold" | "extra_bold" | "extra-bold" | "800" => Some(FontWeightSpec::ExtraBold),
+            "black" | "heavy" | "900" => Some(FontWeightSpec::Black),
+            _ => None,
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for FontWeightSpec {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct FontWeightVisitor;
+        impl<'de> serde::de::Visitor<'de> for FontWeightVisitor {
+            type Value = FontWeightSpec;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(
+                    f,
+                    "a font weight name (thin..black) or numeric weight (100..900)"
+                )
+            }
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                FontWeightSpec::from_str_loose(v)
+                    .ok_or_else(|| E::custom(format!("invalid font_weight '{v}'")))
+            }
+            fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
+                u16::try_from(v)
+                    .ok()
+                    .and_then(FontWeightSpec::from_u16)
+                    .ok_or_else(|| E::custom(format!("invalid font_weight {v}")))
+            }
+            fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
+                u16::try_from(v)
+                    .ok()
+                    .and_then(FontWeightSpec::from_u16)
+                    .ok_or_else(|| E::custom(format!("invalid font_weight {v}")))
+            }
+        }
+        deserializer.deserialize_any(FontWeightVisitor)
+    }
 }

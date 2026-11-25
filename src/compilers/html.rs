@@ -329,11 +329,8 @@ fn parse_dash_array(val: Option<&str>) -> Option<Vec<f32>> {
 }
 
 fn parse_font_weight(val: Option<&str>) -> FontWeightSpec {
-    match val {
-        Some("bold") | Some("semibold") | Some("600") | Some("650") | Some("700") | Some("800")
-        | Some("900") => FontWeightSpec::Bold,
-        _ => FontWeightSpec::Normal,
-    }
+    val.and_then(FontWeightSpec::from_str_loose)
+        .unwrap_or(FontWeightSpec::Normal)
 }
 
 fn parse_easing_attr(val: Option<&str>) -> Easing {
@@ -1166,6 +1163,8 @@ fn parse_wave_warp(elem: &ElementRef) -> Option<WaveWarpSpec> {
     }
     let axis = match get_attr_str(elem, "wave-warp-axis").as_deref() {
         Some("y") => WaveAxisSpec::Y,
+        Some("stretch_x") | Some("stretch-x") => WaveAxisSpec::StretchX,
+        Some("stretch_y") | Some("stretch-y") => WaveAxisSpec::StretchY,
         _ => WaveAxisSpec::X,
     };
     Some(WaveWarpSpec {

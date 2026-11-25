@@ -213,7 +213,7 @@
         "text": { "type": "string" },
         "color": { "$ref": "#/$defs/HexColor" },
         "font_weight": {
-          "enum": ["normal", "bold"]
+          "enum": ["thin", "extralight", "light", "normal", "medium", "semibold", "bold", "extrabold", "black", 100, 200, 300, 400, 500, 600, 700, 800, 900]
         },
         "font_family": { "type": "string" },
         "font_size": { "type": "number", "exclusiveMinimum": 0 }
@@ -1588,7 +1588,7 @@
         "wavelength": { "type": "number", "exclusiveMinimum": 0, "description": "Sine wavelength in pixels" },
         "speed": { "type": "number", "default": 0.0, "description": "Phase advance per second" },
         "phase": { "type": "number", "default": 0.0, "description": "Constant phase offset in radians" },
-        "axis": { "enum": ["x", "y"], "default": "x", "description": "Displacement axis" }
+        "axis": { "enum": ["x", "y", "stretch_x", "stretch_y"], "default": "x", "description": "Displacement axis (x/y = transverse wave, stretch_x/stretch_y = longitudinal rubber-band stretch)" }
       }
     },
     "ParticlesLayer": {

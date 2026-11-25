@@ -86,7 +86,7 @@ class TextSpan(TypedDict, total=False):
     """TextSpan. Required: text."""
     text: str
     color: str
-    font_weight: Literal["normal", "bold"]
+    font_weight: Literal["thin", "extralight", "light", "normal", "medium", "semibold", "bold", "extrabold", "black", 100, 200, 300, 400, 500, 600, 700, 800, 900]
     font_family: str
     font_size: float
 
@@ -120,7 +120,7 @@ class WaveWarp(TypedDict, total=False):
     wavelength: float
     speed: float
     phase: float
-    axis: Literal["x", "y"]
+    axis: Literal["x", "y", "stretch_x", "stretch_y"]
 
 Animation = TypedDict(
     "Animation",
