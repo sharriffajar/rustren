@@ -553,54 +553,120 @@ pub(super) fn apply_wave_warp(
     let dst = pm.data_mut();
     let k = std::f32::consts::TAU / spec.wavelength;
     let phase = spec.phase + spec.speed * time_sec;
+    let row_bytes = w * 4;
 
-    let sample = |fx: f32, fy: f32| -> [f32; 4] {
-        if fx < 0.0 || fy < 0.0 || fx >= w as f32 || fy >= h as f32 {
-            return [0.0; 4];
-        }
-        let x0 = fx.floor() as usize;
-        let y0 = fy.floor() as usize;
-        let x1 = (x0 + 1).min(w - 1);
-        let y1 = (y0 + 1).min(h - 1);
-        let tx = fx - x0 as f32;
-        let ty = fy - y0 as f32;
-        let mut out = [0.0f32; 4];
-        for c in 0..4 {
-            let p00 = src[(y0 * w + x0) * 4 + c] as f32;
-            let p10 = src[(y0 * w + x1) * 4 + c] as f32;
-            let p01 = src[(y1 * w + x0) * 4 + c] as f32;
-            let p11 = src[(y1 * w + x1) * 4 + c] as f32;
-            let top = p00 + (p10 - p00) * tx;
-            let bottom = p01 + (p11 - p01) * tx;
-            out[c] = top + (bottom - top) * ty;
-        }
-        out
-    };
+    #[inline(always)]
+    fn lerp_rgba(p0: &[u8], p1: &[u8], w0: u32, w1: u32, out: &mut [u8]) {
+        out[0] = ((p0[0] as u32 * w0 + p1[0] as u32 * w1 + 128) >> 8) as u8;
+        out[1] = ((p0[1] as u32 * w0 + p1[1] as u32 * w1 + 128) >> 8) as u8;
+        out[2] = ((p0[2] as u32 * w0 + p1[2] as u32 * w1 + 128) >> 8) as u8;
+        out[3] = ((p0[3] as u32 * w0 + p1[3] as u32 * w1 + 128) >> 8) as u8;
+    }
 
-    for y in 0..h {
-        for x in 0..w {
-            let (fx, fy) = match spec.axis {
-                WaveAxisSpec::X => {
-                    let wave = (k * (oy + y as i32) as f32 + phase).sin();
-                    (x as f32 - spec.amplitude * wave, y as f32)
-                }
-                WaveAxisSpec::Y => {
+    #[inline(always)]
+    fn sample_1d_params(f: f32, limit: usize) -> Option<(usize, usize, u32, u32)> {
+        if f < 0.0 || f >= limit as f32 {
+            return None;
+        }
+        let i0 = f as usize;
+        let i1 = (i0 + 1).min(limit - 1);
+        let w1 = ((f - i0 as f32) * 256.0).round() as u32;
+        let w0 = 256 - w1;
+        Some((i0, i1, w0, w1))
+    }
+
+    match spec.axis {
+        WaveAxisSpec::StretchX => {
+            let x_lut: Vec<Option<(usize, usize, u32, u32)>> = (0..w)
+                .map(|x| {
                     let wave = (k * (ox + x as i32) as f32 + phase).sin();
-                    (x as f32, y as f32 - spec.amplitude * wave)
+                    sample_1d_params(x as f32 - spec.amplitude * wave, w)
+                })
+                .collect();
+
+            for y in 0..h {
+                let row_off = y * row_bytes;
+                let src_row = &src[row_off..row_off + row_bytes];
+                let dst_row = &mut dst[row_off..row_off + row_bytes];
+                if src_row.iter().all(|&b| b == 0) {
+                    dst_row.fill(0);
+                    continue;
                 }
-                WaveAxisSpec::StretchX => {
-                    let wave = (k * (ox + x as i32) as f32 + phase).sin();
-                    (x as f32 - spec.amplitude * wave, y as f32)
+                for (x, entry) in x_lut.iter().enumerate() {
+                    let d = &mut dst_row[x * 4..x * 4 + 4];
+                    if let Some(&(x0, x1, w0, w1)) = entry.as_ref() {
+                        lerp_rgba(&src_row[x0 * 4..], &src_row[x1 * 4..], w0, w1, d);
+                    } else {
+                        d.fill(0);
+                    }
                 }
-                WaveAxisSpec::StretchY => {
+            }
+        }
+        WaveAxisSpec::X => {
+            for y in 0..h {
+                let row_off = y * row_bytes;
+                let src_row = &src[row_off..row_off + row_bytes];
+                let dst_row = &mut dst[row_off..row_off + row_bytes];
+                if src_row.iter().all(|&b| b == 0) {
+                    dst_row.fill(0);
+                    continue;
+                }
+                let shift = spec.amplitude * (k * (oy + y as i32) as f32 + phase).sin();
+                for x in 0..w {
+                    let d = &mut dst_row[x * 4..x * 4 + 4];
+                    if let Some((x0, x1, w0, w1)) = sample_1d_params(x as f32 - shift, w) {
+                        lerp_rgba(&src_row[x0 * 4..], &src_row[x1 * 4..], w0, w1, d);
+                    } else {
+                        d.fill(0);
+                    }
+                }
+            }
+        }
+        WaveAxisSpec::StretchY => {
+            let y_lut: Vec<Option<(usize, usize, u32, u32)>> = (0..h)
+                .map(|y| {
                     let wave = (k * (oy + y as i32) as f32 + phase).sin();
-                    (x as f32, y as f32 - spec.amplitude * wave)
+                    sample_1d_params(y as f32 - spec.amplitude * wave, h)
+                })
+                .collect();
+
+            for (y, entry) in y_lut.iter().enumerate() {
+                let dst_row = &mut dst[y * row_bytes..(y + 1) * row_bytes];
+                if let Some(&(y0, y1, w0, w1)) = entry.as_ref() {
+                    let r0 = &src[y0 * row_bytes..(y0 + 1) * row_bytes];
+                    let r1 = &src[y1 * row_bytes..(y1 + 1) * row_bytes];
+                    for x in 0..w {
+                        let o = x * 4;
+                        lerp_rgba(&r0[o..], &r1[o..], w0, w1, &mut dst_row[o..o + 4]);
+                    }
+                } else {
+                    dst_row.fill(0);
                 }
-            };
-            let px = sample(fx, fy);
-            let idx = (y * w + x) * 4;
-            for c in 0..4 {
-                dst[idx + c] = px[c].round().clamp(0.0, 255.0) as u8;
+            }
+        }
+        WaveAxisSpec::Y => {
+            let shifts: Vec<f32> = (0..w)
+                .map(|x| spec.amplitude * (k * (ox + x as i32) as f32 + phase).sin())
+                .collect();
+
+            for y in 0..h {
+                let dst_row = &mut dst[y * row_bytes..(y + 1) * row_bytes];
+                let yf = y as f32;
+                for (x, &shift) in shifts.iter().enumerate() {
+                    let o = x * 4;
+                    let d = &mut dst_row[o..o + 4];
+                    if let Some((y0, y1, w0, w1)) = sample_1d_params(yf - shift, h) {
+                        lerp_rgba(
+                            &src[y0 * row_bytes + o..],
+                            &src[y1 * row_bytes + o..],
+                            w0,
+                            w1,
+                            d,
+                        );
+                    } else {
+                        d.fill(0);
+                    }
+                }
             }
         }
     }

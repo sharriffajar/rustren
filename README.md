@@ -7,7 +7,7 @@
 Browserless 2.5D video render engine in Rust — built to be **fast** and **predictable for AI-generated video**.
 
 > **Try Online (Zero Install):**
-> - **Web Studio (PWA, BYOK AI Director + Browser WebM/PNG + MP4 via API):** https://nvm.web.id/rustren/studio/
+> - **Web Studio (PWA, Bring-Your-Own-Key (BYOK) AI Director + Browser WebM/PNG + MP4 via API):** https://nvm.web.id/rustren/studio/
 > - **Hosted Render API (Experimental, AI-discoverable):** https://nvm.web.id/rustren/api/ ([`llms.txt`](https://nvm.web.id/rustren/llms.txt) · [Request API token](https://nvm.web.id/contact/))
 > - **Project Homepage:** https://nvm.web.id/rustren/
 
@@ -15,16 +15,14 @@ Browserless 2.5D video render engine in Rust — built to be **fast** and **pred
 AI generates (JSON / HTML) → Compiler parses to IR → Schema validates → Previews (snapshot / layout) → Renderer executes → MP4 out
 ```
 
-`rustren` compiles declarative **JSON** or **HTML** scenes into an MP4 video or PNG frame snapshots without spawning a headless browser, DOM, or Chromium engine. Every stage of the pipeline is explicit, inspectable, and deterministic.
-
-**Highlights:** 2.5D perspective & `track_matte`, non-uniform `scale_x`/`scale_y` & custom `pivot`, built-in per-char/word `text_animator`, `clip_feather`, `wave_warp`, anti-OOM windowed `video` decoder (`playback_rate`, `loop`, `focal_x`/`focal_y`, `luma_key`), zero-encode `snapshot` & `layout` diagnostics (CLI, MCP, and HTTP API), and auto-installed AI agent skill (`SKILL.md`).
+`rustren` compiles declarative **JSON** or **HTML** scenes into MP4 videos or PNG frame snapshots without spawning a headless browser, DOM, or Chromium engine. Pre-encode raster frames are deterministic and inspectable at every stage. See [SCHEMA.md](SCHEMA.md) for the full scene reference and [SKILL.md](SKILL.md) for the AI agent playbook.
 
 ## Teaser — Rustren Showreel (60s, 30fps, 16 Scenes)
 **100% Rust, no browser. `JSON / HTML in → MP4 out.`**
 
 - **Source JSON:** [examples/showreel.json](examples/showreel.json) (`93` root layers, `16` scenes including 2.5D spatial cards, isometric bento, card flips, surface shaders, and finale)
 - **Output MP4:** [assets/showreel.mp4](assets/showreel.mp4) (`1280×720 @ 30fps`, `60.0s` / `1,800` frames, default `--crf 18 --preset medium`)
-- **Hardware:** `8 vCPU` Intel Xeon E5-2630 v4 @ 2.20GHz, `15 GiB` RAM (CPU-only, no GPU)
+- **Hardware & Provenance:** `8 vCPU` Intel Xeon E5-2630 v4 @ 2.20GHz, `15 GiB` RAM (CPU-only, `libx264` via `ffmpeg`, measured on `rustren v0.4.0`, Nov 2026)
 
 | Metric | Measured (`--preset medium --crf 18`) |
 | :--- | :--- |
@@ -74,7 +72,7 @@ xychart-beta
 
 </details>
 
-https://github.com/user-attachments/assets/7089ed1a-c188-4d1b-9f3a-ac08d2ca9e64
+[Watch 60s showreel video](https://github.com/user-attachments/assets/7089ed1a-c188-4d1b-9f3a-ac08d2ca9e64)
 
 > Full 60s `1280×720 @ 30fps` MP4: [assets/showreel.mp4](assets/showreel.mp4)
 
@@ -100,28 +98,37 @@ rustren diff baseline.json current.json -t 1.5 --threshold 0.01 --out diff.png
 ## Architecture & Why Browserless?
 - **Pure-Rust Raster Pipeline**: Combines `tiny-skia` (2D vector/compositing), `cosmic-text` (text shaping & rich spans), `resvg` (SVG rendering), `taffy` (Flexbox layout), and `rayon` (parallel frame rendering), piped directly to `ffmpeg` for H.264 MP4 output.
 - **Built-in Render Caches**: Static background prefix snapshotting, thread-local SVG raster/tree caches, and blurred-layer caching avoid re-computing unchanged pixels across frames.
-- **Deterministic & Inspectable**: Same JSON produces identical frames across runs, with `snapshot` PNG previews and `layout` bounding-box inspection built into the CLI.
+- **Deterministic Raster Frames & Inspectable Layout**: The same scene produces identical pre-encode RGBA frames across runs. *(MP4 byte output depends on the H.264 encoder, preset, and CRF; set `RUSTREN_HW_ENCODER=off` with pinned `--preset` and `--crf` for cross-machine reproducibility.)*
+
+### Alternatives Considered
+| Approach | Trade-offs vs `rustren` |
+| --- | --- |
+| **Headless Chromium / Playwright** | Full web CSS/JS fidelity, but heavy (~300 MB+ browser binary), slow cold starts, high RAM per worker, and harder to sandbox on public VPSs. |
+| **Remotion (React + Chromium)** | Mature React ecosystem, but requires Node.js + Chromium runtime and executes arbitrary JS rather than a validated declarative schema. |
+| **Raw `ffmpeg` filter_complex** | Zero browser overhead, but fragile for complex Flexbox layouts, rich typography, 2.5D transforms, and AI-authored iterative editing. |
+
+### Non-Goals
+`rustren` is a declarative video compiler, not a web browser: HTML input is a **declarative tag subset** that lowers to the same IR as JSON (no JavaScript execution, no external CSS stylesheets, no DOM runtime, and no browser CSS/layout parity).
 
 ## Multi-Format Input (JSON & HTML)
-`rustren` features an Intermediate Representation (IR) compiler architecture supporting multiple declarative input formats:
-- **JSON (`.json`)**: Raw declarative scene schema (compact for AI generation and programmatic pipelines).
-- **HTML (`.html`, `.htm`)**: Clean declarative markup with tags like `<scene>`, `<container>`, `<rect>`, `<circle>`, `<text>`, `<animate>`, and `<profiles>`.
+`rustren` compiles both declarative formats to one shared Intermediate Representation (IR) — JSON is the canonical form, and conformance tests guard HTML parity:
+- **JSON (`.json`)**: Compact declarative scene schema for AI generation and programmatic pipelines.
+- **HTML (`.html`, `.htm`)**: Declarative tag subset (`<scene>`, `<container>`, `<rect>`, `<circle>`, `<text>`, `<animate>`, `<profiles>`).
 
 ```bash
-# Render from JSON or HTML interchangeably:
+# Render from JSON or declarative HTML:
 rustren render examples/showreel.json -o showreel.mp4
 rustren render examples/cuboid_carousel.html -o cuboid.mp4
 ```
 
 ## Key Features
-- **Multi-Format Compiler Architecture**: Extensible compiler trait with automatic format detection (`.json`, `.html`).
-- **Capability Registry & Version Gate**: `rustren capabilities` publishes renderer version (`1.1`), schema version (`1.1`), and supported features.
-- **Declarative Layout & Visuals**: Flexbox (`taffy`), `container` (`clip`, `cascade_opacity`, `stagger_secs`), `rect`, `circle`, `text` (rich text `spans` with per-span `font_size`, `letter_spacing`, `outline`, `gradient`, RTL/BiDi `direction: "auto" | "ltr" | "rtl"`, dynamic alignment `text_align: "start" | "end"`, `dynamic` typewriter/counter/timecode), `waveform` visualizer, `lottie` animation, `svg`, `image` & `video` (`fit: "fill" | "cover" | "contain"`), `anchor`, `skew_x`/`skew_y`, linear/radial multi-stop `gradient`, plus `blur`, `shadow`, and `blend_mode`.
-- **Composition Profiles**: Define multi-format variants (`profiles: { "portrait": { ... }, "square": { ... } }`) in one scene and render via `--composition <name>` across all CLI commands (`render`, `validate`, `snapshot`, `layout`, `watch`, and `/jobs` API).
-- **Timeline & Sequencing**: Global `start_sec`/`end_sec`, `duration_secs`, `timeline: "local"`, and `timeline: "series"` with `overlap_secs`.
-- **Media & A/V Sync**: `video` layer with `trim_start_sec`, `trim_end_sec`, `playback_rate`, `volume`, and `muted` synced to FFmpeg; multi-track `audio` with `fade_in_secs`, `fade_out_secs`, and volume ducking keyframes.
-- **Advanced Motion**: `keyframes[]` multi-stop timelines, mathematical per-frame `expr` with precompiled AST cache and math helpers (`clamp`, `lerp`, `smoothstep`, `abs`, `min`, `max`), custom `spring` (`stiffness`, `damping`, `mass`), `repeat` & `yoyo`, `cubic_bezier` + Penner easings, color interpolation (`color`, `border_color`), and path/stroke animation (`path_progress`, `stroke_dashoffset`).
-- **AI Authoring & Debugging Tools**: Instant single-frame / contact-sheet `snapshot`, computed bounding-box `layout` inspection, smart `validate` linting, and `--profile` performance breakdown.
+*(Full field-level reference in [SCHEMA.md](SCHEMA.md) and machine-readable [schema.json](schema.json).)*
+- **Capability Registry & Version Gate**: `rustren capabilities` publishes renderer version (`1.1`), schema version (`1.1`), supported features, and HTTP API contracts.
+- **Layout, 2.5D & Typography**: Flexbox (`taffy`), 2.5D perspective & `track_matte`, non-uniform `scale_x`/`scale_y` & custom `pivot`, rich text spans & RTL/BiDi, built-in per-char/word `text_animator`, dynamic text (typewriter/counter/timecode), `clip_feather`, `wave_warp` (transverse & longitudinal `stretch_x`/`stretch_y`), gradients, blur, shadow, and blend modes.
+- **Composition Profiles & Timelines**: Multi-aspect-ratio `profiles` (`--composition <name>`) and global, local, or `series` timelines with overlap.
+- **Anti-OOM Media & A/V Sync**: Windowed LRU `video` decoder for long clips (`playback_rate` including reverse, `loop`, animatable `focal_x`/`focal_y`, `luma_key`, trim/volume) and multi-track `audio` with fades and ducking.
+- **Advanced Motion**: Multi-stop `keyframes[]`, precompiled math `expr`, custom `spring` physics, `cubic_bezier` + Penner easings, color interpolation, and SVG path/stroke animation.
+- **AI Authoring & Debugging**: Zero-encode `snapshot` & `layout` diagnostics (CLI, MCP, and HTTP API), `validate` linting (`--strict-determinism`, `--fix`, `--error-format json`), `--profile` timing breakdown, and `SKILL.md` auto-installed to `~/.claude/skills/rustren/SKILL.md` by the 1-liner installers.
 
 ## Prerequisites & Installation
 - **`ffmpeg`** (and `ffprobe` for `video` layers) available in `PATH`
@@ -200,31 +207,27 @@ rustren render hello.json -o hello.mp4
 # Inspect renderer capabilities (JSON)
 rustren capabilities
 
-# Validate and lint a scene JSON before rendering (add --strict-determinism for CI)
-rustren validate scene.json
-rustren validate scene.json --strict-determinism
-# Machine-readable result on stdout: {valid, warnings:[{code,path,message,fix,...}]}
-rustren validate scene.json --error-format json
+# Validate, auto-repair, and lint a scene before rendering
+rustren validate scene.json --strict-determinism --error-format json
+rustren validate scene.json --fix --in-place
 
 # Render a single frame or contact sheet to PNG (no FFmpeg encode)
-rustren snapshot scene.json -t 1.5 -o frame.png
 rustren snapshot scene.json -t 1.5,5.6,14.5 --sheet -o sheet.png
 
-# Inspect computed layer bounding boxes & measured text dimensions
+# Inspect computed layer bounding boxes & layout diagnostics
 rustren layout scene.json -t 5.0
 
-# Render scene JSON to MP4 (default: --crf 18 --preset medium)
-rustren render scene.json -o output.mp4
-# Machine-readable summary on stdout, progress on stderr
-rustren render scene.json -o output.mp4 --error-format json
+# Render scene to MP4 (supports --composition <profile>, --crf, --preset, --profile)
+rustren render scene.json -o output.mp4 --composition portrait --crf 20 --preset fast --profile
 
-# Render with custom encoding options and per-layer/cache profiling
-rustren render scene.json -o output.mp4 --crf 20 --preset fast --profile
+# Explore bundled examples, detect audio beats, watch/diff, or launch local Studio/Preview
+rustren examples
+rustren beats track.mp3
+rustren studio scene.json
+rustren preview scene.json
 
-# Start the HTTP render API server
+# Start the HTTP render API server or MCP stdio server
 rustren serve --port 8080
-
-# Start the MCP stdio server (AI agents: edit, validate, snapshot, diff, render)
 rustren mcp scene.json
 ```
 
@@ -244,22 +247,27 @@ author → measure → repair loop without shelling out. Available in every buil
 | `detect_beats` | Audio beat timestamps for beat-sync |
 
 ## HTTP Render API (`rustren serve`)
-Start the async job queue server (with SSRF protection, rate limiting, and configurable canvas/duration limits):
+Single-node, in-memory async job queue server (no external DB/persistence; horizontal scaling requires an external queue). Authenticate protected endpoints via `Authorization: Bearer <API_KEY>` or `x-api-key: <API_KEY>` when `RUSTREN_API_KEY` is set:
 ```bash
 RUSTREN_API_KEY=your-secret rustren serve --host 0.0.0.0 --port 8080 --workers 2
 ```
-Endpoints:
-- `GET /health` — health check
-- `GET /schema` — JSON Schema (`schema.json`)
-- `GET /guide` — authoring guide (`SCHEMA.md`)
-- `GET /capabilities` — renderer capability registry
-- `POST /validate` — validate & lint a scene JSON payload
-- `POST /jobs` — submit an async render job
-- `GET /jobs/:id` — poll job status
-- `GET /jobs/:id/video` — download rendered MP4
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| `GET` | `/` or `/llms.txt` | Public | AI-readable Markdown API discovery guide |
+| `GET` | `/health` | Public | Health check, worker count, active jobs |
+| `GET` | `/capabilities` | Public | Renderer capability registry & HTTP API contracts |
+| `GET` | `/schema` | Public | JSON Schema (`schema.json`) |
+| `GET` | `/guide` | Public | Scene authoring guide (`SCHEMA.md`) |
+| `POST` | `/validate` | API Key | Validate & lint a scene JSON payload |
+| `POST` | `/layout` | API Key | Computed bounding boxes & overlap/clip diagnostics (`{"scene", "time"?}`) |
+| `POST` | `/snapshot` | API Key | Zero-encode PNG frame or contact sheet (`{"scene", "times"?, "sheet"?, "cols"?}`) |
+| `POST` | `/jobs` | API Key | Submit an async MP4 render job (`202 Accepted`) |
+| `GET` | `/jobs/:id` | API Key | Poll job status (`queued`, `processing`, `completed`, `failed`) |
+| `GET` | `/jobs/:id/video` | API Key | Download rendered `video/mp4` |
 
 ### Security & Resource Limits (`rustren serve`)
-- **SSRF Protection** ([src/security.rs](src/security.rs)): Remote `http://`/`https://` URLs are DNS-resolved and validated before fetching, blocking loopback (`127.0.0.0/8`, `::1`), private (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`), and link-local/metadata (`169.254.0.0/16`, `fe80::/10`) IP ranges. Local filesystem `src` paths are **disabled by default** in `serve` mode (opt-in via `--allow-local-paths`).
+- **SSRF Protection** ([src/security.rs](src/security.rs)): Remote `http://`/`https://` URLs are DNS-resolved and validated before fetching, blocking non-public IP ranges including loopback (`127.0.0.0/8`, `::1`), private (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`), CGNAT (`100.64.0.0/10`), link-local/metadata (`169.254.0.0/16`, `fe80::/10`), multicast, broadcast, and unspecified addresses. Local filesystem `src` paths are **disabled by default** in `serve` mode (opt-in via `--allow-local-paths`).
 - **Job & Server Limits**: Enforceable via CLI flags on `rustren serve`: `--max-duration-secs` (default `60.0`), `--max-width` (`1920`), `--max-height` (`1920`), `--max-pixels` (`1080*1920`), `--max-fps` (`60`), `--rate-limit` (`30` req/min/IP), and `--ttl-secs` (`3600`).
 
 ## SDK Types
@@ -303,4 +311,4 @@ cargo test --release
 *(Note: Previous releases `v0.1.0`–`v0.3.1` remain under their original Apache-2.0 license.)*
 
 ## Changelog
-See [CHANGELOG.md](CHANGELOG.md) for full release history (`v0.3.0`, `v0.3.1`, `v0.4.0`).
+See [CHANGELOG.md](CHANGELOG.md) for the full release history.
