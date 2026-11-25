@@ -851,21 +851,7 @@ pub async fn run_server(config: ServeConfig) -> anyhow::Result<()> {
     let cleanup_state = state.clone();
     tokio::spawn(cleanup_loop(cleanup_state));
 
-    let app = Router::new()
-        .route("/", get(get_index))
-        .route("/llms.txt", get(get_index))
-        .route("/health", get(health))
-        .route("/schema", get(get_schema))
-        .route("/guide", get(get_guide))
-        .route("/capabilities", get(get_capabilities))
-        .route("/validate", post(validate_endpoint))
-        .route("/snapshot", post(snapshot_endpoint))
-        .route("/layout", post(layout_endpoint))
-        .route("/jobs", post(submit_job))
-        .route("/jobs/:id", get(get_job_status))
-        .route("/jobs/:id/video", get(download_job_video))
-        .layer(DefaultBodyLimit::max(2 * 1024 * 1024))
-        .with_state(state);
+    let app = build_router(state);
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
     println!(
@@ -889,6 +875,24 @@ pub async fn run_server(config: ServeConfig) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn build_router(state: AppState) -> Router {
+    Router::new()
+        .route("/", get(get_index))
+        .route("/llms.txt", get(get_index))
+        .route("/health", get(health))
+        .route("/schema", get(get_schema))
+        .route("/guide", get(get_guide))
+        .route("/capabilities", get(get_capabilities))
+        .route("/validate", post(validate_endpoint))
+        .route("/snapshot", post(snapshot_endpoint))
+        .route("/layout", post(layout_endpoint))
+        .route("/jobs", post(submit_job))
+        .route("/jobs/:id", get(get_job_status))
+        .route("/jobs/:id/video", get(download_job_video))
+        .layer(DefaultBodyLimit::max(2 * 1024 * 1024))
+        .with_state(state)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -897,5 +901,92 @@ mod tests {
     fn test_extract_clean_json_strips_chatbot_wrapper() {
         let noisy = "\u{FEFF}Berikut JSON-nya bro:\n```json\n{\"a\": 1}\n```\nSemoga membantu!";
         assert_eq!(extract_clean_json(noisy), "{\"a\": 1}");
+    }
+
+    #[tokio::test]
+    async fn test_http_server_endpoints_and_auth() {
+        let tmp = std::env::temp_dir().join(format!("rustren_srv_test_{}", Uuid::new_v4()));
+        let out_dir = tmp.join("jobs");
+        let cache_dir = tmp.join("cache");
+        tokio::fs::create_dir_all(&out_dir).await.unwrap();
+        tokio::fs::create_dir_all(&cache_dir).await.unwrap();
+
+        let (tx, _rx) = mpsc::channel::<QueuedJob>(8);
+        let state = AppState {
+            config: ServeConfig {
+                host: "127.0.0.1".to_string(),
+                port: 0,
+                workers: 1,
+                output_dir: out_dir,
+                cache_dir,
+                ttl_secs: 60,
+                rate_limit_per_min: 60,
+                api_key: Some("test-secret".to_string()),
+                limits: ServiceLimits::default(),
+            },
+            jobs: Arc::new(RwLock::new(HashMap::new())),
+            rate_limits: Arc::new(RwLock::new(HashMap::new())),
+            tx,
+            semaphore: Arc::new(Semaphore::new(1)),
+        };
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let app = build_router(state);
+        let handle = tokio::spawn(async move {
+            let _ = axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await;
+        });
+
+        let base = format!("http://{addr}");
+        let res = tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+            // 1. Public discovery & health
+            let idx = ureq::get(&format!("{base}/")).call()?;
+            assert_eq!(idx.status(), 200);
+            assert!(idx.into_string()?.contains("Rustren Video Rendering API"));
+
+            let health = ureq::get(&format!("{base}/health")).call()?;
+            assert_eq!(health.status(), 200);
+
+            // 2. Auth gate: missing key -> 401
+            let unauth = ureq::post(&format!("{base}/validate"))
+                .set("Content-Type", "application/json")
+                .send_string("{}");
+            assert!(matches!(unauth, Err(ureq::Error::Status(401, _))));
+
+            // 3. Valid scene -> /validate, /layout, /snapshot
+            let scene_json = r##"{"schema_version":"1.1","canvas":{"width":160,"height":90,"fps":30,"duration_secs":1.0,"background":"#0F172A"},"layers":[{"type":"rect","x":10,"y":10,"width":40,"height":40,"color":"#38BDF8"}]}"##;
+            let val = ureq::post(&format!("{base}/validate"))
+                .set("Authorization", "Bearer test-secret")
+                .set("Content-Type", "application/json")
+                .send_string(scene_json)?;
+            assert_eq!(val.status(), 200);
+
+            let lay = ureq::post(&format!("{base}/layout"))
+                .set("Authorization", "Bearer test-secret")
+                .set("Content-Type", "application/json")
+                .send_string(&format!(r#"{{"scene":{scene_json},"time":0.0}}"#))?;
+            assert_eq!(lay.status(), 200);
+            assert!(lay.into_string()?.contains("\"layers\""));
+
+            let snap = ureq::post(&format!("{base}/snapshot"))
+                .set("Authorization", "Bearer test-secret")
+                .set("Content-Type", "application/json")
+                .send_string(&format!(r#"{{"scene":{scene_json},"time":0.0}}"#))?;
+            assert_eq!(snap.status(), 200);
+            let mut png = Vec::new();
+            snap.into_reader().read_to_end(&mut png)?;
+            assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"));
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+        handle.abort();
+        let _ = tokio::fs::remove_dir_all(&tmp).await;
+        res.unwrap();
     }
 }

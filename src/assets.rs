@@ -580,6 +580,7 @@ pub fn resolve_to_path_with_base(
             .next()
             .and_then(|s| Path::new(s).extension())
             .and_then(|e| e.to_str())
+            .filter(|e| !e.is_empty() && e.len() <= 8 && e.bytes().all(|b| b.is_ascii_alphanumeric()))
             .unwrap_or("bin");
         let cached_path = cache_dir.join(format!("{}.{}", hash, ext));
 
