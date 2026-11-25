@@ -1,6 +1,6 @@
 ---
 name: rustren
-description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for 3D, live streaming, or editing existing video timelines frame-by-frame in a GUI.
+description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for full 3D game engines (experimental CPU `mesh3d` is opt-in via `--features exp-3d`), live streaming, or editing existing video timelines frame-by-frame in a GUI.
 metadata:
   skill_version: "1.4.1"
   rustren_version: "0.5.1"
@@ -179,7 +179,12 @@ Copyright: only animate images the user owns or is licensed to use. Ask the user
 ## 8. Recipe: explainer / promo / captions
 
 - Sequence scenes with a parent `container timeline="series"` and give each child a `duration`; no manual start math.
-- Reuse components with `include` (see "Component Reuse" in [SCHEMA.md](SCHEMA.md)).
+- Reuse components with `include` (supports `{{var}}` and `{{var|default}}`, max depth 8):
+  - HTML: `<include src="card.html" bg="#1E293B" label="Metric A" />`
+  - JSON: `{ "type": "include", "src": "card.json", "vars": { "bg": "#1E293B", "label": "Metric A" } }`
+- Particles & experimental 3D:
+  - `particles` is built-in (`shape: "circle" | "rect" | "confetti"`, `count`, `seed`, `speed`, `gravity`, `colors`).
+  - `mesh3d` (CPU software 3D primitives & `.glb`/`.gltf`) is **opt-in** via `cargo build --features exp-3d`; check `rustren capabilities` for `"mesh3d": true` before using it.
 - Staggered lists: `stagger` (HTML) / `stagger_secs` (JSON) on the container.
 - Rich text: `spans` with per-span color, `letter_spacing`, color emoji. Typewriter and glow effects exist; see `examples/glow_and_typewriter_demo.html`.
 - Data visuals: see `examples/charts_2d_showcase.html`, `examples/blocks_data_showcase.html`.
@@ -199,17 +204,7 @@ Look in [examples/](examples/) first and copy the closest file instead of writin
 
 ## 10. Cache-aware authoring (faster renders, same output)
 
-`rustren` caches aggressively. Write scenes that let the caches hit. Authoritative table: "Cache Engine" in [SCHEMA.md](SCHEMA.md).
-
-| Cache | Do this (hit) | Avoid this (miss) |
-|---|---|---|
-| Static background snapshot | Put 100% static layers (no animations, no `video`, active the whole duration) at the **start** of the layer list | An animated layer at index 0 stops the static prefix from being detected |
-| Blurred layer | `blur` without `shadow` on a root layer; animate only `opacity` | `shadow` with blur, blur inside a `container`, animating `x`/`y`/`width`/`height` |
-| SVG raster | Static `svg`; animating `x`, `y`, `rotation`, `opacity` still hits | Animating SVG `width`/`height`, `path_progress`, `stroke_dashoffset` |
-| SVG tree | Repeat the same inline SVG or `src` freely | n/a |
-| Asset store | Reuse the **exact same `src` string** so media is decoded once | Slightly different paths/URLs for the same file |
-| Text / glyph | Animate text `opacity`, `x`, `y` | Animating text `scale` (re-rasterizes glyphs every frame) |
-| Whole-frame dedup (Pro build) | Hold frames where nothing changes | Constant tiny motion everywhere |
+`rustren` caches aggressively (static background prefix, blurred layers, SVG raster/tree, asset store, glyph cache, and whole-frame dedup). See the single authoritative cache table in [SCHEMA.md — Cache Engine](SCHEMA.md#cache-engine-keys--how-to-write-cache-friendly-json).
 
 How to verify it worked:
 
@@ -229,8 +224,15 @@ Asset downloads are cached on disk (`--cache-dir`, default `.rustren_cache`). Re
 ## 11. Machine interfaces
 
 - **CLI**: every command above; use exit codes (`0` ok, non-zero failure).
-- **MCP**: `rustren mcp <scene>` starts a stdio JSON-RPC server (Model Context Protocol) so an agent can close the whole loop without shelling out. Actions (`add_layer`, `remove_layer`, `add_animation`) are written back to disk atomically, and sensor/execution tools (`validate_scene`, `snapshot_scene`, `inspect_layout`, `diff_scenes`, `render_video`) let the agent verify what it changed. MCP is stdio-only, so it is available in every build, including `--no-default-features`.
-- **HTTP**: `rustren serve --host 0.0.0.0 --port 8080` with `RUSTREN_API_KEY` set; queue-based render service.
+- **MCP**: `rustren mcp <scene>` starts a stdio JSON-RPC server (Model Context Protocol) so an agent can close the whole loop without shelling out. Actions (`add_layer`, `remove_layer`, `add_animation`) are written back to disk atomically, and sensor/execution tools (`validate_scene`, `snapshot_scene`, `inspect_layout`, `diff_scenes`, `render_video`) let the agent verify what it changed. Available in every build (no `pro` gate). Typical agent loop: `get_scene_summary` → `add_layer` / `add_animation` → `validate_scene` → `inspect_layout(diagnose: true)` → `snapshot_scene(sheet: true)` → `render_video`.
+- **HTTP API (`rustren serve`)**: Single-node async render server (`Authorization: Bearer <API_KEY>` or `x-api-key: <API_KEY>`). Supports zero-encode QA before queuing a full MP4:
+  ```bash
+  # Zero-encode layout diagnostics & PNG contact sheet
+  curl -sS -X POST "$BASE_URL/layout" -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" -d '{"scene": <Scene>, "time": 2.0}'
+  curl -sS -X POST "$BASE_URL/snapshot" -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" -d '{"scene": <Scene>, "times": [0.5, 2.0, 4.0], "sheet": true}' -o sheet.png
+  # Queue MP4 render -> poll GET /jobs/:id -> download GET /jobs/:id/video
+  curl -sS -X POST "$BASE_URL/jobs" -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" -d @scene.json
+  ```
 - **Discovery**: `rustren capabilities` (JSON), [schema.json](schema.json) (JSON Schema).
 
 ## 12. Output etiquette for agents
