@@ -2,8 +2,8 @@
 name: rustren
 description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for 3D, live streaming, or editing existing video timelines frame-by-frame in a GUI.
 metadata:
-  skill_version: "1.4.0"
-  rustren_version: "0.5.0"
+  skill_version: "1.4.1"
+  rustren_version: "0.5.1"
   schema_version: "1.1"
   renderer_version: "1.1"
 ---
@@ -290,6 +290,7 @@ errors point at the offending tag (`line 2, column 3: <include> is missing a src
 
 ## Changelog
 
+- **1.4.1** (rustren 0.5.1, schema 1.1): added longitudinal `wave_warp` axes (`stretch_x`, `stretch_y`) for rubber-band stretched typography and full `font_weight` support (`thin`..`black` and numeric `100`..`900`).
 - **1.4.0** (rustren 0.5.0, schema 1.1): added non-uniform `scale_x`/`scale_y` + custom `pivot_x`/`pivot_y`, per-character/word `text_animator`, multiline `line_height` & `anchor: "center"` without `max_width`, `clip_feather`, `wave_warp`, anti-OOM windowed `video` decoder (`playback_rate`, `loop`, `focal_x`/`focal_y`, `luma_key`), transparent PNG premultiply alpha, HTTP API `GET /` & `/llms.txt` discovery + `POST /snapshot` & `POST /layout`, and installer auto-setup of `~/.claude/skills/rustren/SKILL.md`.
 - **1.3.0** (rustren 0.4.0, schema 1.1): agent autonomy pass. MCP now actuates (scene actions are
   written back to disk atomically) and senses (`validate_scene`, `snapshot_scene`, `inspect_layout`,

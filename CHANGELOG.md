@@ -3,6 +3,12 @@
 All notable changes to `rustren` are documented in this file.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## [0.5.1] - 2026-11-25
+
+### Added
+- **Longitudinal `wave_warp` Axes (`stretch_x` / `stretch_y`)**: Rubber-band stretched typography where vertical/horizontal strokes remain sharp without sinusoidal bending.
+- **Full `font_weight` Range (`100`..`900` & `thin`..`black`)**: Supports numeric weights (`100`–`900`) and named weights (`thin`, `extralight`, `light`, `normal`, `medium`, `semibold`, `bold`, `extrabold`, `black`) in JSON and HTML scenes.
+
 ## [0.5.0] - 2026-11-24
 
 ### Added
