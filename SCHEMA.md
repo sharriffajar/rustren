@@ -669,7 +669,10 @@ Use these primitives to keep AI-generated JSON compact and expressive:
 | Cache | Scope & Key | How to Hit (and What Causes Misses) |
 | :--- | :--- | :--- |
 | **Static Background Snapshot** | Prefix `layers[0..k]` per scene | **Hit**: Place all 100% static background layers (`start_sec: 0`, `end_sec` omitted or `>= duration_secs`, `animations: []`, non-`video`) at the **start of `layers[]`**. **Miss**: Putting an animated layer at index `0` stops the prefix scan for later static layers. |
-| **Blurred-Layer Cache** (`THREAD_BLUR_CACHE`) | `(fnv1a(kind_without_opacity, blur), canvas_w, canvas_h)` per thread | **Hit**: Use `blur > 0` without `shadow` on a root non-`container`/non-`video` layer, and animate only `opacity` (or keep static). **Miss**: Adding `shadow`, placing inside a `container`, or animating `x`/`y`/`r`/`width`/`height`. |
+| **Blurred-Layer Cache** (`GLOBAL_BLUR_CACHE`) | `(u64 hash, canvas_w, canvas_h)` | **Hit**: Use `blur > 0` without `shadow` on a root non-`container`/non-`video` layer, and animate only `opacity` (or keep static). **Miss**: Adding `shadow`, placing inside a `container`, or animating `x`/`y`/`r`/`width`/`height`. |
+| **Warp Cache** (`GLOBAL_WARP_CACHE`) | `(u64 hash, w, h, canvas_w, canvas_h)` | **Hit**: Static or opacity-only 2.5D perspective-warped layers reuse the warped pixmap across frames. |
+| **Shadow Cache** (`GLOBAL_SHADOW_CACHE`) | `(w, h, radius, blur_bits, color, spread_bits)` | **Hit**: Repeated rounded-rect drop shadows with identical dimensions/blur/color reuse the blurred shadow mask. |
+| **Frame Dedup Cache** (`GLOBAL_FRAME_DEDUP_CACHE`) | `u64` scene frame hash (Pro / default build) | **Hit**: Consecutive identical frames skip rasterization and reuse the previous encoded frame buffer. |
 | **SVG Raster Cache** (`THREAD_SVG_RASTER_CACHE`) | `(fnv1a(svg_bytes), byte_len, pw, ph)` per thread | **Hit**: Use `svg` without `path_progress`/`stroke_dashoffset`/`stroke_dasharray`, and do not animate `width`/`height`. Animating `x`, `y`, `rotation`, and `opacity` **still hits**! |
 | **SVG Tree Cache** (`THREAD_SVG_CACHE`) | `(fnv1a(svg_bytes), byte_len)` per thread | **Hit**: Repeated inline `<svg>` or `src` values are parsed once per thread (still helps when `path_progress` is animated). |
 | **AssetStore & Disk Cache** | Disk: `SHA-256(url)` · RAM: `src` string | **Hit**: Reuse the exact same `src` string across layers so images/SVGs/videos are decoded once. |
@@ -714,3 +717,10 @@ Every `Layer` supports After Effects-style track mattes:
 - **HTML**: `<include src="card.html" bg="#238636" label="Card A" />`
 - **JSON**: `{ "type": "include", "src": "card.json", "vars": { "bg": "#238636" } }`
 - **Variable substitution**: Supports `{{var}}` and `{{var|default}}` placeholders inside included files; maximum nesting depth is `8` (exceeding depth or missing files raises a compile error).
+
+### Additional Effects, Layout & 3D Fields
+- **Motion Echo (`echo`)**: Optional on any layer — `{ "count": 4, "step_sec": 0.04, "decay": 0.6 }` renders fading motion-trail copies behind the layer.
+- **Additional Blend Modes**: Beyond `normal`/`multiply`/`screen`/`overlay`/`darken`/`lighten`/`difference`, `blend_mode` also supports `color_dodge`, `color_burn`, `hard_light`, `soft_light`, and `exclusion`.
+- **Per-Side Spacing & Wrap**: Layers support `margin_top`, `margin_right`, `margin_bottom`, `margin_left`; containers support `padding_top`, `padding_right`, `padding_bottom`, `padding_left`, `row_gap`, `column_gap`, and `flex_wrap`.
+- **Schema Version Default**: When `schema_version` is omitted from a scene, `rustren` defaults to `"1.0"` for backward compatibility; always specify `"schema_version": "1.1"` for new scenes.
+- **Experimental CPU 3D (`mesh3d`, `--features exp-3d`)**: Opt-in software 3D layer supporting primitives (`cube`, `sphere`, `pyramid`, `torus`) and `.glb`/`.gltf` models via `src` + `texture`. Check `rustren capabilities` for `"mesh3d": true`.
