@@ -18,9 +18,19 @@ Typed scene shapes: [sdk/typescript/rustren.d.ts](sdk/typescript/rustren.d.ts) a
 [sdk/python/rustren_types.py](sdk/python/rustren_types.py) (both generated from `schema.json`; use
 them in an editor to catch a misspelled field before running `validate`).
 
-## 1. Prerequisites (check first)
+## 1. Prerequisites & Guardrails (read first)
 
-> **Key capabilities in current engine:** `scale_x`/`scale_y` + custom `pivot_x`/`pivot_y`, `text_animator` (per-char/word stagger), multiline `line_height` & `anchor: "center"` without `max_width`, `clip_feather`, `wave_warp`, windowed anti-OOM `video` decoder (`playback_rate`, `loop`, `focal_x`/`focal_y`, `luma_key`), and HTTP API `POST /snapshot` + `POST /layout`. Always verify exact fields with `rustren capabilities` or `schema.json`.
+> **CRITICAL GUARDRAIL — Always check the latest schema first:** Do NOT guess field names from memory. Before authoring a scene, check [schema.json](schema.json) / [SCHEMA.md](SCHEMA.md) or run `rustren capabilities` (for remote API, fetch `https://nvm.web.id/rustren/llms.txt`).
+>
+> **Top 6 Schema Gotchas:**
+> 1. `line_height` is a **multiplier** (e.g., `1.35`), NOT pixels.
+> 2. Inside a `container`, any child using explicit `x`/`y` MUST set `"position": "absolute"` (otherwise Taffy flexbox ignores `x`/`y`).
+> 3. `container` fill uses `background` (not `color`).
+> 4. `wave_warp` uses `wavelength` (not `frequency`).
+> 5. `text_animator` uses `mode: "char" | "word"` (not `unit`).
+> 6. `matte_layer` is an **inline Layer object** (not a string ID).
+
+> **Key capabilities in current engine:** `scale_x`/`scale_y` + custom `pivot_x`/`pivot_y`, `text_animator` (per-char/word stagger), multiline `line_height` & `anchor: "center"` without `max_width`, `clip_feather`, `wave_warp`, windowed anti-OOM `video` decoder (`playback_rate`, `loop`, `focal_x`/`focal_y`, `luma_key`), `rustren qa` automated MP4 audit, and HTTP API `POST /snapshot` + `POST /layout`.
 
 ```bash
 rustren --version          # binary present?
@@ -66,6 +76,9 @@ rustren layout scene.html --t 3 --diagnose
 
 # 4. Only now render
 rustren render scene.html -o out.mp4 --profile
+
+# 5. Audit final MP4 (black frames, frozen frames, EBU R128 loudness & clipping)
+rustren qa out.mp4 --json
 ```
 
 Rules for the loop:
@@ -86,8 +99,16 @@ Rules for the loop:
 | `examples` | List built-in copy-ready scenes, or print one | `<name>`, `--tag <tag>`, `--error-format json` |
 | `watch <file>` | Re-render the active frame to PNG on every save | |
 | `diff <a> <b>` | Visual regression between two scenes at time `t` | |
+| `qa <video>` | Audit rendered MP4 (black/frozen frames, EBU R128 loudness & peak) | `--json` |
 | `beats <audio>` | Detect beat timestamps in seconds | use to sync cuts to music |
 | `serve` / `mcp` / `studio` / `preview` | HTTP API, MCP stdio server, browser studio | see README |
+
+### Public 56-Asset Visual & CC0 Audio Catalog (Zero Local Files Needed)
+Fetch `https://nvm.web.id/rustren/studio/assets/catalog/catalog.json` to discover 56 ready-to-use URLs (`https://nvm.web.id/rustren/studio/assets/catalog/media/...` & `audio/...`) that `rustren` downloads and caches automatically:
+- **8 Neutral 3D/Glass Backdrops** (`bg-*`) — tintable behind typography via `blend_mode`.
+- **12 Transparent 3D Props & Mockups** (`prop-*`, PNG RGBA) — great for *"text behind object"* hero shots (sandwich bold `text` between backdrop and prop).
+- **6 Animated 720p Video Loops** (`vid-*`, 2.5s H.264) — use as `video` layer with `loop: true` + `blend_mode: "screen"` (`vid-light-leak`, `vid-bokeh-drift`, `vid-film-burn`) or `track_matte: "luma"` (`vid-ink-wipe`, `vid-smoke-reveal`, `vid-diagonal-blinds`).
+- **20 CC0 1.0 Audio Assets** (`16 SFX + 4 Music Beds`, MP3) — add to `audio[]` synced to transition timestamps for instant broadcast polish.
 
 Responsive output: define `<profiles>` in the scene (e.g. `portrait` 1080x1920, `square` 720x720) and pass `--composition portrait` to `validate`, `snapshot`, `layout`, `render`.
 
