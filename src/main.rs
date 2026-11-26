@@ -11,6 +11,7 @@ mod fix;
 mod ir;
 mod lint;
 mod mcp;
+mod qa;
 mod renderer;
 mod schema;
 mod security;
@@ -241,6 +242,14 @@ enum Commands {
         /// Emit a machine-readable JSON summary (progress moves to stderr)
         #[arg(long, value_enum, default_value_t = ErrorFormat::Text)]
         error_format: ErrorFormat,
+    },
+    /// Audit a rendered MP4 video for visual & audio defects (black frames, frozen frames, EBU R128 loudness)
+    Qa {
+        /// Path to the rendered MP4/WebM video file
+        video: PathBuf,
+        /// Emit machine-readable JSON report
+        #[arg(long)]
+        json: bool,
     },
     /// Launch browser-based live studio UI with interactive timeline, scrubber and preview
     #[cfg(feature = "pro")]
@@ -818,6 +827,12 @@ fn main() -> Result<()> {
             composition,
         } => {
             run_watch(&input, t, &output, &cache_dir, composition.as_deref())?;
+        }
+        Commands::Qa { video, json } => {
+            let report = qa::run_qa(&video, json)?;
+            if report.verdict == "FAIL" {
+                std::process::exit(1);
+            }
         }
         Commands::Diff {
             baseline,
