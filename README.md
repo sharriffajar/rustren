@@ -9,6 +9,7 @@ Browserless 2.5D video render engine in Rust — built to be **fast** and **pred
 > **Try Online (Zero Install):**
 > - **Web Studio (PWA, Bring-Your-Own-Key (BYOK) AI Director + Browser WebM/PNG + MP4 via API):** https://nvm.web.id/rustren/studio/
 > - **Hosted Render API (Experimental, AI-discoverable):** https://nvm.web.id/rustren/api/ ([`llms.txt`](https://nvm.web.id/rustren/llms.txt) · [Request API token](https://nvm.web.id/contact/))
+> - **Public Asset Catalog (18 Free 3D Backdrops, Overlays & Luma Mattes):** https://nvm.web.id/rustren/studio/assets/catalog/catalog.json
 > - **Project Homepage:** https://nvm.web.id/rustren/
 
 ```

@@ -330,6 +330,11 @@ curl -sS -H "Authorization: Bearer $API_KEY" "{base_url}/jobs/$JOB_ID"
 # 3. Download MP4
 curl -sS -H "Authorization: Bearer $API_KEY" "{base_url}/jobs/$JOB_ID/video" -o out.mp4
 ```
+
+## Public Visual Asset Catalog (Free, Ready for `image.src` & `matte_layer`)
+- Manifest: https://nvm.web.id/rustren/studio/assets/catalog/catalog.json
+- Media base: https://nvm.web.id/rustren/studio/assets/catalog/media/<id>.jpg
+- Includes 18 lightweight 1280x720 assets: 8 neutral 3D/glass backdrops, 6 monochrome optical overlays (`screen`/`overlay`/`multiply`), and 4 high-contrast luma mattes (`track_matte: "luma"`).
 "##,
         version = version,
         notice_block = notice_block,
