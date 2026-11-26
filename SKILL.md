@@ -103,10 +103,9 @@ Rules for the loop:
 | `beats <audio>` | Detect beat timestamps in seconds | use to sync cuts to music |
 | `serve` / `mcp` / `studio` / `preview` | HTTP API, MCP stdio server, browser studio | see README |
 
-### Public 56-Asset Visual & CC0 Audio Catalog (Zero Local Files Needed)
-Fetch `https://nvm.web.id/rustren/studio/assets/catalog/catalog.json` to discover 56 ready-to-use URLs (`https://nvm.web.id/rustren/studio/assets/catalog/media/...` & `audio/...`) that `rustren` downloads and caches automatically:
+### Public 44-Asset Visual & CC0 Audio Catalog (Zero Local Files Needed)
+Fetch `https://nvm.web.id/rustren/studio/assets/catalog/catalog.json` to discover 44 ready-to-use URLs (`https://nvm.web.id/rustren/studio/assets/catalog/media/...` & `audio/...`) that `rustren` downloads and caches automatically:
 - **8 Neutral 3D/Glass Backdrops** (`bg-*`) — tintable behind typography via `blend_mode`.
-- **12 Transparent 3D Props & Mockups** (`prop-*`, PNG RGBA) — great for *"text behind object"* hero shots (sandwich bold `text` between backdrop and prop).
 - **6 Animated 720p Video Loops** (`vid-*`, 2.5s H.264) — use as `video` layer with `loop: true` + `blend_mode: "screen"` (`vid-light-leak`, `vid-bokeh-drift`, `vid-film-burn`) or `track_matte: "luma"` (`vid-ink-wipe`, `vid-smoke-reveal`, `vid-diagonal-blinds`).
 - **20 CC0 1.0 Audio Assets** (`16 SFX + 4 Music Beds`, MP3) — add to `audio[]` synced to transition timestamps for instant broadcast polish.
 

@@ -9,12 +9,12 @@ Browserless 2.5D video render engine in Rust — built to be **fast** and **pred
 > **Try Online (Zero Install):**
 > - **Web Studio (PWA, Bring-Your-Own-Key (BYOK) AI Director + Browser WebM/PNG + MP4 via API):** https://nvm.web.id/rustren/studio/
 > - **Hosted Render API (Experimental, AI-discoverable):** https://nvm.web.id/rustren/api/ ([`llms.txt`](https://nvm.web.id/rustren/llms.txt) · [Request API token](https://nvm.web.id/contact/))
-> - **Public Asset Catalog (56 Free Assets: Backdrops, 3D Props, Video Loops & CC0 Audio):** https://nvm.web.id/rustren/studio/assets/catalog/catalog.json
+> - **Public Asset Catalog (44 Free Assets: Backdrops, Overlays, Video Loops & CC0 Audio):** https://nvm.web.id/rustren/studio/assets/catalog/catalog.json
 > - **Project Homepage:** https://nvm.web.id/rustren/
 
 | Start Here | Best For | Entrypoint |
 | :--- | :--- | :--- |
-| **Visual Browser Editor** | Interactive editing, BYOK AI Director, Frame Notes, 56 free assets | [Rustren Studio](https://nvm.web.id/rustren/studio/) |
+| **Visual Browser Editor** | Interactive editing, BYOK AI Director, Frame Notes, 44 free assets | [Rustren Studio](https://nvm.web.id/rustren/studio/) |
 | **CLI (`rustren`)** | Local 150+ fps MP4 rendering, CI/CD, batch video, `rustren qa` | `cargo install rustren` |
 | **AI Agent / MCP** | Claude Code, Cursor, Antigravity (pair with LottieFiles Creator MCP) | `rustren mcp` + [SKILL.md](SKILL.md) |
 | **HTTP Render API** | Serverless / programmatic cloud MP4 & `/snapshot` rendering | `rustren serve` / [`llms.txt`](https://nvm.web.id/rustren/llms.txt) |
