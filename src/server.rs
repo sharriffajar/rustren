@@ -909,6 +909,97 @@ async fn cors_middleware(
     resp
 }
 
+#[derive(Deserialize)]
+struct LlmProxyRequest {
+    target_url: String,
+    #[serde(default)]
+    api_key: String,
+    body: serde_json::Value,
+}
+
+async fn llm_proxy_endpoint(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(req): Json<LlmProxyRequest>,
+) -> impl IntoResponse {
+    if let Err(resp) = check_rate_limit(&state, addr.ip()).await {
+        return resp;
+    }
+
+    let url = req.target_url.trim().to_string();
+    if !url.starts_with("https://") {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": { "message": "Proxy only allows https:// endpoints" } })),
+        )
+            .into_response();
+    }
+    let path_only = url.split('?').next().unwrap_or("");
+    if !(path_only.ends_with("/chat/completions") || path_only.ends_with("/models")) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": { "message": "Proxy only allows OpenAI-compatible /chat/completions or /models endpoints" } })),
+        )
+            .into_response();
+    }
+    if let Err(e) = crate::security::validate_remote_url(&url) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "error": { "message": format!("Blocked target URL: {e}") } })),
+        )
+            .into_response();
+    }
+
+    let api_key = req.api_key;
+    let body_str = req.body.to_string();
+    let result = tokio::task::spawn_blocking(move || {
+        let agent = ureq::AgentBuilder::new()
+            .timeout_connect(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(90))
+            .redirects(0)
+            .build();
+        let mut r = agent.post(&url).set("Content-Type", "application/json");
+        if !api_key.trim().is_empty() {
+            r = r.set("Authorization", &format!("Bearer {}", api_key.trim()));
+        }
+        match r.send_string(&body_str) {
+            Ok(resp) => {
+                let status = resp.status();
+                let text = resp.into_string().unwrap_or_default();
+                Ok((status, text))
+            }
+            Err(ureq::Error::Status(code, resp)) => {
+                let text = resp.into_string().unwrap_or_default();
+                Ok((code, text))
+            }
+            Err(e) => Err(e.to_string()),
+        }
+    })
+    .await;
+
+    match result {
+        Ok(Ok((status, text))) => {
+            let code = StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY);
+            (
+                code,
+                [(axum::http::header::CONTENT_TYPE, "application/json")],
+                text,
+            )
+                .into_response()
+        }
+        Ok(Err(e)) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({ "error": { "message": format!("Upstream error: {e}") } })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": { "message": format!("Proxy task error: {e}") } })),
+        )
+            .into_response(),
+    }
+}
+
 fn build_router(state: AppState) -> Router {
     Router::new()
         .route("/", get(get_index))
@@ -920,6 +1011,7 @@ fn build_router(state: AppState) -> Router {
         .route("/validate", post(validate_endpoint))
         .route("/snapshot", post(snapshot_endpoint))
         .route("/layout", post(layout_endpoint))
+        .route("/llm-proxy", post(llm_proxy_endpoint))
         .route("/jobs", post(submit_job))
         .route("/jobs/:id", get(get_job_status))
         .route("/jobs/:id/video", get(download_job_video))
