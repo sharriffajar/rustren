@@ -142,7 +142,7 @@ impl CapabilityRegistry {
                     image: true,
                     video: true,
                     waveform: true,
-                    lottie: true,
+                    lottie: false,
                     particles: true,
                     #[cfg(feature = "exp-3d")]
                     mesh3d: true,

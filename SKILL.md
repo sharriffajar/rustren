@@ -185,6 +185,11 @@ Copyright: only animate images the user owns or is licensed to use. Ask the user
 - Particles & experimental 3D:
   - `particles` is built-in (`shape: "circle" | "rect" | "confetti"`, `count`, `seed`, `speed`, `gravity`, `colors`).
   - `mesh3d` (CPU software 3D primitives & `.glb`/`.gltf`) is **opt-in** via `cargo build --features exp-3d`; check `rustren capabilities` for `"mesh3d": true` before using it.
+- **`echo` trail effect**: adds motion smear echoes behind animated layers:
+  - HTML: `echo-count="4" echo-step="0.1" echo-decay="0.5" echo-threshold="3.0"`
+  - JSON: `"echo": { "count": 4, "step_sec": 0.1, "decay": 0.5, "threshold": 3.0 }`
+- **Per-side margins/padding/gaps**: use `margin_top`, `margin_right`, `margin_bottom`, `margin_left` on layers; `padding_top`, `padding_right`, `padding_bottom`, `padding_left`, `row_gap`, `column_gap`, `flex_wrap` on containers.
+- **Extra blend modes**: `blend_mode` supports `color_dodge`, `color_burn`, `hard_light`, `soft_light`, `exclusion` (plus `normal`, `multiply`, `screen`, `overlay`, `darken`, `lighten`, `difference`).
 - Staggered lists: `stagger` (HTML) / `stagger_secs` (JSON) on the container.
 - Rich text: `spans` with per-span color, `letter_spacing`, color emoji. Typewriter and glow effects exist; see `examples/glow_and_typewriter_demo.html`.
 - Data visuals: see `examples/charts_2d_showcase.html`, `examples/blocks_data_showcase.html`.

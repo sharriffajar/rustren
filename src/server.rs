@@ -314,7 +314,7 @@ curl -sS -X POST "{base_url}/jobs" \
     "layers": [
       {{
         "type": "text",
-        "text": "Hello from Rustren!",
+        "content": "Hello from Rustren!",
         "x": 640,
         "y": 360,
         "font_size": 64,
@@ -875,6 +875,35 @@ pub async fn run_server(config: ServeConfig) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn cors_middleware(
+    req: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let is_preflight = req.method() == axum::http::Method::OPTIONS;
+    let mut resp = if is_preflight {
+        axum::http::Response::builder()
+            .status(StatusCode::NO_CONTENT)
+            .body(axum::body::Body::empty())
+            .unwrap()
+    } else {
+        next.run(req).await
+    };
+    let headers = resp.headers_mut();
+    headers.insert(
+        axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        axum::http::HeaderValue::from_static("*"),
+    );
+    headers.insert(
+        axum::http::header::ACCESS_CONTROL_ALLOW_METHODS,
+        axum::http::HeaderValue::from_static("GET, POST, DELETE, OPTIONS"),
+    );
+    headers.insert(
+        axum::http::header::ACCESS_CONTROL_ALLOW_HEADERS,
+        axum::http::HeaderValue::from_static("Authorization, Content-Type"),
+    );
+    resp
+}
+
 fn build_router(state: AppState) -> Router {
     Router::new()
         .route("/", get(get_index))
@@ -890,6 +919,7 @@ fn build_router(state: AppState) -> Router {
         .route("/jobs/:id", get(get_job_status))
         .route("/jobs/:id/video", get(download_job_video))
         .layer(DefaultBodyLimit::max(2 * 1024 * 1024))
+        .layer(axum::middleware::from_fn(cors_middleware))
         .with_state(state)
 }
 

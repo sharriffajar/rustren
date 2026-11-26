@@ -1143,17 +1143,17 @@ pub(super) fn render_text_layer(
                 let cy = layout_y0 + sh as f32 * 0.5;
                 let place = Transform::from_translate(layout_x0, layout_y0);
                 let scale_t = if (unit_scale - 1.0).abs() > 1e-6 {
-                    Transform::from_translate(cx, cy)
+                    Transform::from_translate(-cx, -cy)
                         .post_concat(Transform::from_scale(unit_scale, unit_scale))
-                        .post_concat(Transform::from_translate(-cx, -cy))
+                        .post_concat(Transform::from_translate(cx, cy))
                 } else {
                     Transform::identity()
                 };
-                let xform = Transform::from_translate(base_x + off_x, base_y + off_y)
-                    .post_concat(text_xform)
-                    .post_concat(Transform::from_translate(-ox, -oy))
+                let xform = place
                     .post_concat(scale_t)
-                    .post_concat(place);
+                    .post_concat(Transform::from_translate(-ox, -oy))
+                    .post_concat(text_xform)
+                    .post_concat(Transform::from_translate(base_x + off_x, base_y + off_y));
                 let paint = PixmapPaint {
                     opacity: unit_op,
                     quality: FilterQuality::Bilinear,

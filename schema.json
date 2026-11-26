@@ -830,7 +830,10 @@
         },
         "font_family": { "type": "string" },
         "font_weight": {
-          "enum": ["normal", "bold"],
+          "oneOf": [
+            { "enum": ["thin", "extralight", "light", "normal", "medium", "semibold", "bold", "extrabold", "black"] },
+            { "type": "integer", "minimum": 100, "maximum": 900 }
+          ],
           "default": "normal"
         },
         "text_align": {

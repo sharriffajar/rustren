@@ -399,7 +399,7 @@ export interface TextLayer extends BaseLayer {
   letter_spacing?: number;
   font_family?: string;
   /** default: "normal" */
-  font_weight?: "normal" | "bold";
+  font_weight?: "thin" | "extralight" | "light" | "normal" | "medium" | "semibold" | "bold" | "extrabold" | "black" | number;
   /** default: "left" */
   text_align?: "left" | "center" | "right" | "start" | "end";
   /** Text layout direction for RTL/BiDi shaping (Arabic, Hebrew); default: "auto" */

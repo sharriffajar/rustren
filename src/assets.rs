@@ -371,6 +371,16 @@ fn collect_layer_assets(
     videos: &mut HashMap<String, VideoAsset>,
 ) -> Result<()> {
     for layer in layers {
+        if let Some(ref matte) = layer.matte_layer {
+            collect_layer_assets(
+                std::slice::from_ref(matte.as_ref()),
+                cache_dir,
+                base_dir,
+                images,
+                svgs,
+                videos,
+            )?;
+        }
         match &layer.kind {
             LayerKind::Image { src, .. } => {
                 if !images.contains_key(src) {
@@ -588,7 +598,13 @@ pub fn resolve_to_path_with_base(
             return Ok(cached_path);
         }
 
-        let resp = ureq::get(src)
+        let agent = ureq::AgentBuilder::new()
+            .timeout_connect(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(15))
+            .redirects(0)
+            .build();
+        let resp = agent
+            .get(src)
             .call()
             .with_context(|| format!("Failed to download asset: {}", src))?;
         let mut bytes = Vec::new();
@@ -597,8 +613,23 @@ pub fn resolve_to_path_with_base(
             .read_to_end(&mut bytes)
             .with_context(|| format!("Failed to read response body: {}", src))?;
 
-        fs::write(&cached_path, &bytes)
-            .with_context(|| format!("Failed to write cache file: {}", cached_path.display()))?;
+        let tmp_path = cache_dir.join(format!(
+            "{}.{}.{}.tmp",
+            hash,
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        fs::write(&tmp_path, &bytes)
+            .with_context(|| format!("Failed to write temp cache file: {}", tmp_path.display()))?;
+        fs::rename(&tmp_path, &cached_path).with_context(|| {
+            format!(
+                "Failed to finalize cache file: {}",
+                cached_path.display()
+            )
+        })?;
         Ok(cached_path)
     } else {
         Ok(resolve_local_asset(src, base_dir))

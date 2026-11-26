@@ -248,7 +248,7 @@ class TextLayer(TypedDict, total=False):
     line_height: float
     letter_spacing: float
     font_family: str
-    font_weight: Literal["normal", "bold"]
+    font_weight: Union[Literal["thin", "extralight", "light", "normal", "medium", "semibold", "bold", "extrabold", "black"], int]
     text_align: Literal["left", "center", "right", "start", "end"]
     direction: Literal["auto", "ltr", "rtl"]
     color: str

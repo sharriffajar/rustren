@@ -79,6 +79,9 @@ fn is_blocked_ip(ip: IpAddr) -> bool {
                 || (v4.octets()[0] == 100 && (v4.octets()[1] & 0b1100_0000) == 64) // CGNAT 100.64.0.0/10
         }
         IpAddr::V6(v6) => {
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return is_blocked_ip(IpAddr::V4(v4));
+            }
             v6.is_loopback()
                 || v6.is_unspecified()
                 || v6.is_multicast()
@@ -152,20 +155,65 @@ pub fn validate_scene_for_service(scene: &Scene, limits: &ServiceLimits) -> Resu
     for audio in &scene.audio {
         validate_asset_ref(&audio.src, limits.allow_local_paths, false)?;
     }
-    validate_layers_assets(&scene.layers, limits.allow_local_paths)?;
+    let mut layer_count: usize = 0;
+    validate_layers_assets(&scene.layers, limits.allow_local_paths, 0, &mut layer_count)?;
     Ok(())
 }
 
 #[cfg_attr(not(feature = "pro"), allow(dead_code))]
-fn validate_layers_assets(layers: &[Layer], allow_local_paths: bool) -> Result<()> {
+fn validate_layers_assets(
+    layers: &[Layer],
+    allow_local_paths: bool,
+    depth: usize,
+    layer_count: &mut usize,
+) -> Result<()> {
+    const MAX_DEPTH: usize = 16;
+    const MAX_LAYERS: usize = 512;
+    if depth > MAX_DEPTH {
+        bail!("Layer nesting depth exceeds maximum allowed ({MAX_DEPTH})");
+    }
     for layer in layers {
+        *layer_count += 1;
+        if *layer_count > MAX_LAYERS {
+            bail!("Total layer count exceeds maximum allowed ({MAX_LAYERS})");
+        }
+        if layer.blur > 200.0 || !layer.blur.is_finite() {
+            bail!("Layer blur ({}) exceeds maximum allowed (200.0)", layer.blur);
+        }
+        if let Some(ref w) = layer.wave_warp {
+            if !w.amplitude.is_finite() || w.amplitude.abs() > 500.0 {
+                bail!(
+                    "wave_warp.amplitude ({}) exceeds maximum allowed (500.0)",
+                    w.amplitude
+                );
+            }
+        }
+        if let Some(ref e) = layer.echo {
+            if e.count > 24 {
+                bail!("echo.count ({}) exceeds maximum allowed (24)", e.count);
+            }
+        }
+        if let Some(ref matte) = layer.matte_layer {
+            validate_layers_assets(
+                std::slice::from_ref(matte.as_ref()),
+                allow_local_paths,
+                depth + 1,
+                layer_count,
+            )?;
+        }
         match &layer.kind {
-            LayerKind::Image { src, .. } | LayerKind::Video { src, .. } => {
-                validate_asset_ref(src, allow_local_paths, false)?
+            LayerKind::Image { src, .. }
+            | LayerKind::Video { src, .. }
+            | LayerKind::Lottie { src, .. } => {
+                validate_asset_ref(src, allow_local_paths, false)?;
+            }
+            #[cfg(feature = "exp-3d")]
+            LayerKind::Mesh3d { src: Some(src), .. } => {
+                validate_asset_ref(src, allow_local_paths, false)?;
             }
             LayerKind::Svg { src, .. } => validate_asset_ref(src, allow_local_paths, true)?,
             LayerKind::Container { children, .. } => {
-                validate_layers_assets(children, allow_local_paths)?;
+                validate_layers_assets(children, allow_local_paths, depth + 1, layer_count)?;
             }
             _ => {}
         }
