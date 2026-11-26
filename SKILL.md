@@ -110,6 +110,9 @@ Fetch `https://nvm.web.id/rustren/studio/assets/catalog/catalog.json` to discove
 - **6 Animated 720p Video Loops** (`vid-*`, 2.5s H.264) — use as `video` layer with `loop: true` + `blend_mode: "screen"` (`vid-light-leak`, `vid-bokeh-drift`, `vid-film-burn`) or `track_matte: "luma"` (`vid-ink-wipe`, `vid-smoke-reveal`, `vid-diagonal-blinds`).
 - **20 CC0 1.0 Audio Assets** (`16 SFX + 4 Music Beds`, MP3) — add to `audio[]` synced to transition timestamps for instant broadcast polish.
 
+### Companion MCP for Advanced Vector Animations (Optional, Free)
+For complex custom vector animations (icons, loaders, character motion), pair `rustren` with **LottieFiles Creator MCP** (`https://creator.mcp.lottiefiles.com/mcp`): generate/export a Bodymovin Lottie `.json` there, then reference it in `rustren` as `{ "type": "lottie", "src": "anim.json", "loop_animation": true, "speed": 1.0 }` (or drag-and-drop the `.json` directly into Rustren Studio).
+
 Responsive output: define `<profiles>` in the scene (e.g. `portrait` 1080x1920, `square` 720x720) and pass `--composition portrait` to `validate`, `snapshot`, `layout`, `render`.
 
 Faster renders: `--preset veryfast` (or `ultrafast`) trades file size for speed. Hardware H.264 encoding (`h264_nvenc`, `h264_videotoolbox`, `h264_qsv`) is auto-probed by default and falls back cleanly to `libx264` if no working GPU encoder is present; set `RUSTREN_HW_ENCODER=off` to force CPU `libx264`.
