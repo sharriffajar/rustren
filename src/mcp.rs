@@ -172,6 +172,17 @@ fn tool_definitions() -> Value {
                 },
                 "required": ["audio_path"]
             }
+        },
+        {
+            "name": "qa_video",
+            "description": "Audit a rendered MP4/WebM video for visual & audio defects (black frames, frozen frames, EBU R128 loudness & true-peak clipping).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "video_path": { "type": "string" }
+                },
+                "required": ["video_path"]
+            }
         }
     ])
 }
@@ -510,6 +521,14 @@ pub fn handle_mcp_request(req: &Value, scene_path: &Path) -> Option<Value> {
                         },
                     )
                 }
+                "qa_video" => {
+                    let video_path = arg_str(&args, "video_path").unwrap_or("");
+                    crate::qa::run_qa(Path::new(video_path), false).map(|report| {
+                        json!({
+                            "content": [{ "type": "text", "text": serde_json::to_string_pretty(&report).unwrap_or_default() }]
+                        })
+                    })
+                }
                 other => {
                     if let Some(obj) = args.as_object_mut() {
                         obj.insert("action".to_string(), Value::String(other.to_string()));
@@ -568,7 +587,7 @@ mod tests {
         let list_req = json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" });
         let list_resp = handle_mcp_request(&list_req, dummy).unwrap();
         let tools = list_resp["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 10);
+        assert_eq!(tools.len(), 11);
         for name in [
             "validate_scene",
             "snapshot_scene",
