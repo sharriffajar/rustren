@@ -194,6 +194,7 @@ pub struct AssetStore {
     pub fonts: Vec<Vec<u8>>,
     pub images: HashMap<String, image::RgbaImage>,
     pub svgs: HashMap<String, Vec<u8>>,
+    pub lotties: HashMap<String, Vec<u8>>,
     pub videos: HashMap<String, VideoAsset>,
     pub audio_paths: Vec<PathBuf>,
     /// Uploaded `.glb`/`.gltf` models keyed by the layer's `src` string, parsed
@@ -279,6 +280,7 @@ impl AssetStore {
 
         let mut images = HashMap::new();
         let mut svgs = HashMap::new();
+        let mut lotties = HashMap::new();
         let mut videos = HashMap::new();
         collect_layer_assets(
             &scene.layers,
@@ -286,6 +288,7 @@ impl AssetStore {
             base_dir,
             &mut images,
             &mut svgs,
+            &mut lotties,
             &mut videos,
         )?;
 
@@ -302,6 +305,7 @@ impl AssetStore {
             fonts,
             images,
             svgs,
+            lotties,
             videos,
             audio_paths,
             #[cfg(feature = "exp-3d")]
@@ -368,6 +372,7 @@ fn collect_layer_assets(
     base_dir: Option<&Path>,
     images: &mut HashMap<String, image::RgbaImage>,
     svgs: &mut HashMap<String, Vec<u8>>,
+    lotties: &mut HashMap<String, Vec<u8>>,
     videos: &mut HashMap<String, VideoAsset>,
 ) -> Result<()> {
     for layer in layers {
@@ -378,6 +383,7 @@ fn collect_layer_assets(
                 base_dir,
                 images,
                 svgs,
+                lotties,
                 videos,
             )?;
         }
@@ -413,8 +419,19 @@ fn collect_layer_assets(
                     videos.insert(src.clone(), asset);
                 }
             }
+            LayerKind::Lottie { src, .. } => {
+                if !lotties.contains_key(src) {
+                    if src.trim_start().starts_with('{') {
+                        lotties.insert(src.clone(), src.as_bytes().to_vec());
+                    } else if let Ok(path) = resolve_to_path_with_base(src, cache_dir, base_dir) {
+                        if let Ok(bytes) = fs::read(&path) {
+                            lotties.insert(src.clone(), bytes);
+                        }
+                    }
+                }
+            }
             LayerKind::Container { children, .. } => {
-                collect_layer_assets(children, cache_dir, base_dir, images, svgs, videos)?;
+                collect_layer_assets(children, cache_dir, base_dir, images, svgs, lotties, videos)?;
             }
             _ => {}
         }

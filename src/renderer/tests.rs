@@ -58,6 +58,7 @@ fn test_render_frame_with_container_and_absolute() {
         images: HashMap::new(),
         videos: HashMap::new(),
         svgs: HashMap::new(),
+        lotties: HashMap::new(),
         audio_paths: vec![],
         #[cfg(feature = "exp-3d")]
         mesh3d: HashMap::new(),
@@ -90,6 +91,7 @@ fn test_track_matte_alpha_and_inverted() {
         images: HashMap::new(),
         videos: HashMap::new(),
         svgs: HashMap::new(),
+        lotties: HashMap::new(),
         audio_paths: vec![],
         #[cfg(feature = "exp-3d")]
         mesh3d: HashMap::new(),
@@ -136,6 +138,7 @@ fn test_track_matte_inside_25d_container() {
         images: HashMap::new(),
         videos: HashMap::new(),
         svgs: HashMap::new(),
+        lotties: HashMap::new(),
         audio_paths: vec![],
         #[cfg(feature = "exp-3d")]
         mesh3d: HashMap::new(),
@@ -179,6 +182,7 @@ fn test_waveform_color_animation() {
         images: HashMap::new(),
         videos: HashMap::new(),
         svgs: HashMap::new(),
+        lotties: HashMap::new(),
         audio_paths: vec![],
         #[cfg(feature = "exp-3d")]
         mesh3d: HashMap::new(),
@@ -213,6 +217,7 @@ fn test_echo_smear_renders_trail() {
         images: HashMap::new(),
         videos: HashMap::new(),
         svgs: HashMap::new(),
+        lotties: HashMap::new(),
         audio_paths: vec![],
         #[cfg(feature = "exp-3d")]
         mesh3d: HashMap::new(),
@@ -306,6 +311,7 @@ fn test_25d_perspective_rotation_and_backface_culling() {
         images: HashMap::new(),
         videos: HashMap::new(),
         svgs: HashMap::new(),
+        lotties: HashMap::new(),
         audio_paths: vec![],
         #[cfg(feature = "exp-3d")]
         mesh3d: HashMap::new(),
@@ -368,6 +374,7 @@ fn test_z_index_depth_sorting_root_and_container() {
         images: HashMap::new(),
         videos: HashMap::new(),
         svgs: HashMap::new(),
+        lotties: HashMap::new(),
         audio_paths: vec![],
         #[cfg(feature = "exp-3d")]
         mesh3d: HashMap::new(),
@@ -404,6 +411,7 @@ fn test_surface_effects_and_particles_determinism() {
         images: HashMap::new(),
         videos: HashMap::new(),
         svgs: HashMap::new(),
+        lotties: HashMap::new(),
         audio_paths: vec![],
         #[cfg(feature = "exp-3d")]
         mesh3d: HashMap::new(),
@@ -444,6 +452,7 @@ fn test_shadow_container_fx_cache_hits() {
         images: HashMap::new(),
         videos: HashMap::new(),
         svgs: HashMap::new(),
+        lotties: HashMap::new(),
         audio_paths: vec![],
         #[cfg(feature = "exp-3d")]
         mesh3d: HashMap::new(),
@@ -614,6 +623,7 @@ mod exp_3d_tests {
             images: HashMap::new(),
             videos: HashMap::new(),
             svgs: HashMap::new(),
+        lotties: HashMap::new(),
             audio_paths: vec![],
             #[cfg(feature = "exp-3d")]
             mesh3d: HashMap::new(),
@@ -771,6 +781,7 @@ mod exp_3d_tests {
                 images: HashMap::new(),
                 videos: HashMap::new(),
                 svgs: HashMap::new(),
+        lotties: HashMap::new(),
                 audio_paths: vec![],
                 #[cfg(feature = "exp-3d")]
                 mesh3d: HashMap::new(),
@@ -831,6 +842,7 @@ mod exp_3d_tests {
                 images: HashMap::new(),
                 videos: HashMap::new(),
                 svgs: HashMap::new(),
+        lotties: HashMap::new(),
                 audio_paths: vec![],
                 #[cfg(feature = "exp-3d")]
                 mesh3d: HashMap::new(),
@@ -1334,6 +1346,7 @@ fn test_assets() -> AssetStore {
         images: HashMap::new(),
         videos: HashMap::new(),
         svgs: HashMap::new(),
+        lotties: HashMap::new(),
         audio_paths: vec![],
         #[cfg(feature = "exp-3d")]
         mesh3d: HashMap::new(),

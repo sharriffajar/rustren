@@ -1,5 +1,6 @@
 mod cache;
 mod fx;
+mod lottie;
 pub mod inspect;
 mod layout;
 pub mod mesh3d;
@@ -1990,9 +1991,9 @@ fn render_layer_inner(
             y,
             width,
             height,
-            src: _,
-            loop_animation: _,
-            speed: _,
+            src,
+            loop_animation,
+            speed,
             opacity,
             rotation,
             scale,
@@ -2013,15 +2014,36 @@ fn render_layer_inner(
             );
 
             if op > 0.0 && w > 0.0 && h > 0.0 {
-                let mut paint = Paint::default();
-                paint.set_color_rgba8(70, 130, 180, (140.0 * op) as u8);
-                paint.anti_alias = true;
-                let tf = Transform::from_rotate_at(rot, rx + w * 0.5, ry + h * 0.5);
-                if let Some(rect) = Rect::from_xywh(rx, ry, w, h) {
-                    let mut pb = PathBuilder::new();
-                    pb.push_rect(rect);
-                    if let Some(path) = pb.finish() {
-                        pixmap.fill_path(&path, &paint, FillRule::Winding, tf, None);
+                let rendered = assets
+                    .lotties
+                    .get(src)
+                    .map(|bytes| {
+                        lottie::render_lottie_json(
+                            pixmap,
+                            bytes,
+                            time_sec,
+                            *loop_animation,
+                            *speed,
+                            rx,
+                            ry,
+                            w,
+                            h,
+                            rot,
+                            op,
+                        )
+                    })
+                    .unwrap_or(false);
+                if !rendered {
+                    let mut paint = Paint::default();
+                    paint.set_color_rgba8(70, 130, 180, (140.0 * op) as u8);
+                    paint.anti_alias = true;
+                    let tf = Transform::from_rotate_at(rot, rx + w * 0.5, ry + h * 0.5);
+                    if let Some(rect) = Rect::from_xywh(rx, ry, w, h) {
+                        let mut pb = PathBuilder::new();
+                        pb.push_rect(rect);
+                        if let Some(path) = pb.finish() {
+                            pixmap.fill_path(&path, &paint, FillRule::Winding, tf, None);
+                        }
                     }
                 }
             }
