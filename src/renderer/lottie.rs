@@ -1,7 +1,7 @@
 use serde_json::Value;
 use tiny_skia::{
-    Color, FillRule, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, StrokeDash,
-    Transform,
+    Color, FillRule, FilterQuality, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap,
+    PixmapPaint, Rect, Stroke, StrokeDash, Transform,
 };
 
 /// Pure-Rust CPU Lottie (Bodymovin JSON) vector renderer on `tiny_skia`.
@@ -11,6 +11,7 @@ use tiny_skia::{
 /// - Layer parenting (`ind` / `parent`), `ip`/`op` visibility, `ks` transform (`a`, `p`, `s`, `r`, `o`)
 /// - Static & keyframed properties with cubic-bezier easing & hold frames
 /// - Shapes: `gr` (group + `tr`), `rc` (rect), `el` (ellipse), `sr` (star/polygon), `sh` (bezier path + morph), `fl` (fill), `st` (stroke)
+#[allow(dead_code)]
 pub fn render_lottie_json(
     pixmap: &mut Pixmap,
     json_bytes: &[u8],
@@ -73,15 +74,26 @@ pub fn render_lottie_doc(
         (ip + raw_frame).min(op - 0.001)
     };
 
+    let off_w = (w.ceil() as u32).max(1);
+    let off_h = (h.ceil() as u32).max(1);
+    let Some(mut off) = Pixmap::new(off_w, off_h) else {
+        return false;
+    };
     let sx = w / comp_w;
     let sy = h / comp_h;
-    let base_tf = Transform::from_scale(sx, sy)
-        .post_concat(Transform::from_translate(rx, ry))
-        .post_concat(Transform::from_rotate_at(rot_deg, rx + w * 0.5, ry + h * 0.5));
+    let local_tf = Transform::from_scale(sx, sy);
 
     let assets = doc.get("assets").and_then(|v| v.as_array());
     if let Some(layers) = doc.get("layers").and_then(|v| v.as_array()) {
-        render_layer_list(pixmap, layers, assets, frame, base_tf, opacity.clamp(0.0, 1.0));
+        render_layer_list(&mut off, layers, assets, frame, local_tf, 1.0);
+        let paint = PixmapPaint {
+            opacity: opacity.clamp(0.0, 1.0),
+            quality: FilterQuality::Bilinear,
+            ..PixmapPaint::default()
+        };
+        let dst_tf = Transform::from_translate(rx, ry)
+            .post_concat(Transform::from_rotate_at(rot_deg, rx + w * 0.5, ry + h * 0.5));
+        pixmap.draw_pixmap(0, 0, off.as_ref(), &paint, dst_tf, None);
         return true;
     }
     false
@@ -489,6 +501,17 @@ fn eval_scalar(prop: &Value, frame: f32, default: f32) -> f32 {
 }
 
 fn eval_vec2(prop: &Value, frame: f32, default: [f32; 2]) -> [f32; 2] {
+    if prop.get("s").and_then(|v| v.as_bool()) == Some(true) {
+        let x = prop
+            .get("x")
+            .map(|v| eval_scalar(v, frame, default[0]))
+            .unwrap_or(default[0]);
+        let y = prop
+            .get("y")
+            .map(|v| eval_scalar(v, frame, default[1]))
+            .unwrap_or(default[1]);
+        return [x, y];
+    }
     let v = eval_vec_n(prop, frame, &default);
     [v[0], v.get(1).copied().unwrap_or(default[1])]
 }
