@@ -1,6 +1,7 @@
 use serde_json::Value;
 use tiny_skia::{
-    Color, FillRule, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, Transform,
+    Color, FillRule, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, StrokeDash,
+    Transform,
 };
 
 /// Pure-Rust CPU Lottie (Bodymovin JSON) vector renderer on `tiny_skia`.
@@ -26,6 +27,34 @@ pub fn render_lottie_json(
     let Ok(doc) = serde_json::from_slice::<Value>(json_bytes) else {
         return false;
     };
+    render_lottie_doc(
+        pixmap,
+        &doc,
+        time_sec,
+        loop_animation,
+        speed,
+        rx,
+        ry,
+        w,
+        h,
+        rot_deg,
+        opacity,
+    )
+}
+
+pub fn render_lottie_doc(
+    pixmap: &mut Pixmap,
+    doc: &Value,
+    time_sec: f32,
+    loop_animation: bool,
+    speed: f32,
+    rx: f32,
+    ry: f32,
+    w: f32,
+    h: f32,
+    rot_deg: f32,
+    opacity: f32,
+) -> bool {
     let comp_w = doc.get("w").and_then(|v| v.as_f64()).unwrap_or(512.0) as f32;
     let comp_h = doc.get("h").and_then(|v| v.as_f64()).unwrap_or(512.0) as f32;
     let fr = doc.get("fr").and_then(|v| v.as_f64()).unwrap_or(30.0) as f32;
@@ -193,14 +222,24 @@ fn render_shape_group(
     parent_tf: Transform,
     parent_op: f32,
 ) {
-    // Check for group transform (`tr`) in this item list
+    // Check for group transform (`tr`) and trim paths (`tm`) in this item list
     let mut tf = parent_tf;
     let mut group_op = parent_op;
+    let mut trim_paths: Option<(f32, f32, f32)> = None;
     for item in items {
-        if item.get("ty").and_then(|v| v.as_str()) == Some("tr") {
-            let (tr_tf, tr_op) = eval_ks(item, frame);
-            tf = tr_tf.post_concat(tf);
-            group_op = (group_op * tr_op).clamp(0.0, 1.0);
+        match item.get("ty").and_then(|v| v.as_str()) {
+            Some("tr") => {
+                let (tr_tf, tr_op) = eval_ks(item, frame);
+                tf = tr_tf.post_concat(tf);
+                group_op = (group_op * tr_op).clamp(0.0, 1.0);
+            }
+            Some("tm") if !item.get("hd").and_then(|v| v.as_bool()).unwrap_or(false) => {
+                let s = item.get("s").map(|v| eval_scalar(v, frame, 0.0)).unwrap_or(0.0);
+                let e = item.get("e").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0);
+                let o = item.get("o").map(|v| eval_scalar(v, frame, 0.0)).unwrap_or(0.0);
+                trim_paths = Some((s, e, o));
+            }
+            _ => {}
         }
     }
 
@@ -281,6 +320,24 @@ fn render_shape_group(
                         stroke.miter_limit = ml as f32;
                     }
                     for path in &paths {
+                        if let Some((ts, te, to)) = trim_paths {
+                            let lo = ts.min(te).clamp(0.0, 100.0) / 100.0;
+                            let hi = ts.max(te).clamp(0.0, 100.0) / 100.0;
+                            let span = (hi - lo).clamp(0.0, 1.0);
+                            if span <= 0.0005 {
+                                continue;
+                            }
+                            if span < 0.9995 {
+                                let b = path.bounds();
+                                let perim = (2.0 * (b.width() + b.height())).max(1.0);
+                                let seg_len = (perim * span).max(0.5);
+                                let off_frac = (lo + (to / 360.0)).rem_euclid(1.0);
+                                let mut trimmed = stroke.clone();
+                                trimmed.dash = StrokeDash::new(vec![seg_len, perim * 2.0], -perim * off_frac);
+                                pixmap.stroke_path(path, &paint, &trimmed, tf, None);
+                                continue;
+                            }
+                        }
                         pixmap.stroke_path(path, &paint, &stroke, tf, None);
                     }
                 }

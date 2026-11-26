@@ -2017,10 +2017,10 @@ fn render_layer_inner(
                 let rendered = assets
                     .lotties
                     .get(src)
-                    .map(|bytes| {
-                        lottie::render_lottie_json(
+                    .map(|doc| {
+                        lottie::render_lottie_doc(
                             pixmap,
-                            bytes,
+                            doc,
                             time_sec,
                             *loop_animation,
                             *speed,

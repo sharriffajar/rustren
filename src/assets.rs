@@ -194,7 +194,7 @@ pub struct AssetStore {
     pub fonts: Vec<Vec<u8>>,
     pub images: HashMap<String, image::RgbaImage>,
     pub svgs: HashMap<String, Vec<u8>>,
-    pub lotties: HashMap<String, Vec<u8>>,
+    pub lotties: HashMap<String, serde_json::Value>,
     pub videos: HashMap<String, VideoAsset>,
     pub audio_paths: Vec<PathBuf>,
     /// Uploaded `.glb`/`.gltf` models keyed by the layer's `src` string, parsed
@@ -372,7 +372,7 @@ fn collect_layer_assets(
     base_dir: Option<&Path>,
     images: &mut HashMap<String, image::RgbaImage>,
     svgs: &mut HashMap<String, Vec<u8>>,
-    lotties: &mut HashMap<String, Vec<u8>>,
+    lotties: &mut HashMap<String, serde_json::Value>,
     videos: &mut HashMap<String, VideoAsset>,
 ) -> Result<()> {
     for layer in layers {
@@ -422,10 +422,14 @@ fn collect_layer_assets(
             LayerKind::Lottie { src, .. } => {
                 if !lotties.contains_key(src) {
                     if src.trim_start().starts_with('{') {
-                        lotties.insert(src.clone(), src.as_bytes().to_vec());
+                        if let Ok(doc) = serde_json::from_str::<serde_json::Value>(src) {
+                            lotties.insert(src.clone(), doc);
+                        }
                     } else if let Ok(path) = resolve_to_path_with_base(src, cache_dir, base_dir) {
                         if let Ok(bytes) = fs::read(&path) {
-                            lotties.insert(src.clone(), bytes);
+                            if let Ok(doc) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+                                lotties.insert(src.clone(), doc);
+                            }
                         }
                     }
                 }
