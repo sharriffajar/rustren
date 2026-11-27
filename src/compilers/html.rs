@@ -910,9 +910,17 @@ fn parse_children_layers(
                     &child_vars,
                 )
                 .with_context(|| format!("in <include src=\"{}\">", src))?;
+                let inc_pos = get_attr_str(&el, "position");
+                let inc_has_xy =
+                    get_attr_str(&el, "x").is_some() || get_attr_str(&el, "y").is_some();
                 for mut layer in inc_scene.layers {
-                    if is_inside_container && get_attr_str(&el, "position").is_none() {
-                        layer.position = PositionSpec::Relative;
+                    if is_inside_container {
+                        match inc_pos.as_deref() {
+                            Some("absolute") => layer.position = PositionSpec::Absolute,
+                            Some("relative") => layer.position = PositionSpec::Relative,
+                            _ if inc_has_xy => layer.position = PositionSpec::Absolute,
+                            _ => {}
+                        }
                     }
                     layers.push(layer);
                 }
@@ -1414,7 +1422,10 @@ fn parse_layer_element(
             let mut gradient =
                 get_attr_str(elem, "gradient").and_then(|g| parse_gradient_from_str(&g));
             let color = match raw_color {
-                Some(c) if c.trim().starts_with("linear-gradient(") => {
+                Some(c)
+                    if c.trim().starts_with("linear-gradient(")
+                        || c.trim().starts_with("radial-gradient(") =>
+                {
                     gradient = parse_gradient_from_str(&c);
                     "#000000".to_string()
                 }
@@ -2612,5 +2623,20 @@ mod tests {
             .find(|w| w.code == "static_monolithic_svg")
             .expect("Expected static_monolithic_svg warning");
         assert!(mono_w.fix.is_some());
+
+        // <rect color="radial-gradient(...)"> must parse gradient just like <circle>
+        let rect_grad_html = r##"
+            <scene width="640" height="360" fps="30" duration="1">
+              <rect x="10" y="20" width="100" height="100" color="radial-gradient(circle at 30% 30%, #FFFFFF, #38BDF8)" />
+            </scene>
+        "##;
+        let rg_scene = parse_html_scene(rect_grad_html).unwrap();
+        let LayerKind::Rect { gradient, .. } = &rg_scene.layers[0].kind else {
+            panic!("Expected Rect layer");
+        };
+        let g = gradient.as_ref().expect("Expected parsed radial gradient on rect");
+        assert_eq!(g.kind, GradientTypeSpec::Radial);
+        assert_eq!(g.cx, Some(0.3));
+        assert_eq!(g.cy, Some(0.3));
     }
 }
