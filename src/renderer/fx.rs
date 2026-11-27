@@ -472,6 +472,40 @@ pub(super) fn apply_surface_effects_cropped(
             return;
         }
 
+        // Fast integer path for vignette (+ optional film grain) without halftone.
+        if vig > 0.0 && !has_ht {
+            let half_h = (h as f32 * 0.5).max(1.0);
+            let scale_q8 = if gr > 0.0 {
+                (gr * 48.0 * 65536.0 / (127.0 * 255.0)).round() as i32
+            } else {
+                0
+            };
+            let vig_k = vig * 0.375;
+            for y in 0..h {
+                let ny = (y as f32 + 0.5 - half_h) / half_h;
+                let ny_sq = ny * ny;
+                let ty = (((by + y as i32 + grain_oy) & 255) as usize) << 8;
+                let row = &mut data[y * w * 4..(y + 1) * w * 4];
+                for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                    let a = px[3];
+                    if a == 0 {
+                        continue;
+                    }
+                    let fac_q8 = ((1.0 - ((vx[x] + ny_sq) * vig_k).min(vig)).max(0.0) * 256.0) as i32;
+                    let delta = if scale_q8 != 0 {
+                        (lut[ty | txs[x]] as i32 * scale_q8 * (a as i32)) >> 16
+                    } else {
+                        0
+                    };
+                    let ai = a as i32;
+                    px[0] = (((px[0] as i32 * fac_q8) >> 8) + delta).clamp(0, ai) as u8;
+                    px[1] = (((px[1] as i32 * fac_q8) >> 8) + delta).clamp(0, ai) as u8;
+                    px[2] = (((px[2] as i32 * fac_q8) >> 8) + delta).clamp(0, ai) as u8;
+                }
+            }
+            return;
+        }
+
         let half_h = (h as f32 * 0.5).max(1.0);
         let wx0 = bx as f32 + 0.5;
         let gr_amp = gr * (48.0 / (127.0 * 255.0));

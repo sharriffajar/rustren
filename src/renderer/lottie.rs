@@ -1730,38 +1730,6 @@ fn value_to_floats(v: &Value, default: &[f32]) -> Vec<f32> {
     default.to_vec()
 }
 
-fn eval_lottie_bezier(kf: &Value, t: f32) -> f32 {
-    let ox = kf.pointer("/o/x").and_then(first_f32).unwrap_or(0.0);
-    let oy = kf.pointer("/o/y").and_then(first_f32).unwrap_or(0.0);
-    let ix = kf.pointer("/i/x").and_then(first_f32).unwrap_or(1.0);
-    let iy = kf.pointer("/i/y").and_then(first_f32).unwrap_or(1.0);
-    if (ox - oy).abs() < 1e-4 && (ix - iy).abs() < 1e-4 {
-        return t;
-    }
-    // Solve cubic bezier x(u) = t via Newton-Raphson / binary search
-    let mut lo = 0.0f32;
-    let mut hi = 1.0f32;
-    let mut u = t;
-    for _ in 0..8 {
-        let x = cubic(u, ox, ix);
-        if (x - t).abs() < 1e-4 {
-            break;
-        }
-        if x < t {
-            lo = u;
-        } else {
-            hi = u;
-        }
-        u = 0.5 * (lo + hi);
-    }
-    cubic(u, oy, iy)
-}
-
-fn cubic(u: f32, p1: f32, p2: f32) -> f32 {
-    let inv = 1.0 - u;
-    3.0 * inv * inv * u * p1 + 3.0 * inv * u * u * p2 + u * u * u
-}
-
 fn first_f32(v: &Value) -> Option<f32> {
     v.as_f64()
         .map(|f| f as f32)
