@@ -68,6 +68,8 @@ pub enum CameraPreset {
     PullOut,
     TruckLeft,
     TruckRight,
+    WhipLeft,
+    WhipRight,
     RackFocus,
     PunchCut,
 }
@@ -87,6 +89,8 @@ pub struct WorldCameraSpec {
     pub focus_z: Option<f32>,
     #[serde(default = "default_dof_strength")]
     pub dof_strength: f32,
+    #[serde(default)]
+    pub motion_blur: f32,
     #[serde(default)]
     pub preset: Option<CameraPreset>,
     #[serde(default)]
@@ -282,6 +286,8 @@ pub struct Layer {
     pub blend_mode: BlendModeSpec,
     #[serde(default)]
     pub blur: f32,
+    #[serde(default)]
+    pub motion_blur: f32,
     #[serde(default)]
     pub shadow: Option<ShadowSpec>,
     #[serde(default)]

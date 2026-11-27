@@ -560,6 +560,13 @@ pub fn render_frame_at_time_with_base_profile(
             .world
             .as_ref()
             .map(|w| w.eval_at(time_sec, scene.canvas.duration_secs));
+        let dt_frame = (1.0 / scene.canvas.fps.max(1) as f32).max(1e-4);
+        let t_prev = (time_sec - dt_frame).max(0.0);
+        let world_cam_prev = scene
+            .world
+            .as_ref()
+            .filter(|_| world_cam.is_some_and(|c| c.motion_blur > 0.01))
+            .map(|w| w.eval_at(t_prev, scene.canvas.duration_secs));
 
         for idx in active_indices {
             let layer = &slice[idx];
@@ -568,7 +575,9 @@ pub fn render_frame_at_time_with_base_profile(
             } else {
                 None
             };
-            let needs_living_raster = layer.uv_warp.is_some() || layer.relight.is_some();
+            let needs_living_raster = layer.uv_warp.is_some()
+                || layer.relight.is_some()
+                || layer.motion_blur > 0.01;
             if (world_cam.is_some() && layer.space == crate::schema::LayerSpace::World)
                 || needs_living_raster
             {
@@ -618,6 +627,32 @@ pub fn render_frame_at_time_with_base_profile(
                             normal,
                             emission,
                             time_sec,
+                        );
+                    }
+                    let mut mb_rx = 0.0f32;
+                    let mut mb_ry = 0.0f32;
+                    if layer.motion_blur > 0.01 {
+                        let x_now = eval_property(&layer.animations, AnimProperty::X, time_sec, 0.0);
+                        let y_now = eval_property(&layer.animations, AnimProperty::Y, time_sec, 0.0);
+                        let x_prev = eval_property(&layer.animations, AnimProperty::X, t_prev, 0.0);
+                        let y_prev = eval_property(&layer.animations, AnimProperty::Y, t_prev, 0.0);
+                        mb_rx += ((x_now - x_prev).abs() * layer.motion_blur * 0.5).clamp(0.0, 96.0);
+                        mb_ry += ((y_now - y_prev).abs() * layer.motion_blur * 0.5).clamp(0.0, 96.0);
+                    }
+                    if let (Some(cam), Some(prev_cam)) = (world_cam, world_cam_prev)
+                        && layer.space == crate::schema::LayerSpace::World
+                        && cam.motion_blur > 0.01
+                    {
+                        mb_rx += ((cam.x - prev_cam.x).abs() as f32 * cam.motion_blur * 0.5).clamp(0.0, 96.0);
+                        mb_ry += ((cam.y - prev_cam.y).abs() as f32 * cam.motion_blur * 0.5).clamp(0.0, 96.0);
+                    }
+                    if mb_rx >= 1.0 || mb_ry >= 1.0 {
+                        fx::fast_blur_1d_rgba(
+                            layer_pm.data_mut(),
+                            width,
+                            height,
+                            mb_rx.min(96.0),
+                            mb_ry.min(96.0),
                         );
                     }
                     if let Some(cam) = world_cam

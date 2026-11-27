@@ -84,6 +84,27 @@ fn box_blur_v(src: &[u8], dst: &mut [u8], w: usize, h: usize, r: usize) {
 
 /// 3-pass separable box blur approximating a Gaussian blur on premultiplied RGBA.
 /// For large radii (>= 20.0), uses 2x downsampling + bilinear upsampling for ~4x speedup.
+/// Fast 1D directional sliding box blur (2 passes each for horizontal `rx` and vertical `ry`).
+/// Used by velocity-driven `motion_blur` so fast whips/slides smear smoothly with 0 stepping.
+pub(super) fn fast_blur_1d_rgba(data: &mut [u8], w: u32, h: u32, rx: f32, ry: f32) {
+    let w = w as usize;
+    let h = h as usize;
+    let rx_i = (rx.round() as usize).min(64);
+    let ry_i = (ry.round() as usize).min(64);
+    if w == 0 || h == 0 || (rx_i == 0 && ry_i == 0) {
+        return;
+    }
+    let mut tmp = vec![0u8; data.len()];
+    if rx_i > 0 {
+        box_blur_h(data, &mut tmp, w, h, rx_i);
+        box_blur_h(&tmp, data, w, h, rx_i);
+    }
+    if ry_i > 0 {
+        box_blur_v(data, &mut tmp, w, h, ry_i);
+        box_blur_v(&tmp, data, w, h, ry_i);
+    }
+}
+
 pub(super) fn fast_blur_rgba(data: &mut [u8], w: u32, h: u32, radius: f32) {
     if radius >= 8.0 && w >= 64 && h >= 64 {
         let dw = (w / 2).max(1) as usize;

@@ -178,6 +178,11 @@
         "dof_strength": {
           "type": "number"
         },
+        "motion_blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
         "preset": {
           "type": "string",
           "enum": [
@@ -186,7 +191,9 @@
             "truck_left",
             "truck_right",
             "rack_focus",
-            "punch_cut"
+            "punch_cut",
+            "whip_left",
+            "whip_right"
           ]
         },
         "animations": {
@@ -683,6 +690,11 @@
           "minimum": 0,
           "default": 0.0
         },
+        "motion_blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
         "shadow": {
           "$ref": "#/$defs/Shadow"
         },
@@ -996,6 +1008,11 @@
           "minimum": 0,
           "default": 0.0
         },
+        "motion_blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
         "shadow": {
           "$ref": "#/$defs/Shadow"
         },
@@ -1278,6 +1295,11 @@
           "minimum": 0,
           "default": 0.0
         },
+        "motion_blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
         "shadow": {
           "$ref": "#/$defs/Shadow"
         },
@@ -1545,6 +1567,11 @@
           "$ref": "#/$defs/BlendMode"
         },
         "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "motion_blur": {
           "type": "number",
           "minimum": 0,
           "default": 0.0
@@ -1896,6 +1923,11 @@
           "minimum": 0,
           "default": 0.0
         },
+        "motion_blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
         "shadow": {
           "$ref": "#/$defs/Shadow"
         },
@@ -2166,6 +2198,11 @@
           "minimum": 0,
           "default": 0.0
         },
+        "motion_blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
         "shadow": {
           "$ref": "#/$defs/Shadow"
         },
@@ -2419,6 +2456,11 @@
           "minimum": 0,
           "default": 0.0,
           "description": "Gaussian blur radius in px"
+        },
+        "motion_blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
         },
         "shadow": {
           "$ref": "#/$defs/Shadow"
@@ -2758,6 +2800,11 @@
           "minimum": 0,
           "default": 0.0
         },
+        "motion_blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
         "shadow": {
           "$ref": "#/$defs/Shadow"
         },
@@ -3028,6 +3075,11 @@
           "$ref": "#/$defs/BlendMode"
         },
         "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "motion_blur": {
           "type": "number",
           "minimum": 0,
           "default": 0.0
@@ -3435,6 +3487,11 @@
           "minimum": 0,
           "default": 0.0
         },
+        "motion_blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
         "shadow": {
           "$ref": "#/$defs/Shadow"
         },
@@ -3730,6 +3787,11 @@
           "$ref": "#/$defs/BlendMode"
         },
         "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "motion_blur": {
           "type": "number",
           "minimum": 0,
           "default": 0.0

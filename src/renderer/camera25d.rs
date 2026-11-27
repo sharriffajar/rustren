@@ -19,6 +19,7 @@ pub struct CameraState {
     pub roll_deg: f32,
     pub focus_z: Option<f32>,
     pub dof_strength: f32,
+    pub motion_blur: f32,
 }
 
 impl WorldCameraSpec {
@@ -50,6 +51,15 @@ impl WorldCameraSpec {
                 CameraPreset::TruckRight => {
                     px += smooth * 96.0;
                 }
+                CameraPreset::WhipLeft => {
+                    // Sharp S-curve whip pan across 360px
+                    let whip = p * p * p * (p * (p * 6.0 - 15.0) + 10.0);
+                    px -= whip * 360.0;
+                }
+                CameraPreset::WhipRight => {
+                    let whip = p * p * p * (p * (p * 6.0 - 15.0) + 10.0);
+                    px += whip * 360.0;
+                }
                 CameraPreset::RackFocus => {
                     // Shift focus smoothly from foreground (0.65) to far (-0.5)
                     let fz = 0.65 + (-0.5 - 0.65) * smooth;
@@ -76,6 +86,7 @@ impl WorldCameraSpec {
             roll_deg,
             focus_z: pfocus,
             dof_strength: self.dof_strength.max(0.0),
+            motion_blur: self.motion_blur.max(0.0),
         }
     }
 }
