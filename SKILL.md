@@ -393,6 +393,8 @@ errors point at the offending tag (`line 2, column 3: <include> is missing a src
 
 ## 9:16 Kinetic Flat Promo Grammar (Agency-Grade Pattern)
 
+> **Mandatory Skill**: Whenever authoring flat 2D kinetic motion-graphics videos, Reels/TikTok/Shorts promos, or kinetic typography openers, **read [skills/simple-motion/SKILL.md](skills/simple-motion/SKILL.md) first** — it defines the minimum quality floor (The 6 Laws, Anti-Slop Hard Reject List, exact primitive recipes, and pre-delivery visual QA gate).
+
 See [examples/kinetic_flat_promo_9x16.json](examples/kinetic_flat_promo_9x16.json) for a complete runnable template:
 - **6-Color Flat Tactile Palette**: Warm Cream (`#F3F0E6`) canvas + Charcoal (`#222933`) ink + high-saturation accents (Coral `#E35B54`, Mustard `#EEB843`, Cobalt `#4B67D1`, Mint `#A7DBD8`, Plum `#8A1C7C`) — no gradients or drop shadows needed.
 - **Chromatic Echo Text**: Add `"echo": { "count": 3, "step_sec": 0.035, "decay": 0.78, "tint_colors": ["#EEB843", "#E35B54", "#4B67D1"] }` on snappy `ease_out_back` text entries (HTML: `echo-colors="#EEB843,#E35B54,#4B67D1"`).
