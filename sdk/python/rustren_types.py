@@ -101,6 +101,7 @@ class Echo(TypedDict, total=False):
     count: int
     step_sec: float
     decay: float
+    tint_colors: list[str]
 
 class TextAnimator(TypedDict, total=False):
     """TextAnimator."""
@@ -156,6 +157,7 @@ class BaseLayer(TypedDict, total=False):
     margin: float
     blend_mode: BlendMode
     blur: float
+    motion_blur: float
     shadow: Shadow
     opacity: float
     anchor: Literal["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"]
@@ -188,6 +190,7 @@ class BaseLayer(TypedDict, total=False):
     depth_z: float
     uv_warp: dict[str, Any]
     relight: dict[str, Any]
+    grain_mode: Literal["fine", "film"]
 
 class ContainerLayer(TypedDict, total=False):
     """ContainerLayer."""

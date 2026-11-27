@@ -183,6 +183,8 @@ export interface Echo {
   step_sec?: number;
   /** default: 0.65; min: 0; max: 1 */
   decay?: number;
+  /** Optional per-copy hex accent colors for Chromatic Echo trails */
+  tint_colors?: string[];
 }
 
 export interface TextAnimator {
@@ -258,6 +260,8 @@ export interface BaseLayer {
   blend_mode?: BlendMode;
   /** default: 0.0; min: 0 */
   blur?: number;
+  /** default: 0.0; min: 0 */
+  motion_blur?: number;
   shadow?: Shadow;
   /** default: 1.0; min: 0; max: 1 */
   opacity?: number;
@@ -311,6 +315,8 @@ export interface BaseLayer {
   uv_warp?: Record<string, unknown>;
   /** Half-res 2D normal & emission relighting (v1.2) */
   relight?: Record<string, unknown>;
+  /** default: "fine" */
+  grain_mode?: "fine" | "film";
 }
 
 export interface ContainerLayer extends BaseLayer {

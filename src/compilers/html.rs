@@ -965,6 +965,7 @@ struct CommonLayerMeta {
     margin_left: Option<f32>,
     blend_mode: BlendModeSpec,
     blur: f32,
+    motion_blur: f32,
     shadow: Option<ShadowSpec>,
     anchor: AnchorSpec,
     scale_x: f32,
@@ -1010,7 +1011,7 @@ impl CommonLayerMeta {
             margin_left: self.margin_left,
             blend_mode: self.blend_mode,
             blur: self.blur,
-            motion_blur: 0.0,
+            motion_blur: self.motion_blur,
             shadow: self.shadow,
             anchor: self.anchor,
             scale_x: self.scale_x,
@@ -1191,6 +1192,10 @@ fn parse_common_layer_meta(
     };
     let vignette = get_attr_f32(elem, "vignette").unwrap_or(0.0);
     let halftone = get_attr_f32(elem, "halftone").unwrap_or(0.0);
+    let motion_blur = get_attr_f32(elem, "motion-blur")
+        .or_else(|| get_attr_f32(elem, "motion_blur"))
+        .unwrap_or(0.0)
+        .max(0.0);
 
     Ok(CommonLayerMeta {
         name,
@@ -1207,6 +1212,7 @@ fn parse_common_layer_meta(
         margin_left,
         blend_mode,
         blur,
+        motion_blur,
         shadow,
         anchor,
         scale_x,

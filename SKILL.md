@@ -395,6 +395,9 @@ errors point at the offending tag (`line 2, column 3: <include> is missing a src
 
 See [examples/kinetic_flat_promo_9x16.json](examples/kinetic_flat_promo_9x16.json) for a complete runnable template:
 - **6-Color Flat Tactile Palette**: Warm Cream (`#F3F0E6`) canvas + Charcoal (`#222933`) ink + high-saturation accents (Coral `#E35B54`, Mustard `#EEB843`, Cobalt `#4B67D1`, Mint `#A7DBD8`, Plum `#8A1C7C`) — no gradients or drop shadows needed.
-- **Chromatic Echo Text**: Add `"echo": { "count": 3, "step_sec": 0.035, "decay": 0.78, "tint_colors": ["#EEB843", "#E35B54", "#4B67D1"] }` on snappy `ease_out_back` text entries.
+- **Chromatic Echo Text**: Add `"echo": { "count": 3, "step_sec": 0.035, "decay": 0.78, "tint_colors": ["#EEB843", "#E35B54", "#4B67D1"] }` on snappy `ease_out_back` text entries (HTML: `echo-colors="#EEB843,#E35B54,#4B67D1"`).
+- **Velocity-Driven 1D Motion Blur**: Set `"motion_blur": 1.2` (0.0–2.0; HTML: `motion-blur="1.2"`) on fast-moving `x`/`y` layers or on `scene.world` for automatic directional blur that collapses to `0px` at rest.
+- **Whip-Pan Camera Presets**: Use `"world": { "preset": "whip_left", "motion_blur": 1.4 }` or `"whip_right"` (alongside `push_in`, `pull_out`, `truck_left`, `truck_right`, `rack_focus`, `punch_cut`) for high-energy camera handoffs on `space: "world"` layers.
+- **Film Grain Mode**: Use `"grain_mode": "fine"` (default monochrome luma grain) or `"film"` (organic 35mm-style grain) alongside `"grain": 0.0..1.0` (HTML: `grain-mode="film"`).
 - **Shape-Driven Transitions**: Use full-bleed circle scale-throughs, inverted `track_matte` oval cutouts, and staggered tilted `rect` curtain wipes instead of hard cuts.
 - **9:16 Safe-Zone Discipline**: Keep readable text inside the **25%–70% vertical band** (`lint` warns via `SAFE_ZONE_9_16`); use the top/bottom 25% for drifting geometric accents.
