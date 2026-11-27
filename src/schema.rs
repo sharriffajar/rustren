@@ -86,6 +86,86 @@ fn default_dof_strength() -> f32 {
     1.2
 }
 
+/// Rigidity-masked procedural UV warp (`schema_version: "1.2"`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct UvWarpSpec {
+    #[serde(default)]
+    pub mask_src: Option<String>,
+    #[serde(default = "default_uv_amp")]
+    pub amplitude_x: f32,
+    #[serde(default)]
+    pub amplitude_y: f32,
+    #[serde(default = "default_uv_freq")]
+    pub freq: f32,
+    #[serde(default = "default_uv_wavelength")]
+    pub wavelength: f32,
+    #[serde(default)]
+    pub phase: f32,
+    #[serde(default = "default_scale")]
+    pub speed: f32,
+}
+
+fn default_uv_amp() -> f32 {
+    6.0
+}
+fn default_uv_freq() -> f32 {
+    0.5
+}
+fn default_uv_wavelength() -> f32 {
+    120.0
+}
+
+/// 2D point light for half-res normal/emission relighting (`schema_version: "1.2"`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct Light2DSpec {
+    #[serde(default = "default_pivot")]
+    pub x: f32,
+    #[serde(default = "default_pivot")]
+    pub y: f32,
+    #[serde(default = "default_light_z")]
+    pub z: f32,
+    #[serde(default = "default_light_color")]
+    pub color: String,
+    #[serde(default = "default_light_intensity")]
+    pub intensity: f32,
+    #[serde(default = "default_light_radius")]
+    pub radius: f32,
+    #[serde(default)]
+    pub flicker_amp: f32,
+    #[serde(default)]
+    pub flicker_freq: f32,
+}
+
+fn default_light_z() -> f32 {
+    0.35
+}
+fn default_light_color() -> String {
+    "#ffddaa".to_string()
+}
+fn default_light_intensity() -> f32 {
+    1.2
+}
+fn default_light_radius() -> f32 {
+    0.65
+}
+
+/// Half-res 2D normal & emission relighting pass (`schema_version: "1.2"`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct RelightSpec {
+    #[serde(default)]
+    pub normal_src: Option<String>,
+    #[serde(default)]
+    pub emission_src: Option<String>,
+    #[serde(default = "default_ambient")]
+    pub ambient: f32,
+    #[serde(default)]
+    pub lights: Vec<Light2DSpec>,
+}
+
+fn default_ambient() -> f32 {
+    0.25
+}
+
 fn default_schema_version() -> String {
     "1.0".to_string()
 }
@@ -235,6 +315,10 @@ pub struct Layer {
     pub depth_slot: Option<DepthSlot>,
     #[serde(default)]
     pub depth_z: Option<f32>,
+    #[serde(default)]
+    pub uv_warp: Option<UvWarpSpec>,
+    #[serde(default)]
+    pub relight: Option<RelightSpec>,
     #[serde(default)]
     pub echo: Option<EchoSpec>,
     #[serde(flatten)]

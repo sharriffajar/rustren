@@ -946,6 +946,8 @@ impl CommonLayerMeta {
             space: crate::schema::LayerSpace::Screen,
             depth_slot: None,
             depth_z: None,
+            uv_warp: None,
+            relight: None,
             start_sec: self.start_sec,
             end_sec: self.end_sec,
             duration_secs: self.duration_secs,

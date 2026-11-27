@@ -1406,3 +1406,31 @@ fn test_v1_2_world_camera_rack_focus_and_preflight_qa() {
         "expected EDGE_REVEAL warning, got: {warnings:#?}"
     );
 }
+
+#[test]
+fn test_v1_2_living_raster_uv_warp_and_2d_relight() {
+    let json = r##"{
+        "schema_version": "1.2",
+        "canvas": { "width": 120, "height": 80, "fps": 24, "duration_secs": 2.0, "background": "#000000" },
+        "layers": [
+            {
+                "type": "rect",
+                "x": 20, "y": 10, "width": 80, "height": 60, "color": "#cbd5e1",
+                "uv_warp": { "amplitude_x": 8.0, "amplitude_y": 2.0, "freq": 1.0, "wavelength": 40.0 },
+                "relight": {
+                    "ambient": 0.2,
+                    "lights": [
+                        { "x": 0.5, "y": 0.5, "z": 0.3, "color": "#ffaa44", "intensity": 1.4, "radius": 0.6, "flicker_amp": 0.35, "flicker_freq": 3.0 }
+                    ]
+                }
+            }
+        ]
+    }"##;
+    crate::lint::validate_no_unknown_fields(json).unwrap();
+    let scene: crate::schema::Scene = serde_json::from_str(json).unwrap();
+    let assets = crate::assets::AssetStore::load_for_scene(&scene, &std::env::temp_dir()).unwrap();
+    let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
+    let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 0.4).unwrap();
+    assert_ne!(f0, f1, "uv_warp + flickering 2D relight must animate pixels across frames");
+    assert!(f0.iter().any(|&b| b > 0));
+}

@@ -1,6 +1,7 @@
 mod cache;
 pub(crate) mod camera25d;
 mod fx;
+mod living_raster;
 mod lottie;
 pub mod inspect;
 mod layout;
@@ -567,8 +568,9 @@ pub fn render_frame_at_time_with_base_profile(
             } else {
                 None
             };
-            if let Some(cam) = world_cam
-                && layer.space == crate::schema::LayerSpace::World
+            let needs_living_raster = layer.uv_warp.is_some() || layer.relight.is_some();
+            if (world_cam.is_some() && layer.space == crate::schema::LayerSpace::World)
+                || needs_living_raster
             {
                 let mut layer_pm = Pixmap::new(width, height).ok_or_else(|| {
                     anyhow!("Failed to allocate world layer pixmap {}x{}", width, height)
@@ -584,7 +586,39 @@ pub fn render_frame_at_time_with_base_profile(
                     None,
                     1.0,
                 )?;
-                camera25d::composite_world_layer(&mut pixmap, layer, &layer_pm, cam)?;
+                if let Some(ref warp) = layer.uv_warp {
+                    let mask = warp.mask_src.as_deref().and_then(|s| assets.images.get(s));
+                    living_raster::apply_rigidity_uv_warp(&mut layer_pm, warp, mask, time_sec);
+                }
+                if let Some(ref relight) = layer.relight {
+                    let normal = relight
+                        .normal_src
+                        .as_deref()
+                        .and_then(|s| assets.images.get(s));
+                    let emission = relight
+                        .emission_src
+                        .as_deref()
+                        .and_then(|s| assets.images.get(s));
+                    living_raster::apply_2d_normal_relight(
+                        &mut layer_pm,
+                        relight,
+                        normal,
+                        emission,
+                        time_sec,
+                    );
+                }
+                if let Some(cam) = world_cam
+                    && layer.space == crate::schema::LayerSpace::World
+                {
+                    camera25d::composite_world_layer(&mut pixmap, layer, &layer_pm, cam)?;
+                } else {
+                    let paint = PixmapPaint {
+                        opacity: 1.0,
+                        quality: FilterQuality::Nearest,
+                        ..PixmapPaint::default()
+                    };
+                    pixmap.draw_pixmap(0, 0, layer_pm.as_ref(), &paint, Transform::identity(), None);
+                }
             } else {
                 render_layer(
                     layer,

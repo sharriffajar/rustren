@@ -466,6 +466,22 @@ fn collect_layer_assets(
                 videos,
             )?;
         }
+        for extra_src in [
+            layer.uv_warp.as_ref().and_then(|u| u.mask_src.as_deref()),
+            layer.relight.as_ref().and_then(|r| r.normal_src.as_deref()),
+            layer.relight.as_ref().and_then(|r| r.emission_src.as_deref()),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if !images.contains_key(extra_src) {
+                let path = resolve_to_path_with_base(extra_src, cache_dir, base_dir)?;
+                let img = image::open(&path)
+                    .with_context(|| format!("Failed to decode control map: {}", path.display()))?
+                    .to_rgba8();
+                images.insert(extra_src.to_string(), img);
+            }
+        }
         match &layer.kind {
             LayerKind::Image { src, .. } => {
                 if !images.contains_key(src) {

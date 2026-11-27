@@ -667,6 +667,8 @@ pub(crate) const COMMON_LAYER_FIELDS: &[&str] = &[
     "space",
     "depth_slot",
     "depth_z",
+    "uv_warp",
+    "relight",
     "echo",
     "animations",
 ];

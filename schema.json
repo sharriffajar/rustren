@@ -919,6 +919,14 @@
         },
         "depth_z": {
           "type": "number"
+        },
+        "uv_warp": {
+          "type": "object",
+          "description": "Rigidity-masked procedural UV warp (v1.2)"
+        },
+        "relight": {
+          "type": "object",
+          "description": "Half-res 2D normal & emission relighting (v1.2)"
         }
       }
     },
@@ -1186,6 +1194,14 @@
         },
         "depth_z": {
           "type": "number"
+        },
+        "uv_warp": {
+          "type": "object",
+          "description": "Rigidity-masked procedural UV warp (v1.2)"
+        },
+        "relight": {
+          "type": "object",
+          "description": "Half-res 2D normal & emission relighting (v1.2)"
         }
       }
     },
@@ -1438,6 +1454,14 @@
         },
         "depth_z": {
           "type": "number"
+        },
+        "uv_warp": {
+          "type": "object",
+          "description": "Rigidity-masked procedural UV warp (v1.2)"
+        },
+        "relight": {
+          "type": "object",
+          "description": "Half-res 2D normal & emission relighting (v1.2)"
         }
       }
     },
@@ -1770,6 +1794,14 @@
         },
         "depth_z": {
           "type": "number"
+        },
+        "uv_warp": {
+          "type": "object",
+          "description": "Rigidity-masked procedural UV warp (v1.2)"
+        },
+        "relight": {
+          "type": "object",
+          "description": "Half-res 2D normal & emission relighting (v1.2)"
         }
       }
     },
@@ -2024,6 +2056,14 @@
         },
         "depth_z": {
           "type": "number"
+        },
+        "uv_warp": {
+          "type": "object",
+          "description": "Rigidity-masked procedural UV warp (v1.2)"
+        },
+        "relight": {
+          "type": "object",
+          "description": "Half-res 2D normal & emission relighting (v1.2)"
         }
       }
     },
@@ -2272,6 +2312,14 @@
         },
         "depth_z": {
           "type": "number"
+        },
+        "uv_warp": {
+          "type": "object",
+          "description": "Rigidity-masked procedural UV warp (v1.2)"
+        },
+        "relight": {
+          "type": "object",
+          "description": "Half-res 2D normal & emission relighting (v1.2)"
         }
       }
     },
@@ -2585,6 +2633,14 @@
         },
         "depth_z": {
           "type": "number"
+        },
+        "uv_warp": {
+          "type": "object",
+          "description": "Rigidity-masked procedural UV warp (v1.2)"
+        },
+        "relight": {
+          "type": "object",
+          "description": "Half-res 2D normal & emission relighting (v1.2)"
         }
       }
     },
@@ -2844,6 +2900,14 @@
         },
         "depth_z": {
           "type": "number"
+        },
+        "uv_warp": {
+          "type": "object",
+          "description": "Rigidity-masked procedural UV warp (v1.2)"
+        },
+        "relight": {
+          "type": "object",
+          "description": "Half-res 2D normal & emission relighting (v1.2)"
         }
       }
     },
@@ -3092,6 +3156,14 @@
         },
         "depth_z": {
           "type": "number"
+        },
+        "uv_warp": {
+          "type": "object",
+          "description": "Rigidity-masked procedural UV warp (v1.2)"
+        },
+        "relight": {
+          "type": "object",
+          "description": "Half-res 2D normal & emission relighting (v1.2)"
         }
       }
     },
@@ -3494,6 +3566,14 @@
         },
         "depth_z": {
           "type": "number"
+        },
+        "uv_warp": {
+          "type": "object",
+          "description": "Rigidity-masked procedural UV warp (v1.2)"
+        },
+        "relight": {
+          "type": "object",
+          "description": "Half-res 2D normal & emission relighting (v1.2)"
         }
       }
     },
@@ -3770,6 +3850,14 @@
         },
         "depth_z": {
           "type": "number"
+        },
+        "uv_warp": {
+          "type": "object",
+          "description": "Rigidity-masked procedural UV warp (v1.2)"
+        },
+        "relight": {
+          "type": "object",
+          "description": "Half-res 2D normal & emission relighting (v1.2)"
         }
       }
     },
