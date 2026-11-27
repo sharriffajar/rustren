@@ -269,14 +269,21 @@ pub(super) fn build_gradient_shader(
                 Transform::identity(),
             )
         }
-        GradientTypeSpec::Radial => RadialGradient::new(
-            Point::from_xy(cx, cy),
-            Point::from_xy(cx, cy),
-            w.max(h) * 0.5,
-            stops,
-            SpreadMode::Pad,
-            Transform::identity(),
-        ),
+        GradientTypeSpec::Radial => {
+            let r_cx = x + w * grad.cx.unwrap_or(0.5);
+            let r_cy = y + h * grad.cy.unwrap_or(0.5);
+            let r_fx = x + w * grad.fx.unwrap_or(grad.cx.unwrap_or(0.5));
+            let r_fy = y + h * grad.fy.unwrap_or(grad.cy.unwrap_or(0.5));
+            let r_rad = (w.max(h) * grad.r.unwrap_or(0.5)).max(0.001);
+            RadialGradient::new(
+                Point::from_xy(r_fx, r_fy),
+                Point::from_xy(r_cx, r_cy),
+                r_rad,
+                stops,
+                SpreadMode::Pad,
+                Transform::identity(),
+            )
+        }
     };
     Ok(shader)
 }

@@ -627,6 +627,16 @@ pub struct LinearGradientSpec {
     pub stops: Vec<GradientStopSpec>,
     #[serde(default)]
     pub angle: f32,
+    #[serde(default)]
+    pub cx: Option<f32>,
+    #[serde(default)]
+    pub cy: Option<f32>,
+    #[serde(default)]
+    pub fx: Option<f32>,
+    #[serde(default)]
+    pub fy: Option<f32>,
+    #[serde(default)]
+    pub r: Option<f32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -666,6 +676,8 @@ pub enum LayerKind {
         cy: f32,
         r: f32,
         color: String,
+        #[serde(default)]
+        gradient: Option<LinearGradientSpec>,
         #[serde(default)]
         border_color: Option<String>,
         #[serde(default)]

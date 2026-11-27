@@ -128,39 +128,74 @@ fn expand_self_closing_tags(input: &str) -> String {
 
 fn parse_gradient_from_str(s: &str) -> Option<LinearGradientSpec> {
     let s = s.trim();
-    if !s.starts_with("linear-gradient(") || !s.ends_with(')') {
+    let (kind, inner) = if s.starts_with("linear-gradient(") && s.ends_with(')') {
+        (
+            GradientTypeSpec::Linear,
+            s["linear-gradient(".len()..s.len() - 1].trim(),
+        )
+    } else if s.starts_with("radial-gradient(") && s.ends_with(')') {
+        (
+            GradientTypeSpec::Radial,
+            s["radial-gradient(".len()..s.len() - 1].trim(),
+        )
+    } else {
         return None;
-    }
-    let inner = &s["linear-gradient(".len()..s.len() - 1].trim();
+    };
     let parts: Vec<&str> = inner.split(',').map(|p| p.trim()).collect();
     if parts.is_empty() {
         return None;
     }
 
     let mut angle = 0.0f32;
+    let mut cx: Option<f32> = None;
+    let mut cy: Option<f32> = None;
     let mut color_idx = 0;
 
     let first = parts[0];
-    if first.ends_with("deg") {
-        if let Ok(a) = first.trim_end_matches("deg").trim().parse::<f32>() {
-            angle = a;
+    if kind == GradientTypeSpec::Linear {
+        if first.ends_with("deg") {
+            if let Ok(a) = first.trim_end_matches("deg").trim().parse::<f32>() {
+                angle = a;
+                color_idx = 1;
+            }
+        } else if first == "to right" {
+            angle = 0.0;
+            color_idx = 1;
+        } else if first == "to bottom" {
+            angle = 90.0;
+            color_idx = 1;
+        } else if first == "to left" {
+            angle = 180.0;
+            color_idx = 1;
+        } else if first == "to top" {
+            angle = 270.0;
+            color_idx = 1;
+        } else if first == "to bottom right" || first == "to right bottom" {
+            angle = 45.0;
             color_idx = 1;
         }
-    } else if first == "to right" {
-        angle = 0.0;
-        color_idx = 1;
-    } else if first == "to bottom" {
-        angle = 90.0;
-        color_idx = 1;
-    } else if first == "to left" {
-        angle = 180.0;
-        color_idx = 1;
-    } else if first == "to top" {
-        angle = 270.0;
-        color_idx = 1;
-    } else if first == "to bottom right" || first == "to right bottom" {
-        angle = 45.0;
-        color_idx = 1;
+    } else {
+        // Optional radial-gradient shape/position prefix, e.g. "circle", "circle at 30% 30%", "at 40% 60%"
+        let first_lower = first.to_ascii_lowercase();
+        if first_lower.starts_with("circle")
+            || first_lower.starts_with("ellipse")
+            || first_lower.starts_with("at ")
+        {
+            if let Some(at_pos) = first_lower.find("at ") {
+                let coords: Vec<&str> = first_lower[at_pos + 3..].split_whitespace().collect();
+                if let Some(x_tok) = coords.first()
+                    && let Some(pct) = x_tok.strip_suffix('%').and_then(|v| v.parse::<f32>().ok())
+                {
+                    cx = Some(pct / 100.0);
+                }
+                if let Some(y_tok) = coords.get(1)
+                    && let Some(pct) = y_tok.strip_suffix('%').and_then(|v| v.parse::<f32>().ok())
+                {
+                    cy = Some(pct / 100.0);
+                }
+            }
+            color_idx = 1;
+        }
     }
 
     let color_parts = &parts[color_idx..];
@@ -194,11 +229,16 @@ fn parse_gradient_from_str(s: &str) -> Option<LinearGradientSpec> {
     let to = stops.last().map(|s| s.color.clone());
 
     Some(LinearGradientSpec {
-        kind: GradientTypeSpec::Linear,
+        kind,
         from,
         to,
         stops,
         angle,
+        cx,
+        cy,
+        fx: cx,
+        fy: cy,
+        r: None,
     })
 }
 
@@ -1415,10 +1455,22 @@ fn parse_layer_element(
             let r = get_attr_f32(elem, "r")
                 .or_else(|| get_attr_f32(elem, "radius"))
                 .unwrap_or(50.0);
-            let color = get_attr_str(elem, "color")
+            let raw_color = get_attr_str(elem, "color")
                 .or_else(|| get_attr_str(elem, "fill"))
-                .or_else(|| get_attr_str(elem, "background"))
-                .unwrap_or_else(|| "#FFFFFF".to_string());
+                .or_else(|| get_attr_str(elem, "background"));
+            let mut gradient =
+                get_attr_str(elem, "gradient").and_then(|g| parse_gradient_from_str(&g));
+            let color = match raw_color {
+                Some(c)
+                    if c.trim().starts_with("linear-gradient(")
+                        || c.trim().starts_with("radial-gradient(") =>
+                {
+                    gradient = parse_gradient_from_str(&c);
+                    "#FFFFFF".to_string()
+                }
+                Some(c) => c,
+                None => "#FFFFFF".to_string(),
+            };
             let (border_color, border_width) = resolve_border_style(elem, true);
             let path_progress = get_attr_f32(elem, "path-progress").unwrap_or(1.0);
             let stroke_dashoffset = get_attr_f32(elem, "stroke-dashoffset");
@@ -1430,6 +1482,7 @@ fn parse_layer_element(
                 cy,
                 r,
                 color,
+                gradient,
                 border_color,
                 border_width,
                 path_progress,
@@ -1767,7 +1820,10 @@ fn parse_layer_element(
             let mut gradient =
                 get_attr_str(elem, "gradient").and_then(|g| parse_gradient_from_str(&g));
             let background = match raw_bg {
-                Some(bg) if bg.trim().starts_with("linear-gradient(") => {
+                Some(bg)
+                    if bg.trim().starts_with("linear-gradient(")
+                        || bg.trim().starts_with("radial-gradient(") =>
+                {
                     gradient = parse_gradient_from_str(&bg);
                     None
                 }
@@ -1855,7 +1911,160 @@ fn parse_layer_element(
             };
 
             // Parse children (supports <include> inside containers too)
-            let children = parse_children_layers(elem, base_dir, depth, vars, true)?;
+            let mut children = parse_children_layers(elem, base_dir, depth, vars, true)?;
+
+            // Declarative inter-scene transition sugar for timeline="series" containers.
+            // Lowers directly to overlap_secs + standard animations / track_matte with zero renderer changes.
+            if timeline == TimelineMode::Series
+                && let Some(trans) = get_attr_str(elem, "transition")
+            {
+                let trans_name = trans.trim().to_ascii_lowercase();
+                let dur = get_attr_f32(elem, "transition-duration")
+                    .or_else(|| get_attr_f32(elem, "transition_duration"))
+                    .unwrap_or(0.6)
+                    .max(0.01);
+                let ref_w = width.unwrap_or(1920.0);
+                let ref_h = height.unwrap_or(1080.0);
+                let make_anim = |property: AnimProperty,
+                                 from: f32,
+                                 to: f32,
+                                 easing: Easing|
+                 -> Animation {
+                    Animation {
+                        property,
+                        from: AnimValue::Number(from),
+                        to: AnimValue::Number(to),
+                        start_sec: 0.0,
+                        end_sec: dur,
+                        easing,
+                        bezier: None,
+                        spring: None,
+                        keyframes: Vec::new(),
+                        repeat: None,
+                        yoyo: false,
+                        expr: None,
+                    }
+                };
+                for child in children.iter_mut().skip(1) {
+                    if child.overlap_secs <= 0.0 {
+                        child.overlap_secs = dur;
+                    }
+                    match trans_name.as_str() {
+                        "fade" | "crossfade" => {
+                            if let LayerKind::Container {
+                                cascade_opacity, ..
+                            } = &mut child.kind
+                            {
+                                *cascade_opacity = true;
+                            }
+                            child.animations.push(make_anim(
+                                AnimProperty::Opacity,
+                                0.0,
+                                1.0,
+                                Easing::EaseOut,
+                            ));
+                        }
+                        "pan-up" | "slide-up" => {
+                            child.animations.push(make_anim(
+                                AnimProperty::Y,
+                                ref_h,
+                                0.0,
+                                Easing::EaseInOut,
+                            ));
+                        }
+                        "pan-down" | "slide-down" => {
+                            child.animations.push(make_anim(
+                                AnimProperty::Y,
+                                -ref_h,
+                                0.0,
+                                Easing::EaseInOut,
+                            ));
+                        }
+                        "pan-left" | "slide-left" => {
+                            child.animations.push(make_anim(
+                                AnimProperty::X,
+                                ref_w,
+                                0.0,
+                                Easing::EaseInOut,
+                            ));
+                        }
+                        "pan-right" | "slide-right" => {
+                            child.animations.push(make_anim(
+                                AnimProperty::X,
+                                -ref_w,
+                                0.0,
+                                Easing::EaseInOut,
+                            ));
+                        }
+                        "iris" | "iris-wipe" | "circle-wipe" => {
+                            let max_r = (ref_w * 0.5).hypot(ref_h * 0.5) + 4.0;
+                            let matte_circle = Layer {
+                                name: None,
+                                start_sec: 0.0,
+                                end_sec: None,
+                                duration_secs: None,
+                                overlap_secs: 0.0,
+                                z_index: 0.0,
+                                position: PositionSpec::Absolute,
+                                margin: None,
+                                margin_top: None,
+                                margin_right: None,
+                                margin_bottom: None,
+                                margin_left: None,
+                                flex_grow: None,
+                                anchor: AnchorSpec::TopLeft,
+                                pivot_x: 0.5,
+                                pivot_y: 0.5,
+                                scale_x: 1.0,
+                                scale_y: 1.0,
+                                skew_x: 0.0,
+                                skew_y: 0.0,
+                                rotate_x: 0.0,
+                                rotate_y: 0.0,
+                                perspective: 1000.0,
+                                backface_visible: true,
+                                blend_mode: BlendModeSpec::Normal,
+                                blur: 0.0,
+                                shadow: None,
+                                wave_warp: None,
+                                echo: None,
+                                grain: 0.0,
+                                vignette: 0.0,
+                                halftone: 0.0,
+                                track_matte: TrackMatteMode::None,
+                                matte_layer: None,
+                                space: crate::schema::LayerSpace::Screen,
+                                depth_slot: None,
+                                depth_z: None,
+                                uv_warp: None,
+                                relight: None,
+                                kind: LayerKind::Circle {
+                                    cx: ref_w * 0.5,
+                                    cy: ref_h * 0.5,
+                                    r: max_r,
+                                    color: "#FFFFFF".to_string(),
+                                    gradient: None,
+                                    border_color: None,
+                                    border_width: 0.0,
+                                    path_progress: 1.0,
+                                    stroke_dashoffset: None,
+                                    opacity: 1.0,
+                                    scale: 1.0,
+                                },
+                                animations: vec![make_anim(
+                                    AnimProperty::R,
+                                    0.0,
+                                    max_r,
+                                    Easing::EaseInOut,
+                                )],
+                            };
+                            child.track_matte = TrackMatteMode::Alpha;
+                            child.matte_layer = Some(Box::new(matte_circle));
+                        }
+                        _ => {}
+                    }
+                }
+            }
 
             LayerKind::Container {
                 x,

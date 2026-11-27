@@ -28,7 +28,7 @@ use std::fmt::Write as _;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use tiny_skia::{
-    Color, FillRule, FilterQuality, Mask, Paint, PathBuilder, Pixmap, PixmapPaint, Rect, Stroke,
+    Color, FillRule, FilterQuality, Mask, Paint, PathBuilder, Pixmap, PixmapPaint, Rect,
     Transform,
 };
 
@@ -1098,6 +1098,33 @@ fn render_layer(
     layout_override: Option<LayoutBox>,
     parent_opacity: f32,
 ) -> Result<()> {
+    render_layer_with_transform(
+        layer,
+        scene_duration,
+        time_sec,
+        assets,
+        font_system,
+        swash_cache,
+        pixmap,
+        layout_override,
+        parent_opacity,
+        Transform::identity(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_layer_with_transform(
+    layer: &Layer,
+    scene_duration: f32,
+    time_sec: f32,
+    assets: &AssetStore,
+    font_system: &mut FontSystem,
+    swash_cache: &mut SwashCache,
+    pixmap: &mut Pixmap,
+    layout_override: Option<LayoutBox>,
+    parent_opacity: f32,
+    parent_transform: Transform,
+) -> Result<()> {
     if let Some(echo) = layer.echo
         && echo.count > 0
     {
@@ -1117,6 +1144,7 @@ fn render_layer(
                 layout_override,
                 echo_opacity,
                 false,
+                parent_transform,
             )?;
         }
     }
@@ -1142,6 +1170,7 @@ fn render_layer(
             layout_override,
             parent_opacity,
             false,
+            Transform::identity(),
         )?;
         render_layer_scoped(
             matte,
@@ -1154,6 +1183,7 @@ fn render_layer(
             layout_override,
             1.0,
             false,
+            Transform::identity(),
         )?;
 
         let layer_data = layer_pm.data_mut();
@@ -1188,8 +1218,15 @@ fn render_layer(
             0,
             0,
             layer_pm.as_ref(),
-            &PixmapPaint::default(),
-            Transform::identity(),
+            &PixmapPaint {
+                quality: if parent_transform.is_identity() {
+                    FilterQuality::Nearest
+                } else {
+                    FilterQuality::Bilinear
+                },
+                ..PixmapPaint::default()
+            },
+            parent_transform,
             None,
         );
         return Ok(());
@@ -1206,6 +1243,7 @@ fn render_layer(
         layout_override,
         parent_opacity,
         false,
+        parent_transform,
     )
 }
 
@@ -1234,6 +1272,7 @@ fn render_layer_scoped(
     layout_override: Option<LayoutBox>,
     parent_opacity: f32,
     skip_window_check: bool,
+    parent_transform: Transform,
 ) -> Result<()> {
     if !skip_window_check {
         let end_sec = effective_end_sec(layer, scene_duration);
@@ -1276,6 +1315,33 @@ fn render_layer_scoped(
         || has_surface_fx
         || has_3d;
     if !needs_fx {
+        let is_vector_transform_native = matches!(
+            layer.kind,
+            LayerKind::Rect { .. } | LayerKind::Circle { .. } | LayerKind::Container { .. }
+        );
+        if !parent_transform.is_identity() && !is_vector_transform_native {
+            let mut leaf_pm = cache::ScratchPixmap::new(pixmap.width(), pixmap.height())
+                .ok_or_else(|| anyhow!("Failed to allocate transformed leaf pixmap"))?;
+            render_layer_inner(
+                layer,
+                scene_duration,
+                time_sec,
+                assets,
+                font_system,
+                swash_cache,
+                &mut leaf_pm,
+                layout_override,
+                parent_opacity,
+                Transform::identity(),
+            )?;
+            let paint = PixmapPaint {
+                opacity: 1.0,
+                quality: FilterQuality::Bilinear,
+                ..PixmapPaint::default()
+            };
+            pixmap.draw_pixmap(0, 0, leaf_pm.as_ref(), &paint, parent_transform, None);
+            return Ok(());
+        }
         return render_layer_inner(
             layer,
             scene_duration,
@@ -1286,6 +1352,7 @@ fn render_layer_scoped(
             pixmap,
             layout_override,
             parent_opacity,
+            parent_transform,
         );
     }
 
@@ -1377,6 +1444,7 @@ fn render_layer_scoped(
                 &mut layer_pixmap,
                 layout_override,
                 1.0,
+                Transform::identity(),
             )?;
             let bounds = find_alpha_bounds(&layer_pixmap);
             let built = if let Some((x0, y0, x1, y1)) = bounds {
@@ -1536,6 +1604,7 @@ fn render_layer_scoped(
         &mut layer_pixmap,
         layout_override,
         parent_opacity,
+        Transform::identity(),
     )?;
 
     let bounds = find_alpha_bounds(&layer_pixmap);
@@ -1696,27 +1765,17 @@ fn render_layer_scoped(
             pw,
             ph,
         )? {
-            pixmap.draw_pixmap(wx, wy, w_fg.as_ref(), &paint, Transform::identity(), None);
+            let xform = Transform::from_translate(wx as f32, wy as f32).post_concat(parent_transform);
+            pixmap.draw_pixmap(0, 0, w_fg.as_ref(), &paint, xform, None);
         }
     } else {
         if let Some((sh_arc, sx, sy)) = sh_entry {
-            pixmap.draw_pixmap(
-                sx.round() as i32,
-                sy.round() as i32,
-                sh_arc.as_ref().as_ref(),
-                &paint,
-                Transform::identity(),
-                None,
-            );
+            let sh_xform =
+                Transform::from_translate(sx.round(), sy.round()).post_concat(parent_transform);
+            pixmap.draw_pixmap(0, 0, sh_arc.as_ref().as_ref(), &paint, sh_xform, None);
         }
-        pixmap.draw_pixmap(
-            fg_x,
-            fg_y,
-            fg_pm.as_ref(),
-            &paint,
-            Transform::identity(),
-            None,
-        );
+        let fg_xform = Transform::from_translate(fg_x as f32, fg_y as f32).post_concat(parent_transform);
+        pixmap.draw_pixmap(0, 0, fg_pm.as_ref(), &paint, fg_xform, None);
     }
     Ok(())
 }
@@ -1732,6 +1791,7 @@ fn render_layer_inner(
     pixmap: &mut Pixmap,
     layout_override: Option<LayoutBox>,
     parent_opacity: f32,
+    parent_transform: Transform,
 ) -> Result<()> {
     match &layer.kind {
         LayerKind::Rect {
@@ -1862,7 +1922,7 @@ fn render_layer_inner(
                     *border_width,
                     stroke_dash,
                     op,
-                    xform,
+                    xform.post_concat(parent_transform),
                 )?;
             }
         }
@@ -1871,6 +1931,7 @@ fn render_layer_inner(
             cy,
             r,
             color,
+            gradient,
             border_color,
             border_width,
             path_progress,
@@ -1961,25 +2022,23 @@ fn render_layer_inner(
             );
 
             if let Some(path) = PathBuilder::from_circle(cx, cy, r) {
-                let mut paint = Paint::default();
-                paint.set_color(parse_hex_color(&eff_color, op)?);
-                paint.anti_alias = true;
-                pixmap.fill_path(&path, &paint, FillRule::Winding, xform, None);
-
-                if let Some(b_hex) = eff_border_color.as_deref()
-                    && *border_width > 0.0
-                {
-                    let mut b_paint = Paint::default();
-                    b_paint.set_color(parse_hex_color(b_hex, op)?);
-                    b_paint.anti_alias = true;
-                    let circumference = 2.0 * std::f32::consts::PI * r;
-                    let stroke = Stroke {
-                        width: *border_width,
-                        dash: build_progress_stroke_dash(circumference, prog, dash_offset, None),
-                        ..Stroke::default()
-                    };
-                    pixmap.stroke_path(&path, &b_paint, &stroke, xform, None);
-                }
+                let circumference = 2.0 * std::f32::consts::PI * r;
+                let stroke_dash = build_progress_stroke_dash(circumference, prog, dash_offset, None);
+                draw_styled_path(
+                    pixmap,
+                    &path,
+                    cx - r,
+                    cy - r,
+                    r * 2.0,
+                    r * 2.0,
+                    Some(&eff_color),
+                    gradient.as_ref(),
+                    eff_border_color.as_deref(),
+                    *border_width,
+                    stroke_dash,
+                    op,
+                    xform.post_concat(parent_transform),
+                )?;
             }
         }
         LayerKind::Text { .. } => {
@@ -2677,7 +2736,7 @@ fn render_layer_inner(
                     *border_width,
                     None,
                     op,
-                    xform,
+                    xform.post_concat(parent_transform),
                 )?;
             }
 
@@ -2711,13 +2770,7 @@ fn render_layer_inner(
                 active_children.sort_by(|a, b| a.4.total_cmp(&b.4));
             }
 
-            let needs_offscreen = *clip
-                || rot != 0.0
-                || sk_x != 0.0
-                || sk_y != 0.0
-                || (eff_sx - 1.0).abs() > 1e-6
-                || (eff_sy - 1.0).abs() > 1e-6;
-            if needs_offscreen {
+            if *clip {
                 let pw = (cw.ceil() as u32).max(1);
                 let ph = (ch.ceil() as u32).max(1);
                 let mut child_pixmap = cache::ScratchPixmap::new(pw, ph)
@@ -2731,7 +2784,7 @@ fn render_layer_inner(
                         parent_x: 0.0,
                         parent_y: 0.0,
                     };
-                    render_layer(
+                    render_layer_with_transform(
                         child,
                         cdur,
                         ct,
@@ -2741,10 +2794,10 @@ fn render_layer_inner(
                         &mut child_pixmap,
                         Some(local_box),
                         if *cascade_opacity { op } else { 1.0 },
+                        Transform::identity(),
                     )?;
                 }
-                if *clip
-                    && let Some(mask_path) = build_rounded_rect(0.0, 0.0, cw, ch, eff_radius)
+                if let Some(mask_path) = build_rounded_rect(0.0, 0.0, cw, ch, eff_radius)
                     && let Some(mut mask) = Mask::new(pw, ph)
                 {
                     mask.fill_path(&mask_path, FillRule::Winding, true, Transform::identity());
@@ -2758,9 +2811,12 @@ fn render_layer_inner(
                     quality: FilterQuality::Bilinear,
                     ..PixmapPaint::default()
                 };
-                let composite_xform = Transform::from_translate(cx, cy).post_concat(xform);
+                let composite_xform = Transform::from_translate(cx, cy)
+                    .post_concat(xform)
+                    .post_concat(parent_transform);
                 pixmap.draw_pixmap(0, 0, child_pixmap.as_ref(), &paint, composite_xform, None);
             } else {
+                let child_parent_xform = xform.post_concat(parent_transform);
                 for (child, cbox, ct, cdur, _) in active_children {
                     let abs_box = LayoutBox {
                         x: cx + cbox.x,
@@ -2770,7 +2826,7 @@ fn render_layer_inner(
                         parent_x: cx,
                         parent_y: cy,
                     };
-                    render_layer(
+                    render_layer_with_transform(
                         child,
                         cdur,
                         ct,
@@ -2780,6 +2836,7 @@ fn render_layer_inner(
                         pixmap,
                         Some(abs_box),
                         if *cascade_opacity { op } else { 1.0 },
+                        child_parent_xform,
                     )?;
                 }
             }
