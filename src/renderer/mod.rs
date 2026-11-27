@@ -572,53 +572,75 @@ pub fn render_frame_at_time_with_base_profile(
             if (world_cam.is_some() && layer.space == crate::schema::LayerSpace::World)
                 || needs_living_raster
             {
-                let mut layer_pm = Pixmap::new(width, height).ok_or_else(|| {
-                    anyhow!("Failed to allocate world layer pixmap {}x{}", width, height)
-                })?;
-                render_layer(
-                    layer,
-                    scene.canvas.duration_secs,
-                    time_sec,
-                    assets,
-                    font_system,
-                    swash_cache,
-                    &mut layer_pm,
-                    None,
-                    1.0,
-                )?;
-                if let Some(ref warp) = layer.uv_warp {
-                    let mask = warp.mask_src.as_deref().and_then(|s| assets.images.get(s));
-                    living_raster::apply_rigidity_uv_warp(&mut layer_pm, warp, mask, time_sec);
+                thread_local! {
+                    static WORLD_LAYER_SCRATCH: std::cell::RefCell<Option<Pixmap>> =
+                        const { std::cell::RefCell::new(None) };
                 }
-                if let Some(ref relight) = layer.relight {
-                    let normal = relight
-                        .normal_src
-                        .as_deref()
-                        .and_then(|s| assets.images.get(s));
-                    let emission = relight
-                        .emission_src
-                        .as_deref()
-                        .and_then(|s| assets.images.get(s));
-                    living_raster::apply_2d_normal_relight(
-                        &mut layer_pm,
-                        relight,
-                        normal,
-                        emission,
+                WORLD_LAYER_SCRATCH.with(|cell| -> Result<()> {
+                    let mut slot = cell.borrow_mut();
+                    let needs_alloc = slot
+                        .as_ref()
+                        .is_none_or(|p| p.width() != width || p.height() != height);
+                    if needs_alloc {
+                        *slot = Some(Pixmap::new(width, height).ok_or_else(|| {
+                            anyhow!("Failed to allocate world layer pixmap {}x{}", width, height)
+                        })?);
+                    }
+                    let layer_pm = slot.as_mut().unwrap();
+                    layer_pm.data_mut().fill(0);
+                    render_layer(
+                        layer,
+                        scene.canvas.duration_secs,
                         time_sec,
-                    );
-                }
-                if let Some(cam) = world_cam
-                    && layer.space == crate::schema::LayerSpace::World
-                {
-                    camera25d::composite_world_layer(&mut pixmap, layer, &layer_pm, cam)?;
-                } else {
-                    let paint = PixmapPaint {
-                        opacity: 1.0,
-                        quality: FilterQuality::Nearest,
-                        ..PixmapPaint::default()
-                    };
-                    pixmap.draw_pixmap(0, 0, layer_pm.as_ref(), &paint, Transform::identity(), None);
-                }
+                        assets,
+                        font_system,
+                        swash_cache,
+                        layer_pm,
+                        None,
+                        1.0,
+                    )?;
+                    if let Some(ref warp) = layer.uv_warp {
+                        let mask = warp.mask_src.as_deref().and_then(|s| assets.images.get(s));
+                        living_raster::apply_rigidity_uv_warp(layer_pm, warp, mask, time_sec);
+                    }
+                    if let Some(ref relight) = layer.relight {
+                        let normal = relight
+                            .normal_src
+                            .as_deref()
+                            .and_then(|s| assets.images.get(s));
+                        let emission = relight
+                            .emission_src
+                            .as_deref()
+                            .and_then(|s| assets.images.get(s));
+                        living_raster::apply_2d_normal_relight(
+                            layer_pm,
+                            relight,
+                            normal,
+                            emission,
+                            time_sec,
+                        );
+                    }
+                    if let Some(cam) = world_cam
+                        && layer.space == crate::schema::LayerSpace::World
+                    {
+                        camera25d::composite_world_layer(&mut pixmap, layer, layer_pm, cam)?;
+                    } else {
+                        let paint = PixmapPaint {
+                            opacity: 1.0,
+                            quality: FilterQuality::Nearest,
+                            ..PixmapPaint::default()
+                        };
+                        pixmap.draw_pixmap(
+                            0,
+                            0,
+                            layer_pm.as_ref(),
+                            &paint,
+                            Transform::identity(),
+                            None,
+                        );
+                    }
+                    Ok(())
+                })?;
             } else {
                 render_layer(
                     layer,
@@ -938,6 +960,30 @@ fn draw_rgba_frame(
         let src_crop_h = ((dst_h as f32) / eff_sy)
             .max(1e-3)
             .min(src_h as f32 - src_crop_y);
+
+        // 1:1 exact-size fast path: skip SIMD Bilinear convolution when no scaling/cropping is needed.
+        if (eff_sx - 1.0).abs() < 1e-4
+            && (eff_sy - 1.0).abs() < 1e-4
+            && dst_w == src_w
+            && dst_h == src_h
+            && src_crop_x.abs() < 1e-3
+            && src_crop_y.abs() < 1e-3
+        {
+            let blit_paint = PixmapPaint {
+                opacity: op.clamp(0.0, 1.0),
+                quality: FilterQuality::Nearest,
+                ..PixmapPaint::default()
+            };
+            pixmap.draw_pixmap(
+                dst_x0,
+                dst_y0,
+                src_pixmap,
+                &blit_paint,
+                Transform::identity(),
+                None,
+            );
+            return Ok(());
+        }
 
         if src_crop_w > 0.0 && src_crop_h > 0.0 {
             use fast_image_resize::images::{Image, ImageRef};

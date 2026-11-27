@@ -183,6 +183,11 @@ class BaseLayer(TypedDict, total=False):
     halftone: float
     wave_warp: WaveWarp
     echo: Echo
+    space: Literal["screen", "world"]
+    depth_slot: Literal["backdrop", "far", "mid", "subject", "foreground"]
+    depth_z: float
+    uv_warp: dict[str, Any]
+    relight: dict[str, Any]
 
 class ContainerLayer(TypedDict, total=False):
     """ContainerLayer."""
@@ -418,3 +423,4 @@ class RustrenScene(TypedDict, total=False):
     fonts: list[str]
     audio: list[AudioTrack]
     layers: list["Layer"]
+    world: dict[str, Any]

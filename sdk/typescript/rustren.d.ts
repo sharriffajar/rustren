@@ -302,6 +302,14 @@ export interface BaseLayer {
   halftone?: number;
   wave_warp?: WaveWarp;
   echo?: Echo;
+  /** default: "screen" */
+  space?: "screen" | "world";
+  depth_slot?: "backdrop" | "far" | "mid" | "subject" | "foreground";
+  depth_z?: number;
+  /** Rigidity-masked procedural UV warp (v1.2) */
+  uv_warp?: Record<string, unknown>;
+  /** Half-res 2D normal & emission relighting (v1.2) */
+  relight?: Record<string, unknown>;
 }
 
 export interface ContainerLayer extends BaseLayer {
@@ -687,4 +695,6 @@ export interface RustrenScene {
   audio?: AudioTrack[];
   /** Back-to-front z-order; root layers use absolute canvas coordinates */
   layers: Layer[];
+  /** Opt-in v1.2 2.5D scalar virtual camera */
+  world?: Record<string, unknown>;
 }
