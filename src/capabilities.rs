@@ -191,6 +191,7 @@ impl CapabilityRegistry {
                         "color",
                         "border_color",
                         "path_progress",
+                        "progress",
                         "stroke_dashoffset",
                     ],
                     easings: &[

@@ -477,6 +477,7 @@
             "background",
             "border_color",
             "path_progress",
+            "progress",
             "stroke_dashoffset",
             "volume"
           ],
@@ -1278,6 +1279,9 @@
         },
         "color": {
           "$ref": "#/$defs/HexColor"
+        },
+        "gradient": {
+          "$ref": "#/$defs/Gradient"
         },
         "border_color": {
           "$ref": "#/$defs/HexColor"
@@ -3050,6 +3054,19 @@
         "speed": {
           "type": "number",
           "default": 1.0
+        },
+        "progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Optional normalized animation progress (0.0..1.0) overriding time_sec * speed"
+        },
+        "color_overrides": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/HexColor"
+          },
+          "description": "Map of Lottie slot ID (sid), shape name (nm), or hex color (#rrggbb/#rgb) to replacement hex color"
         },
         "opacity": {
           "type": "number",

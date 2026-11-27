@@ -66,6 +66,7 @@ export type AnimProperty =
   | "background"
   | "border_color"
   | "path_progress"
+  | "progress"
   | "stroke_dashoffset"
   | "volume";
 
@@ -218,7 +219,7 @@ export interface WaveWarp {
 
 export interface Animation {
   /** Animatable layer property */
-  property: "x" | "y" | "width" | "height" | "opacity" | "scale" | "scale_x" | "scale_y" | "focal_x" | "focal_y" | "rotation" | "skew_x" | "skew_y" | "rotate_x" | "rotate_y" | "perspective" | "z" | "rotate_z" | "z_index" | "cx" | "cy" | "r" | "radius" | "color" | "background" | "border_color" | "path_progress" | "stroke_dashoffset" | "volume";
+  property: "x" | "y" | "width" | "height" | "opacity" | "scale" | "scale_x" | "scale_y" | "focal_x" | "focal_y" | "rotation" | "skew_x" | "skew_y" | "rotate_x" | "rotate_y" | "perspective" | "z" | "rotate_z" | "z_index" | "cx" | "cy" | "r" | "radius" | "color" | "background" | "border_color" | "path_progress" | "progress" | "stroke_dashoffset" | "volume";
   /** Mathematical expression evaluated per frame (e.g. 'sin(t*2.0)*50 + val') */
   expr?: string;
   from?: number | HexColor;
@@ -378,6 +379,7 @@ export interface CircleLayer extends BaseLayer {
   cy?: number;
   r: number;
   color: HexColor;
+  gradient?: Gradient;
   border_color?: HexColor;
   /** default: 0.0 */
   border_width?: number;
@@ -543,6 +545,10 @@ export interface LottieLayer extends BaseLayer {
   loop_animation?: boolean;
   /** default: 1.0 */
   speed?: number;
+  /** Optional normalized animation progress (0.0..1.0) overriding time_sec * speed; min: 0; max: 1 */
+  progress?: number;
+  /** Map of Lottie slot ID (sid), shape name (nm), or hex color (#rrggbb/#rgb) to replacement hex color */
+  color_overrides?: Record<string, unknown>;
   /** default: 0.0 */
   rotation?: number;
   /** default: 1.0 */

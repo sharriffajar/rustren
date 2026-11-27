@@ -18,7 +18,7 @@ FitMode = Literal["fill", "cover", "contain"]
 
 Easing = Literal["linear", "ease_in", "ease_out", "ease_in_out", "ease_in_quad", "ease_out_quad", "ease_in_out_quad", "ease_in_expo", "ease_out_expo", "ease_in_out_expo", "ease_in_back", "ease_out_back", "ease_in_out_back", "ease_out_bounce", "cubic_bezier", "spring"]
 
-AnimProperty = Literal["x", "y", "width", "height", "opacity", "scale", "scale_x", "scale_y", "focal_x", "focal_y", "rotation", "skew_x", "skew_y", "rotate_x", "rotate_y", "perspective", "z", "rotate_z", "z_index", "cx", "cy", "r", "radius", "color", "background", "border_color", "path_progress", "stroke_dashoffset", "volume"]
+AnimProperty = Literal["x", "y", "width", "height", "opacity", "scale", "scale_x", "scale_y", "focal_x", "focal_y", "rotation", "skew_x", "skew_y", "rotate_x", "rotate_y", "perspective", "z", "rotate_z", "z_index", "cx", "cy", "r", "radius", "color", "background", "border_color", "path_progress", "progress", "stroke_dashoffset", "volume"]
 
 TextAnimatorMode = Literal["char", "word"]
 
@@ -125,7 +125,7 @@ class WaveWarp(TypedDict, total=False):
 Animation = TypedDict(
     "Animation",
     {
-        "property": Literal["x", "y", "width", "height", "opacity", "scale", "scale_x", "scale_y", "focal_x", "focal_y", "rotation", "skew_x", "skew_y", "rotate_x", "rotate_y", "perspective", "z", "rotate_z", "z_index", "cx", "cy", "r", "radius", "color", "background", "border_color", "path_progress", "stroke_dashoffset", "volume"],
+        "property": Literal["x", "y", "width", "height", "opacity", "scale", "scale_x", "scale_y", "focal_x", "focal_y", "rotation", "skew_x", "skew_y", "rotate_x", "rotate_y", "perspective", "z", "rotate_z", "z_index", "cx", "cy", "r", "radius", "color", "background", "border_color", "path_progress", "progress", "stroke_dashoffset", "volume"],
         "expr": str,
         "from": Union[float, str],
         "to": Union[float, str],
@@ -235,6 +235,7 @@ class CircleLayer(TypedDict, total=False):
     cy: float
     r: float
     color: str
+    gradient: Gradient
     border_color: str
     border_width: float
     path_progress: float
@@ -335,6 +336,8 @@ class LottieLayer(TypedDict, total=False):
     src: str
     loop_animation: bool
     speed: float
+    progress: float
+    color_overrides: dict[str, Any]
     rotation: float
     scale: float
 

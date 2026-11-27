@@ -421,8 +421,23 @@ pub fn render_lottie_doc_ex(
         let mut out = HashMap::with_capacity(m.len());
         for (k, v) in m {
             if let Some(rgba) = parse_override_hex(v) {
-                let norm_k = if k.trim().starts_with('#') {
-                    k.trim().to_ascii_lowercase()
+                let trimmed = k.trim();
+                let norm_k = if let Some(hex_body) = trimmed.strip_prefix('#') {
+                    let lower = hex_body.to_ascii_lowercase();
+                    if lower.len() == 3 && lower.chars().all(|c| c.is_ascii_hexdigit()) {
+                        let b = lower.as_bytes();
+                        format!(
+                            "#{}{}{}{}{}{}",
+                            b[0] as char,
+                            b[0] as char,
+                            b[1] as char,
+                            b[1] as char,
+                            b[2] as char,
+                            b[2] as char
+                        )
+                    } else {
+                        format!("#{lower}")
+                    }
                 } else {
                     k.clone()
                 };
@@ -432,10 +447,7 @@ pub fn render_lottie_doc_ex(
         if out.is_empty() { None } else { Some(out) }
     });
     let prev_overrides =
-        LOTTIE_COLOR_OVERRIDES.with(|cell| cell.borrow_mut().replace(parsed_overrides.unwrap_or_default()));
-    if color_overrides.is_none_or(|m| m.is_empty()) {
-        LOTTIE_COLOR_OVERRIDES.with(|cell| *cell.borrow_mut() = None);
-    }
+        LOTTIE_COLOR_OVERRIDES.with(|cell| std::mem::replace(&mut *cell.borrow_mut(), parsed_overrides));
 
     let assets = doc.get("assets").and_then(|v| v.as_array());
     let result = if let Some(layers) = doc.get("layers").and_then(|v| v.as_array()) {
@@ -1920,5 +1932,66 @@ mod tests {
         let px = pm.pixel(80, 50).unwrap();
         assert!(px.alpha() > 240 && px.green() > 240 && px.red() < 15);
         assert_eq!(pm.pixel(20, 50).unwrap().alpha(), 0);
+
+        // Test fallback matching via `nm`
+        let mut nm_overrides = HashMap::new();
+        nm_overrides.insert("AccentFill".to_string(), "#0000FF".to_string());
+        let mut pm_nm = Pixmap::new(100, 100).unwrap();
+        assert!(render_lottie_doc_ex(
+            &mut pm_nm,
+            &doc,
+            0.0,
+            false,
+            1.0,
+            Some(0.0),
+            Some(&nm_overrides),
+            100.0,
+            100.0,
+            Transform::identity(),
+            1.0,
+        ));
+        let px_nm = pm_nm.pixel(20, 50).unwrap();
+        assert!(px_nm.alpha() > 240 && px_nm.blue() > 240 && px_nm.red() < 15);
+
+        // Test fallback matching via 3-digit hex key `#F00` (expanded to `#ff0000`)
+        let mut hex3_overrides = HashMap::new();
+        hex3_overrides.insert("#F00".to_string(), "#00FFFF".to_string());
+        let mut pm_hex3 = Pixmap::new(100, 100).unwrap();
+        assert!(render_lottie_doc_ex(
+            &mut pm_hex3,
+            &doc,
+            0.0,
+            false,
+            1.0,
+            Some(0.0),
+            Some(&hex3_overrides),
+            100.0,
+            100.0,
+            Transform::identity(),
+            1.0,
+        ));
+        let px_h3 = pm_hex3.pixel(20, 50).unwrap();
+        assert!(px_h3.alpha() > 240 && px_h3.green() > 240 && px_h3.blue() > 240 && px_h3.red() < 15);
+
+        // Test non-identity parent_transform (90deg rotation around canvas center (50, 50))
+        let rot_tf = Transform::from_rotate_at(90.0, 50.0, 50.0);
+        let mut pm_rot = Pixmap::new(100, 100).unwrap();
+        assert!(render_lottie_doc_ex(
+            &mut pm_rot,
+            &doc,
+            0.0,
+            false,
+            1.0,
+            Some(0.0),
+            None,
+            100.0,
+            100.0,
+            rot_tf,
+            1.0,
+        ));
+        // Point (20, 50) rotated 90deg clockwise around (50, 50) lands at (50, 20)
+        let px_rot = pm_rot.pixel(50, 20).unwrap();
+        assert!(px_rot.alpha() > 240 && px_rot.red() > 240);
+        assert_eq!(pm_rot.pixel(20, 50).unwrap().alpha(), 0);
     }
 }

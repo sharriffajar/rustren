@@ -2565,4 +2565,52 @@ mod tests {
         assert!(anim_src.contains("M 100 100 L 300 100"));
         assert!(!anim_src.contains("opacity=\"0.0\""));
     }
+
+    #[test]
+    fn test_html_lottie_progress_color_overrides_and_monolithic_svg_lint() {
+        let html = r##"
+            <scene width="1280" height="720" fps="30" duration="3">
+              <lottie src="hero.json" progress="0.25" color-overrides='{"accent":"#38BDF8","#f00":"#00FF00"}'>
+                <animate prop="progress" from="0.0" to="1.0" start="0.0" end="2.0" />
+              </lottie>
+              <svg width="1280" height="720">
+                <rect x="0" y="0" width="1280" height="2" fill="#334155" />
+                <rect x="0" y="718" width="1280" height="2" fill="#334155" />
+              </svg>
+            </scene>
+        "##;
+        let scene = parse_html_scene(html).unwrap();
+        let LayerKind::Lottie {
+            progress,
+            color_overrides,
+            ..
+        } = &scene.layers[0].kind
+        else {
+            panic!("Expected Lottie layer");
+        };
+        assert_eq!(*progress, Some(0.25));
+        let map = color_overrides.as_ref().expect("color_overrides parsed");
+        assert_eq!(map.get("accent").map(String::as_str), Some("#38BDF8"));
+        assert_eq!(map.get("#f00").map(String::as_str), Some("#00FF00"));
+        assert_eq!(scene.layers[0].animations[0].property, AnimProperty::Progress);
+
+        // Simple 2-rect 1280x720 background SVG must NOT trigger static_monolithic_svg
+        let warnings = crate::lint::collect_lint_warnings_structured(&scene);
+        assert!(!warnings.iter().any(|w| w.code == "static_monolithic_svg"));
+
+        // Complex 12-shape monolithic static SVG MUST trigger static_monolithic_svg with fix_for
+        let many_paths: String = (0..12)
+            .map(|i| format!("<path d=\"M {i} 0 L {i} 10\" />"))
+            .collect();
+        let mono_html = format!(
+            "<scene width=\"1280\" height=\"720\" fps=\"30\" duration=\"3\"><svg width=\"400\" height=\"400\">{many_paths}</svg></scene>"
+        );
+        let mono_scene = parse_html_scene(&mono_html).unwrap();
+        let warnings2 = crate::lint::collect_lint_warnings_structured(&mono_scene);
+        let mono_w = warnings2
+            .iter()
+            .find(|w| w.code == "static_monolithic_svg")
+            .expect("Expected static_monolithic_svg warning");
+        assert!(mono_w.fix.is_some());
+    }
 }

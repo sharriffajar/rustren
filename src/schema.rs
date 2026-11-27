@@ -1248,6 +1248,7 @@ pub const ANIM_PROPERTY_NAMES: &[&str] = &[
     "color",
     "border_color",
     "path_progress",
+    "progress",
     "stroke_dashoffset",
 ];
 

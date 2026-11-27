@@ -206,6 +206,10 @@ fn fix_for(code: &str) -> Option<String> {
         "missing_max_width" => Some("add max_width to the text layer".to_string()),
         "out_of_canvas" => Some("move or resize the layer so it intersects the canvas".to_string()),
         "low_contrast" => Some("change the text color or the background behind it".to_string()),
+        "static_monolithic_svg" => Some(
+            "split into modular Container/Include rigs with pivot_x/pivot_y or use a curated Lottie layer with progress/color_overrides"
+                .to_string(),
+        ),
         _ => None,
     }
 }
@@ -312,25 +316,27 @@ fn lint_layers(
                     groups,
                 );
             }
-            LayerKind::Svg {
-                src,
-                width,
-                height,
-                ..
-            } => {
-                let is_large_inline = src.trim_start().starts_with('<') && src.len() > 2048;
-                let is_large_box = width.unwrap_or(0.0) >= 320.0 && height.unwrap_or(0.0) >= 320.0;
-                if (is_large_inline || is_large_box)
+            LayerKind::Svg { src, .. } => {
+                let trimmed = src.trim_start();
+                if trimmed.starts_with('<')
                     && layer.animations.is_empty()
                     && layer.wave_warp.is_none()
                     && layer.uv_warp.is_none()
                 {
-                    groups.entry("static_monolithic_svg").or_default().push((
-                        path.clone(),
-                        format!(
-                            "{path} is a large static monolithic SVG; split into modular Container/Include rigs or use a curated Lottie layer with progress/color_overrides"
-                        ),
-                    ));
+                    let shape_count = trimmed.matches("<path").count()
+                        + trimmed.matches("<circle").count()
+                        + trimmed.matches("<rect").count()
+                        + trimmed.matches("<polygon").count()
+                        + trimmed.matches("<ellipse").count();
+                    if trimmed.len() > 2048 || shape_count >= 12 {
+                        groups.entry("static_monolithic_svg").or_default().push((
+                            path.clone(),
+                            format!(
+                                "{path} is a complex static monolithic SVG ({shape_count} shapes, {} bytes); split into modular Container/Include rigs or use a curated Lottie layer with progress/color_overrides",
+                                trimmed.len()
+                            ),
+                        ));
+                    }
                 }
             }
             _ => {}
@@ -723,6 +729,7 @@ pub(crate) const LAYER_KIND_FIELDS: &[(&str, &[&str])] = &[
             "cy",
             "r",
             "color",
+            "gradient",
             "border_color",
             "border_width",
             "path_progress",
@@ -817,6 +824,8 @@ pub(crate) const LAYER_KIND_FIELDS: &[(&str, &[&str])] = &[
             "src",
             "loop_animation",
             "speed",
+            "progress",
+            "color_overrides",
             "opacity",
             "rotation",
             "scale",
