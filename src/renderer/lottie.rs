@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -8,6 +9,228 @@ use tiny_skia::{
     LinearGradient, Paint, Path, PathBuilder, Pixmap, PixmapPaint, Point, PremultipliedColorU8,
     RadialGradient, Rect, Shader, SpreadMode, Stroke, StrokeDash, Transform,
 };
+
+thread_local! {
+    /// Per-thread reusable zeroed Pixmap pool to avoid repeated 5+ MB heap alloc/zero/free per layer.
+    static LOTTIE_SCRATCH_POOL: RefCell<Vec<Pixmap>> = const { RefCell::new(Vec::new()) };
+}
+
+fn acquire_zeroed_pixmap(w: u32, h: u32) -> Option<Pixmap> {
+    let reused = LOTTIE_SCRATCH_POOL.with(|pool| {
+        let mut p = pool.borrow_mut();
+        if let Some(pos) = p.iter().position(|pm| pm.width() == w && pm.height() == h) {
+            Some(p.swap_remove(pos))
+        } else {
+            None
+        }
+    });
+    if let Some(pm) = reused {
+        return Some(pm);
+    }
+    Pixmap::new(w, h)
+}
+
+fn clear_pixmap_rect(pm: &mut Pixmap, bounds: (u32, u32, u32, u32)) {
+    let w = pm.width() as usize;
+    let (x0, y0, x1, y1) = (
+        bounds.0 as usize,
+        bounds.1 as usize,
+        bounds.2 as usize,
+        bounds.3 as usize,
+    );
+    let row_bytes = (x1 - x0 + 1) * 4;
+    let data = pm.data_mut();
+    for y in y0..=y1 {
+        let start = (y * w + x0) * 4;
+        data[start..start + row_bytes].fill(0);
+    }
+}
+
+fn release_zeroed_pixmap(mut pm: Pixmap, dirty: Option<(u32, u32, u32, u32)>) {
+    if let Some(b) = dirty {
+        clear_pixmap_rect(&mut pm, b);
+    }
+    LOTTIE_SCRATCH_POOL.with(|pool| {
+        let mut p = pool.borrow_mut();
+        if p.len() < 16 {
+            p.push(pm);
+        }
+    });
+}
+
+/// Fast tight bounding box of all non-transparent pixels in a Pixmap: `(min_x, min_y, max_x, max_y)` inclusive.
+fn find_alpha_bounds(pm: &Pixmap) -> Option<(u32, u32, u32, u32)> {
+    let w = pm.width() as usize;
+    let h = pm.height() as usize;
+    let data = pm.data();
+    let (_, pixels, _) = unsafe { data.align_to::<u32>() };
+    if pixels.len() != w * h {
+        return Some((0, 0, pm.width().saturating_sub(1), pm.height().saturating_sub(1)));
+    }
+
+    let mut min_y = h;
+    let mut max_y = 0usize;
+    let mut min_x = w;
+    let mut max_x = 0usize;
+
+    for y in 0..h {
+        let row = &pixels[y * w..(y + 1) * w];
+        // Fast scan for first non-zero pixel in row
+        let mut first = None;
+        for (x, &px) in row.iter().enumerate() {
+            if px != 0 {
+                first = Some(x);
+                break;
+            }
+        }
+        let Some(fx) = first else {
+            continue;
+        };
+        if y < min_y {
+            min_y = y;
+        }
+        max_y = y;
+        if fx < min_x {
+            min_x = fx;
+        }
+        // Scan backwards from right edge for last non-zero pixel
+        let mut lx = fx;
+        for x in (fx.max(max_x)..w).rev() {
+            if row[x] != 0 {
+                lx = x;
+                break;
+            }
+        }
+        if lx > max_x {
+            max_x = lx;
+        }
+    }
+
+    if min_y <= max_y && min_x <= max_x {
+        Some((min_x as u32, min_y as u32, max_x as u32, max_y as u32))
+    } else {
+        None
+    }
+}
+
+fn expand_bounds(
+    bounds: (u32, u32, u32, u32),
+    pad: u32,
+    w: u32,
+    h: u32,
+) -> (u32, u32, u32, u32) {
+    (
+        bounds.0.saturating_sub(pad),
+        bounds.1.saturating_sub(pad),
+        (bounds.2 + pad).min(w.saturating_sub(1)),
+        (bounds.3 + pad).min(h.saturating_sub(1)),
+    )
+}
+
+fn blur_pixmap_subrect(pm: &mut Pixmap, bounds: (u32, u32, u32, u32), radius: f32) -> (u32, u32, u32, u32) {
+    let pw = pm.width();
+    let ph = pm.height();
+    let pad = (radius * 2.0).ceil() as u32 + 2;
+    let expanded = expand_bounds(bounds, pad, pw, ph);
+    let (x0, y0, x1, y1) = expanded;
+    let cw = (x1 - x0 + 1) as usize;
+    let ch = (y1 - y0 + 1) as usize;
+    let full_w = pw as usize;
+
+    // If cropped rect covers nearly the whole canvas, blur in-place
+    if cw * ch * 4 >= (full_w * ph as usize) * 3 {
+        super::fx::fast_blur_rgba(pm.data_mut(), pw, ph, radius);
+        return (0, 0, pw.saturating_sub(1), ph.saturating_sub(1));
+    }
+
+    let mut sub = vec![0u8; cw * ch * 4];
+    let src = pm.data();
+    let row_bytes = cw * 4;
+    for row in 0..ch {
+        let sy = y0 as usize + row;
+        let s_off = (sy * full_w + x0 as usize) * 4;
+        let d_off = row * row_bytes;
+        sub[d_off..d_off + row_bytes].copy_from_slice(&src[s_off..s_off + row_bytes]);
+    }
+
+    super::fx::fast_blur_rgba(&mut sub, cw as u32, ch as u32, radius);
+
+    let dst = pm.data_mut();
+    for row in 0..ch {
+        let sy = y0 as usize + row;
+        let d_off = (sy * full_w + x0 as usize) * 4;
+        let s_off = row * row_bytes;
+        dst[d_off..d_off + row_bytes].copy_from_slice(&sub[s_off..s_off + row_bytes]);
+    }
+    expanded
+}
+
+fn blit_subrect(
+    dst: &mut Pixmap,
+    src: &Pixmap,
+    bounds: (u32, u32, u32, u32),
+    blend_mode: BlendMode,
+) {
+    let (x0, y0, x1, y1) = bounds;
+    let cw = x1 - x0 + 1;
+    let ch = y1 - y0 + 1;
+
+    if blend_mode == BlendMode::SourceOver {
+        let w = dst.width() as usize;
+        let dst_px = dst.pixels_mut();
+        let src_px = src.pixels();
+        for y in y0 as usize..=y1 as usize {
+            let row_start = y * w;
+            for x in x0 as usize..=x1 as usize {
+                let idx = row_start + x;
+                let s = src_px[idx];
+                let sa = s.alpha();
+                if sa == 0 {
+                    continue;
+                }
+                if sa == 255 {
+                    dst_px[idx] = s;
+                    continue;
+                }
+                let d = dst_px[idx];
+                let inv_a = 255 - sa as u16;
+                let out_r = (s.red() as u16 + ((d.red() as u16 * inv_a + 127) / 255)).min(255) as u8;
+                let out_g = (s.green() as u16 + ((d.green() as u16 * inv_a + 127) / 255)).min(255) as u8;
+                let out_b = (s.blue() as u16 + ((d.blue() as u16 * inv_a + 127) / 255)).min(255) as u8;
+                let out_a = (sa as u16 + ((d.alpha() as u16 * inv_a + 127) / 255)).min(255) as u8;
+                dst_px[idx] = PremultipliedColorU8::from_rgba(
+                    out_r.min(out_a),
+                    out_g.min(out_a),
+                    out_b.min(out_a),
+                    out_a,
+                )
+                .unwrap_or(s);
+            }
+        }
+        return;
+    }
+
+    // Non-SourceOver blend mode: copy tight subrect to small Pixmap and use tiny_skia blend
+    let Some(mut sub) = Pixmap::new(cw, ch) else {
+        return;
+    };
+    let full_w = src.width() as usize;
+    let row_bytes = cw as usize * 4;
+    let sdata = src.data();
+    let ddata = sub.data_mut();
+    for row in 0..ch as usize {
+        let sy = y0 as usize + row;
+        let s_off = (sy * full_w + x0 as usize) * 4;
+        let d_off = row * row_bytes;
+        ddata[d_off..d_off + row_bytes].copy_from_slice(&sdata[s_off..s_off + row_bytes]);
+    }
+    let paint = PixmapPaint {
+        opacity: 1.0,
+        blend_mode,
+        quality: FilterQuality::Nearest,
+    };
+    dst.draw_pixmap(x0 as i32, y0 as i32, sub.as_ref(), &paint, Transform::identity(), None);
+}
 
 /// Pure-Rust CPU Lottie (Bodymovin JSON) vector renderer on `tiny_skia`.
 /// Supports:
@@ -83,7 +306,7 @@ pub fn render_lottie_doc(
 
     let off_w = (w.ceil() as u32).max(1);
     let off_h = (h.ceil() as u32).max(1);
-    let Some(mut off) = Pixmap::new(off_w, off_h) else {
+    let Some(mut off) = acquire_zeroed_pixmap(off_w, off_h) else {
         return false;
     };
     let sx = w / comp_w;
@@ -93,16 +316,21 @@ pub fn render_lottie_doc(
     let assets = doc.get("assets").and_then(|v| v.as_array());
     if let Some(layers) = doc.get("layers").and_then(|v| v.as_array()) {
         render_layer_list(&mut off, layers, assets, frame, local_tf, 1.0);
-        let paint = PixmapPaint {
-            opacity: opacity.clamp(0.0, 1.0),
-            quality: FilterQuality::Bilinear,
-            ..PixmapPaint::default()
-        };
-        let dst_tf = Transform::from_translate(rx, ry)
-            .post_concat(Transform::from_rotate_at(rot_deg, rx + w * 0.5, ry + h * 0.5));
-        pixmap.draw_pixmap(0, 0, off.as_ref(), &paint, dst_tf, None);
+        let dirty = find_alpha_bounds(&off);
+        if dirty.is_some() {
+            let paint = PixmapPaint {
+                opacity: opacity.clamp(0.0, 1.0),
+                quality: FilterQuality::Bilinear,
+                ..PixmapPaint::default()
+            };
+            let dst_tf = Transform::from_translate(rx, ry)
+                .post_concat(Transform::from_rotate_at(rot_deg, rx + w * 0.5, ry + h * 0.5));
+            pixmap.draw_pixmap(0, 0, off.as_ref(), &paint, dst_tf, None);
+        }
+        release_zeroed_pixmap(off, dirty);
         return true;
     }
+    release_zeroed_pixmap(off, None);
     false
 }
 
@@ -157,7 +385,8 @@ fn render_layer_list(
     parent_tf: Transform,
     parent_opacity: f32,
 ) {
-    let mut matte_cache: HashMap<usize, Pixmap> = HashMap::new();
+    // Cache matte source pixmaps + their dirty bounds per layer index in this composition
+    let mut matte_cache: HashMap<usize, (Pixmap, Option<(u32, u32, u32, u32)>)> = HashMap::new();
 
     // Lottie layers are ordered top-to-bottom, so render in reverse (bottom-to-top).
     for idx in (0..layers.len()).rev() {
@@ -188,10 +417,16 @@ fn render_layer_list(
 
         let pw = pixmap.width();
         let ph = pixmap.height();
-        let Some(mut layer_pm) = Pixmap::new(pw, ph) else {
+        let Some(mut layer_pm) = acquire_zeroed_pixmap(pw, ph) else {
             continue;
         };
         render_single_layer(&mut layer_pm, layer, layers, assets, frame, parent_tf, parent_opacity);
+
+        let Some(mut dirty) = find_alpha_bounds(&layer_pm) else {
+            // Layer produced zero visible pixels — return immediately without blur/matte/blit
+            release_zeroed_pixmap(layer_pm, None);
+            continue;
+        };
 
         if blur_radius > 0.1 {
             let scale_est = ((parent_tf.sx * parent_tf.sx + parent_tf.ky * parent_tf.ky).sqrt()
@@ -199,10 +434,11 @@ fn render_layer_list(
                 * 0.5;
             let eff_radius = (blur_radius * scale_est.max(0.1)).min(64.0);
             if eff_radius > 0.2 {
-                super::fx::fast_blur_rgba(layer_pm.data_mut(), pw, ph, eff_radius);
+                dirty = blur_pixmap_subrect(&mut layer_pm, dirty, eff_radius);
             }
         }
 
+        let mut skip_blit = false;
         if (1..=4).contains(&tt) {
             let matte_idx = if let Some(tp) = layer.get("tp").and_then(|v| v.as_i64()) {
                 layers
@@ -215,63 +451,110 @@ fn render_layer_list(
             };
 
             if let Some(m_idx) = matte_idx {
-                let matte_pm = matte_cache.entry(m_idx).or_insert_with(|| {
-                    let mut m_pm = Pixmap::new(pw, ph).unwrap_or_else(|| Pixmap::new(1, 1).unwrap());
+                let (matte_pm, matte_bounds) = matte_cache.entry(m_idx).or_insert_with(|| {
+                    let mut m_pm = acquire_zeroed_pixmap(pw, ph)
+                        .unwrap_or_else(|| Pixmap::new(1, 1).unwrap());
                     let m_layer = &layers[m_idx];
                     let m_ip = m_layer.get("ip").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
                     let m_op = m_layer.get("op").and_then(|v| v.as_f64()).unwrap_or(1e9) as f32;
                     if frame >= m_ip && frame < m_op {
                         render_single_layer(&mut m_pm, m_layer, layers, assets, frame, parent_tf, 1.0);
                     }
-                    m_pm
+                    let mb = find_alpha_bounds(&m_pm);
+                    (m_pm, mb)
                 });
 
                 if matte_pm.width() == pw && matte_pm.height() == ph {
-                    apply_track_matte(&mut layer_pm, matte_pm, tt);
+                    if matches!(tt, 1 | 3) {
+                        // Positive alpha/luma matte: if matte is empty or disjoint, layer is completely clipped out
+                        match *matte_bounds {
+                            None => skip_blit = true,
+                            Some(mb) => {
+                                let ix0 = dirty.0.max(mb.0);
+                                let iy0 = dirty.1.max(mb.1);
+                                let ix1 = dirty.2.min(mb.2);
+                                let iy1 = dirty.3.min(mb.3);
+                                if ix0 > ix1 || iy0 > iy1 {
+                                    skip_blit = true;
+                                } else {
+                                    apply_track_matte_rect(&mut layer_pm, matte_pm, tt, (ix0, iy0, ix1, iy1));
+                                    // Blit only the intersected region (outside intersection is clipped)
+                                    blit_subrect(pixmap, &layer_pm, (ix0, iy0, ix1, iy1), blend_mode);
+                                    release_zeroed_pixmap(layer_pm, Some(dirty));
+                                    continue;
+                                }
+                            }
+                        }
+                    } else {
+                        // Inverted matte (tt == 2 | 4): only need to mask overlapping region
+                        if let Some(mb) = *matte_bounds {
+                            let ix0 = dirty.0.max(mb.0);
+                            let iy0 = dirty.1.max(mb.1);
+                            let ix1 = dirty.2.min(mb.2);
+                            let iy1 = dirty.3.min(mb.3);
+                            if ix0 <= ix1 && iy0 <= iy1 {
+                                apply_track_matte_rect(&mut layer_pm, matte_pm, tt, (ix0, iy0, ix1, iy1));
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        let paint = PixmapPaint {
-            opacity: 1.0,
-            blend_mode,
-            quality: FilterQuality::Nearest,
-        };
-        pixmap.draw_pixmap(0, 0, layer_pm.as_ref(), &paint, Transform::identity(), None);
+        if !skip_blit {
+            blit_subrect(pixmap, &layer_pm, dirty, blend_mode);
+        }
+        release_zeroed_pixmap(layer_pm, Some(dirty));
+    }
+
+    // Return cached matte pixmaps to thread-local scratch pool
+    for (_, (m_pm, m_dirty)) in matte_cache {
+        release_zeroed_pixmap(m_pm, m_dirty);
     }
 }
 
-fn apply_track_matte(target: &mut Pixmap, matte: &Pixmap, tt: i64) {
+fn apply_track_matte_rect(
+    target: &mut Pixmap,
+    matte: &Pixmap,
+    tt: i64,
+    rect: (u32, u32, u32, u32),
+) {
+    let w = target.width() as usize;
     let dst = target.pixels_mut();
     let msrc = matte.pixels();
-    for (d, m) in dst.iter_mut().zip(msrc.iter()) {
-        if d.alpha() == 0 {
-            continue;
-        }
-        let factor = match tt {
-            1 => m.alpha() as f32 / 255.0,
-            2 => 1.0 - (m.alpha() as f32 / 255.0),
-            3 => {
-                (0.2126 * m.red() as f32 + 0.7152 * m.green() as f32 + 0.0722 * m.blue() as f32)
-                    / 255.0
+    let (x0, y0, x1, y1) = (
+        rect.0 as usize,
+        rect.1 as usize,
+        rect.2 as usize,
+        rect.3 as usize,
+    );
+
+    for y in y0..=y1 {
+        let row = y * w;
+        for x in x0..=x1 {
+            let idx = row + x;
+            let d = dst[idx];
+            if d.alpha() == 0 {
+                continue;
             }
-            4 => {
-                1.0 - (0.2126 * m.red() as f32
-                    + 0.7152 * m.green() as f32
-                    + 0.0722 * m.blue() as f32)
-                    / 255.0
+            let m = msrc[idx];
+            let factor_u16: u16 = match tt {
+                1 => m.alpha() as u16,
+                2 => 255 - m.alpha() as u16,
+                3 => ((54u32 * m.red() as u32 + 183u32 * m.green() as u32 + 18u32 * m.blue() as u32) >> 8) as u16,
+                4 => 255 - (((54u32 * m.red() as u32 + 183u32 * m.green() as u32 + 18u32 * m.blue() as u32) >> 8) as u16),
+                _ => 255,
+            };
+            if factor_u16 == 0 {
+                dst[idx] = PremultipliedColorU8::TRANSPARENT;
+            } else if factor_u16 < 255 {
+                let r = ((d.red() as u16 * factor_u16 + 127) / 255) as u8;
+                let g = ((d.green() as u16 * factor_u16 + 127) / 255) as u8;
+                let b = ((d.blue() as u16 * factor_u16 + 127) / 255) as u8;
+                let a = ((d.alpha() as u16 * factor_u16 + 127) / 255) as u8;
+                dst[idx] = PremultipliedColorU8::from_rgba(r.min(a), g.min(a), b.min(a), a)
+                    .unwrap_or(PremultipliedColorU8::TRANSPARENT);
             }
-            _ => 1.0,
-        };
-        if factor <= 0.001 {
-            *d = PremultipliedColorU8::TRANSPARENT;
-        } else if factor < 0.999 {
-            let r = ((d.red() as f32) * factor).round().clamp(0.0, 255.0) as u8;
-            let g = ((d.green() as f32) * factor).round().clamp(0.0, 255.0) as u8;
-            let b = ((d.blue() as f32) * factor).round().clamp(0.0, 255.0) as u8;
-            let a = ((d.alpha() as f32) * factor).round().clamp(0.0, 255.0) as u8;
-            *d = PremultipliedColorU8::from_rgba(r.min(a), g.min(a), b.min(a), a)
-                .unwrap_or(PremultipliedColorU8::TRANSPARENT);
         }
     }
 }
