@@ -6,12 +6,84 @@ pub struct Scene {
     pub schema_version: String,
     pub canvas: Canvas,
     #[serde(default)]
+    pub world: Option<WorldCameraSpec>,
+    #[serde(default)]
     pub profiles: std::collections::HashMap<String, CompositionProfile>,
     #[serde(default)]
     pub fonts: Vec<String>,
     #[serde(default)]
     pub audio: Vec<AudioTrack>,
     pub layers: Vec<Layer>,
+}
+
+/// Coordinate space for a layer: `screen` (default, v1.1 behavior, unaffected by 2.5D camera)
+/// or `world` (opt-in v1.2 2.5D diorama plane).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LayerSpace {
+    #[default]
+    Screen,
+    World,
+}
+
+/// Semantic depth slots for 2.5D diorama planes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DepthSlot {
+    Backdrop,
+    Far,
+    Mid,
+    Subject,
+    Foreground,
+}
+
+impl DepthSlot {
+    pub fn default_z(self) -> f32 {
+        match self {
+            DepthSlot::Backdrop => -1.0,
+            DepthSlot::Far => -0.5,
+            DepthSlot::Mid => 0.0,
+            DepthSlot::Subject => 0.25,
+            DepthSlot::Foreground => 0.65,
+        }
+    }
+}
+
+/// High-level 2.5D camera motion presets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CameraPreset {
+    PushIn,
+    PullOut,
+    TruckLeft,
+    TruckRight,
+    RackFocus,
+    PunchCut,
+}
+
+/// Opt-in 2.5D scalar virtual camera (`schema_version: "1.2"`).
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct WorldCameraSpec {
+    #[serde(default)]
+    pub x: f32,
+    #[serde(default)]
+    pub y: f32,
+    #[serde(default)]
+    pub z: f32,
+    #[serde(default)]
+    pub roll: f32,
+    #[serde(default)]
+    pub focus_z: Option<f32>,
+    #[serde(default = "default_dof_strength")]
+    pub dof_strength: f32,
+    #[serde(default)]
+    pub preset: Option<CameraPreset>,
+    #[serde(default)]
+    pub animations: Vec<Animation>,
+}
+
+fn default_dof_strength() -> f32 {
+    1.2
 }
 
 fn default_schema_version() -> String {
@@ -158,11 +230,26 @@ pub struct Layer {
     #[serde(default)]
     pub matte_layer: Option<Box<Layer>>,
     #[serde(default)]
+    pub space: LayerSpace,
+    #[serde(default)]
+    pub depth_slot: Option<DepthSlot>,
+    #[serde(default)]
+    pub depth_z: Option<f32>,
+    #[serde(default)]
     pub echo: Option<EchoSpec>,
     #[serde(flatten)]
     pub kind: LayerKind,
     #[serde(default)]
     pub animations: Vec<Animation>,
+}
+
+impl Layer {
+    /// Effective normalized depth for 2.5D world-space planes.
+    pub fn effective_depth_z(&self) -> f32 {
+        self.depth_z
+            .or_else(|| self.depth_slot.map(|s| s.default_z()))
+            .unwrap_or(0.0)
+    }
 }
 
 impl Layer {

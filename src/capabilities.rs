@@ -3,8 +3,8 @@ use serde::Serialize;
 
 use crate::schema::Scene;
 
-pub const RENDERER_VERSION: &str = "1.1";
-pub const SCHEMA_VERSION: &str = "1.1";
+pub const RENDERER_VERSION: &str = "1.2";
+pub const SCHEMA_VERSION: &str = "1.2";
 pub const MIN_SCHEMA_VERSION: &str = "1.0";
 
 #[derive(Debug, Clone, Serialize)]
@@ -304,7 +304,8 @@ mod tests {
     fn test_schema_version_compatibility() {
         assert!(check_schema_version("1.0").is_ok());
         assert!(check_schema_version("1.1").is_ok());
-        assert!(check_schema_version("1.2").is_err());
+        assert!(check_schema_version("1.2").is_ok());
+        assert!(check_schema_version("1.3").is_err());
         assert!(check_schema_version("2.0").is_err());
         assert!(check_schema_version("0.9").is_err());
         assert!(check_schema_version("invalid").is_err());

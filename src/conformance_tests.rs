@@ -150,8 +150,8 @@ fn test_schema_and_capabilities_alignment() {
     assert_eq!(schema_val["title"], "RustrenScene");
 
     let reg = CapabilityRegistry::current();
-    assert_eq!(reg.renderer_version, "1.1");
-    assert_eq!(reg.schema_version, "1.1");
+    assert_eq!(reg.renderer_version, "1.2");
+    assert_eq!(reg.schema_version, "1.2");
     assert!(reg.capabilities.elements.container);
     assert!(reg.capabilities.elements.rect);
     assert!(reg.capabilities.elements.circle);
@@ -1368,4 +1368,41 @@ fn test_v1_1_frozen_golden_regression_and_phase0_primitives() {
     let f_b = crate::renderer::render_frame_at_time(&v11_scene, &assets, 0.5).unwrap();
     assert_eq!(f_a, f_b, "frozen v1.1 scene must remain bit-for-bit deterministic");
     assert!(f_a.iter().any(|&b| b > 0));
+}
+
+#[test]
+fn test_v1_2_world_camera_rack_focus_and_preflight_qa() {
+    let json = r##"{
+        "schema_version": "1.2",
+        "canvas": { "width": 160, "height": 90, "fps": 24, "duration_secs": 4.0, "background": "#020617" },
+        "world": { "preset": "truck_right", "focus_z": 0.25, "dof_strength": 1.2 },
+        "layers": [
+            {
+                "type": "rect", "space": "world", "depth_slot": "backdrop",
+                "x": 0, "y": 0, "width": 160, "height": 90, "color": "#1e293b"
+            },
+            {
+                "type": "rect", "space": "world", "depth_slot": "subject",
+                "x": 60, "y": 25, "width": 40, "height": 40, "color": "#38bdf8"
+            },
+            {
+                "type": "rect", "space": "screen",
+                "x": 10, "y": 10, "width": 20, "height": 10, "color": "#f43f5e"
+            }
+        ]
+    }"##;
+    crate::lint::validate_no_unknown_fields(json).unwrap();
+    let scene: crate::schema::Scene = serde_json::from_str(json).unwrap();
+    crate::capabilities::validate_scene_capabilities(&scene).unwrap();
+    let assets = crate::assets::AssetStore::load_for_scene(&scene, &std::env::temp_dir()).unwrap();
+    let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
+    let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 3.0).unwrap();
+    assert_ne!(f0, f1, "world camera truck_right must move world-space planes over time");
+
+    // Pre-flight QA must flag EDGE_REVEAL on non-overscaled 160x90 backdrop during truck_right
+    let warnings = crate::lint::collect_lint_warnings_structured(&scene);
+    assert!(
+        warnings.iter().any(|w| w.code == "EDGE_REVEAL"),
+        "expected EDGE_REVEAL warning, got: {warnings:#?}"
+    );
 }

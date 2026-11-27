@@ -773,6 +773,7 @@ fn parse_html_scene_internal(
     Ok(Scene {
         schema_version,
         canvas,
+        world: None,
         profiles,
         fonts,
         audio,
@@ -942,6 +943,9 @@ impl CommonLayerMeta {
     fn into_layer(self, kind: LayerKind, animations: Vec<Animation>) -> Layer {
         Layer {
             name: self.name,
+            space: crate::schema::LayerSpace::Screen,
+            depth_slot: None,
+            depth_z: None,
             start_sec: self.start_sec,
             end_sec: self.end_sec,
             duration_secs: self.duration_secs,

@@ -3,7 +3,10 @@
   "title": "RustrenScene",
   "type": "object",
   "additionalProperties": false,
-  "required": ["canvas", "layers"],
+  "required": [
+    "canvas",
+    "layers"
+  ],
   "properties": {
     "schema_version": {
       "type": "string",
@@ -19,17 +22,37 @@
     "canvas": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["width", "height", "fps", "duration_secs"],
+      "required": [
+        "width",
+        "height",
+        "fps",
+        "duration_secs"
+      ],
       "properties": {
-        "width": { "type": "integer", "minimum": 1, "description": "Canvas width in px" },
-        "height": { "type": "integer", "minimum": 1, "description": "Canvas height in px" },
-        "fps": { "type": "integer", "minimum": 1, "description": "Frame per second" },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Canvas width in px"
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Canvas height in px"
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Frame per second"
+        },
         "duration_secs": {
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "Total video duration in seconds"
         },
-        "background": { "$ref": "#/$defs/HexColor", "default": "#000000" }
+        "background": {
+          "$ref": "#/$defs/HexColor",
+          "default": "#000000"
+        }
       }
     },
     "profiles": {
@@ -38,18 +61,34 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "width": { "type": "integer", "minimum": 1 },
-          "height": { "type": "integer", "minimum": 1 },
-          "fps": { "type": "integer", "minimum": 1 },
-          "duration_secs": { "type": "number", "exclusiveMinimum": 0 },
-          "background": { "$ref": "#/$defs/HexColor" }
+          "width": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "fps": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "duration_secs": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "background": {
+            "$ref": "#/$defs/HexColor"
+          }
         }
       },
       "description": "Named composition variants (e.g. portrait, square, 4k) selectable via --composition <name>"
     },
     "fonts": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "default": [],
       "description": "Font file paths (.ttf/.otf). Empty = fallback to system sans-serif."
     },
@@ -59,36 +98,111 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["src"],
+        "required": [
+          "src"
+        ],
         "properties": {
-          "src": { "type": "string", "description": "Local path or audio URL" },
-          "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-          "volume": { "type": "number", "minimum": 0, "default": 1.0 },
-          "trim_start_sec": { "type": "number", "minimum": 0 },
-          "trim_end_sec": { "type": "number", "minimum": 0 },
+          "src": {
+            "type": "string",
+            "description": "Local path or audio URL"
+          },
+          "start_sec": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0.0
+          },
+          "volume": {
+            "type": "number",
+            "minimum": 0,
+            "default": 1.0
+          },
+          "trim_start_sec": {
+            "type": "number",
+            "minimum": 0
+          },
+          "trim_end_sec": {
+            "type": "number",
+            "minimum": 0
+          },
           "playback_rate": {
             "type": "number",
             "exclusiveMinimum": 0,
             "default": 1.0,
             "description": "Audio playback speed (1.0 = normal)"
           },
-          "fade_in_secs": { "type": "number", "minimum": 0, "default": 0.0 },
-          "fade_out_secs": { "type": "number", "minimum": 0, "default": 0.0 },
+          "fade_in_secs": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0.0
+          },
+          "fade_out_secs": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0.0
+          },
           "animations": {
             "type": "array",
-            "items": { "$ref": "#/$defs/Animation" }
+            "items": {
+              "$ref": "#/$defs/Animation"
+            }
           }
         }
       }
     },
     "layers": {
       "type": "array",
-      "items": { "$ref": "#/$defs/Layer" },
+      "items": {
+        "$ref": "#/$defs/Layer"
+      },
       "description": "Back-to-front z-order; root layers use absolute canvas coordinates."
+    },
+    "world": {
+      "type": "object",
+      "description": "Opt-in v1.2 2.5D scalar virtual camera",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "roll": {
+          "type": "number"
+        },
+        "focus_z": {
+          "type": "number"
+        },
+        "dof_strength": {
+          "type": "number"
+        },
+        "preset": {
+          "type": "string",
+          "enum": [
+            "push_in",
+            "pull_out",
+            "truck_left",
+            "truck_right",
+            "rack_focus",
+            "punch_cut"
+          ]
+        },
+        "animations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
+        }
+      }
     }
   },
   "$defs": {
-    "HexColor": { "type": "string", "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$" },
+    "HexColor": {
+      "type": "string",
+      "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+    },
     "Easing": {
       "enum": [
         "linear",
@@ -115,24 +229,44 @@
       "additionalProperties": false,
       "properties": {
         "type": {
-          "enum": ["linear", "radial"],
+          "enum": [
+            "linear",
+            "radial"
+          ],
           "default": "linear"
         },
-        "from": { "$ref": "#/$defs/HexColor" },
-        "to": { "$ref": "#/$defs/HexColor" },
+        "from": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "to": {
+          "$ref": "#/$defs/HexColor"
+        },
         "stops": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["offset", "color"],
+            "required": [
+              "offset",
+              "color"
+            ],
             "properties": {
-              "offset": { "type": "number", "minimum": 0, "maximum": 1 },
-              "color": { "$ref": "#/$defs/HexColor" }
+              "offset": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "color": {
+                "$ref": "#/$defs/HexColor"
+              }
             }
           }
         },
-        "angle": { "type": "number", "default": 0.0, "description": "Clockwise degrees (0 = left to right)" }
+        "angle": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Clockwise degrees (0 = left to right)"
+        }
       }
     },
     "Layout": {
@@ -140,7 +274,10 @@
       "additionalProperties": false,
       "properties": {
         "direction": {
-          "enum": ["row", "column"],
+          "enum": [
+            "row",
+            "column"
+          ],
           "default": "row"
         },
         "justify_content": {
@@ -167,15 +304,36 @@
             "flex_end"
           ]
         },
-        "gap": { "type": "number", "default": 0.0 },
-        "padding": { "type": "number", "default": 0.0 },
-        "flex_wrap": { "type": "boolean", "default": false },
-        "row_gap": { "type": "number" },
-        "column_gap": { "type": "number" },
-        "padding_top": { "type": "number" },
-        "padding_right": { "type": "number" },
-        "padding_bottom": { "type": "number" },
-        "padding_left": { "type": "number" }
+        "gap": {
+          "type": "number",
+          "default": 0.0
+        },
+        "padding": {
+          "type": "number",
+          "default": 0.0
+        },
+        "flex_wrap": {
+          "type": "boolean",
+          "default": false
+        },
+        "row_gap": {
+          "type": "number"
+        },
+        "column_gap": {
+          "type": "number"
+        },
+        "padding_top": {
+          "type": "number"
+        },
+        "padding_right": {
+          "type": "number"
+        },
+        "padding_bottom": {
+          "type": "number"
+        },
+        "padding_left": {
+          "type": "number"
+        }
       }
     },
     "BlendMode": {
@@ -199,39 +357,96 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "color": { "$ref": "#/$defs/HexColor", "default": "#00000080" },
-        "offset_x": { "type": "number", "default": 0.0 },
-        "offset_y": { "type": "number", "default": 0.0 },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0 }
+        "color": {
+          "$ref": "#/$defs/HexColor",
+          "default": "#00000080"
+        },
+        "offset_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "offset_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        }
       }
     },
     "TextSpan": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["text"],
+      "required": [
+        "text"
+      ],
       "properties": {
-        "text": { "type": "string" },
-        "color": { "$ref": "#/$defs/HexColor" },
-        "font_weight": {
-          "enum": ["thin", "extralight", "light", "normal", "medium", "semibold", "bold", "extrabold", "black", 100, 200, 300, 400, 500, 600, 700, 800, 900]
+        "text": {
+          "type": "string"
         },
-        "font_family": { "type": "string" },
-        "font_size": { "type": "number", "exclusiveMinimum": 0 }
+        "color": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "font_weight": {
+          "enum": [
+            "thin",
+            "extralight",
+            "light",
+            "normal",
+            "medium",
+            "semibold",
+            "bold",
+            "extrabold",
+            "black",
+            100,
+            200,
+            300,
+            400,
+            500,
+            600,
+            700,
+            800,
+            900
+          ]
+        },
+        "font_family": {
+          "type": "string"
+        },
+        "font_size": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
       }
     },
     "SpringConfig": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "stiffness": { "type": "number", "exclusiveMinimum": 0, "default": 120.0 },
-        "damping": { "type": "number", "minimum": 0, "default": 14.0 },
-        "mass": { "type": "number", "exclusiveMinimum": 0, "default": 1.0 }
+        "stiffness": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 120.0
+        },
+        "damping": {
+          "type": "number",
+          "minimum": 0,
+          "default": 14.0
+        },
+        "mass": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.0
+        }
       }
     },
     "Animation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["property"],
+      "required": [
+        "property"
+      ],
       "properties": {
         "property": {
           "enum": [
@@ -273,55 +488,96 @@
         },
         "from": {
           "oneOf": [
-            { "type": "number" },
-            { "$ref": "#/$defs/HexColor" }
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/HexColor"
+            }
           ]
         },
         "to": {
           "oneOf": [
-            { "type": "number" },
-            { "$ref": "#/$defs/HexColor" }
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/HexColor"
+            }
           ]
         },
-        "start_sec": { "type": "number", "minimum": 0, "description": "Global video time (seconds)" },
-        "end_sec": { "type": "number", "minimum": 0, "description": "Global video time (seconds)" },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Global video time (seconds)"
+        },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Global video time (seconds)"
+        },
         "keyframes": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["time", "value"],
+            "required": [
+              "time",
+              "value"
+            ],
             "properties": {
-              "time": { "type": "number", "minimum": 0 },
+              "time": {
+                "type": "number",
+                "minimum": 0
+              },
               "value": {
                 "oneOf": [
-                  { "type": "number" },
-                  { "$ref": "#/$defs/HexColor" }
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/HexColor"
+                  }
                 ]
               },
-              "easing": { "$ref": "#/$defs/Easing" },
+              "easing": {
+                "$ref": "#/$defs/Easing"
+              },
               "bezier": {
                 "type": "array",
-                "items": { "type": "number" },
+                "items": {
+                  "type": "number"
+                },
                 "minItems": 4,
                 "maxItems": 4
               }
             }
           }
         },
-        "easing": { "$ref": "#/$defs/Easing" },
+        "easing": {
+          "$ref": "#/$defs/Easing"
+        },
         "bezier": {
           "type": "array",
-          "items": { "type": "number" },
+          "items": {
+            "type": "number"
+          },
           "minItems": 4,
           "maxItems": 4,
           "description": "Control points [x1, y1, x2, y2] for cubic_bezier easing"
         },
-        "spring": { "$ref": "#/$defs/SpringConfig" },
+        "spring": {
+          "$ref": "#/$defs/SpringConfig"
+        },
         "repeat": {
           "oneOf": [
-            { "type": "integer", "minimum": 0 },
-            { "const": "infinite" }
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "infinite"
+            }
           ],
           "description": "Number of animation cycle repeats or infinite"
         },
@@ -334,33 +590,73 @@
     },
     "Layer": {
       "oneOf": [
-        { "$ref": "#/$defs/ContainerLayer" },
-        { "$ref": "#/$defs/RectLayer" },
-        { "$ref": "#/$defs/CircleLayer" },
-        { "$ref": "#/$defs/TextLayer" },
-        { "$ref": "#/$defs/SvgLayer" },
-        { "$ref": "#/$defs/ImageLayer" },
-        { "$ref": "#/$defs/VideoLayer" },
-        { "$ref": "#/$defs/WaveformLayer" },
-        { "$ref": "#/$defs/LottieLayer" },
-        { "$ref": "#/$defs/ParticlesLayer" },
-        { "$ref": "#/$defs/Mesh3dLayer" },
-        { "$ref": "#/$defs/IncludeLayer" }
+        {
+          "$ref": "#/$defs/ContainerLayer"
+        },
+        {
+          "$ref": "#/$defs/RectLayer"
+        },
+        {
+          "$ref": "#/$defs/CircleLayer"
+        },
+        {
+          "$ref": "#/$defs/TextLayer"
+        },
+        {
+          "$ref": "#/$defs/SvgLayer"
+        },
+        {
+          "$ref": "#/$defs/ImageLayer"
+        },
+        {
+          "$ref": "#/$defs/VideoLayer"
+        },
+        {
+          "$ref": "#/$defs/WaveformLayer"
+        },
+        {
+          "$ref": "#/$defs/LottieLayer"
+        },
+        {
+          "$ref": "#/$defs/ParticlesLayer"
+        },
+        {
+          "$ref": "#/$defs/Mesh3dLayer"
+        },
+        {
+          "$ref": "#/$defs/IncludeLayer"
+        }
       ]
     },
     "ContainerLayer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "name": { "type": "string" },
-        "type": { "const": "container" },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "const": "container"
+        },
         "position": {
-          "enum": ["relative", "absolute"],
+          "enum": [
+            "relative",
+            "absolute"
+          ],
           "default": "relative"
         },
-        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-        "end_sec": { "type": "number", "minimum": 0 },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0
+        },
         "duration_secs": {
           "type": "number",
           "minimum": 0,
@@ -372,19 +668,57 @@
           "default": 0.0,
           "description": "Backward overlap in container timeline series mode"
         },
-        "flex_grow": { "type": "number" },
-        "margin": { "type": "number" },
-        "blend_mode": { "$ref": "#/$defs/BlendMode" },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
-        "shadow": { "$ref": "#/$defs/Shadow" },
-        "x": { "type": "number", "default": 0.0 },
-        "y": { "type": "number", "default": 0.0 },
-        "width": { "type": "number" },
-        "height": { "type": "number" },
-        "radius": { "type": "number", "default": 0.0 },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
-        "scale": { "type": "number", "exclusiveMinimum": 0, "default": 1.0 },
-        "rotation": { "type": "number", "default": 0.0, "description": "Clockwise rotation in degrees" },
+        "flex_grow": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
+        "x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "radius": {
+          "type": "number",
+          "default": 0.0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
+        "scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Clockwise rotation in degrees"
+        },
         "anchor": {
           "enum": [
             "top_left",
@@ -399,18 +733,48 @@
           ],
           "default": "top_left"
         },
-        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
-        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
-        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
-        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
-        "skew_x": { "type": "number", "default": 0.0 },
-        "skew_y": { "type": "number", "default": 0.0 },
+        "scale_x": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Horizontal scale multiplier composed with scale"
+        },
+        "scale_y": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Vertical scale multiplier composed with scale"
+        },
+        "pivot_x": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized horizontal transform pivot (0 = left, 1 = right)"
+        },
+        "pivot_y": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)"
+        },
+        "skew_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "skew_y": {
+          "type": "number",
+          "default": 0.0
+        },
         "track_matte": {
           "type": "string",
-          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "enum": [
+            "none",
+            "alpha",
+            "alpha_inverted",
+            "luma",
+            "luma_inverted"
+          ],
           "default": "none"
         },
-        "matte_layer": { "$ref": "#/$defs/Layer" },
+        "matte_layer": {
+          "$ref": "#/$defs/Layer"
+        },
         "clip": {
           "type": "boolean",
           "default": false,
@@ -428,7 +792,11 @@
           "description": "If true, container opacity multiplies into children"
         },
         "timeline": {
-          "enum": ["global", "local", "series"],
+          "enum": [
+            "global",
+            "local",
+            "series"
+          ],
           "default": "global",
           "description": "global = canvas time; local = relative to container start_sec; series = sequential children"
         },
@@ -438,25 +806,54 @@
           "default": 0.0,
           "description": "Progressive delay between children in seconds"
         },
-        "background": { "$ref": "#/$defs/HexColor" },
-        "gradient": { "$ref": "#/$defs/LinearGradient" },
-        "border_color": { "$ref": "#/$defs/HexColor" },
-        "border_width": { "type": "number", "default": 0.0 },
-        "layout": { "$ref": "#/$defs/Layout" },
+        "background": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "gradient": {
+          "$ref": "#/$defs/LinearGradient"
+        },
+        "border_color": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "border_width": {
+          "type": "number",
+          "default": 0.0
+        },
+        "layout": {
+          "$ref": "#/$defs/Layout"
+        },
         "children": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Layer" }
+          "items": {
+            "$ref": "#/$defs/Layer"
+          }
         },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         },
-        "margin_top": { "type": "number" },
-        "margin_right": { "type": "number" },
-        "margin_bottom": { "type": "number" },
-        "margin_left": { "type": "number" },
-        "rotate_y": { "type": "number", "default": 0.0 },
-        "rotate_x": { "type": "number", "default": 0.0 },
+        "margin_top": {
+          "type": "number"
+        },
+        "margin_right": {
+          "type": "number"
+        },
+        "margin_bottom": {
+          "type": "number"
+        },
+        "margin_left": {
+          "type": "number"
+        },
+        "rotate_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_x": {
+          "type": "number",
+          "default": 0.0
+        },
         "perspective": {
           "type": "number",
           "default": 800.0,
@@ -472,7 +869,10 @@
           "default": 0.0,
           "description": "Painter's depth sort order within root or parent container"
         },
-        "z": { "type": "number", "description": "Alias of z_index" },
+        "z": {
+          "type": "number",
+          "description": "Alias of z_index"
+        },
         "grain": {
           "type": "number",
           "minimum": 0,
@@ -493,23 +893,67 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
-        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
-        "echo": { "$ref": "#/$defs/Echo" }
+        "wave_warp": {
+          "$ref": "#/$defs/WaveWarp"
+        },
+        "echo": {
+          "$ref": "#/$defs/Echo"
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "world"
+          ],
+          "default": "screen"
+        },
+        "depth_slot": {
+          "type": "string",
+          "enum": [
+            "backdrop",
+            "far",
+            "mid",
+            "subject",
+            "foreground"
+          ]
+        },
+        "depth_z": {
+          "type": "number"
+        }
       }
     },
     "RectLayer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "width", "height", "color"],
+      "required": [
+        "type",
+        "width",
+        "height",
+        "color"
+      ],
       "properties": {
-        "name": { "type": "string" },
-        "type": { "const": "rect" },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "const": "rect"
+        },
         "position": {
-          "enum": ["relative", "absolute"],
+          "enum": [
+            "relative",
+            "absolute"
+          ],
           "default": "relative"
         },
-        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-        "end_sec": { "type": "number", "minimum": 0 },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0
+        },
         "duration_secs": {
           "type": "number",
           "minimum": 0,
@@ -521,23 +965,70 @@
           "default": 0.0,
           "description": "Backward overlap in container timeline series mode"
         },
-        "flex_grow": { "type": "number" },
-        "margin": { "type": "number" },
-        "blend_mode": { "$ref": "#/$defs/BlendMode" },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
-        "shadow": { "$ref": "#/$defs/Shadow" },
-        "x": { "type": "number", "default": 0.0 },
-        "y": { "type": "number", "default": 0.0 },
-        "width": { "type": "number" },
-        "height": { "type": "number" },
-        "radius": { "type": "number", "default": 0.0 },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
-        "scale": { "type": "number", "exclusiveMinimum": 0, "default": 1.0 },
-        "rotation": { "type": "number", "default": 0.0, "description": "Clockwise rotation in degrees" },
-        "color": { "$ref": "#/$defs/HexColor" },
-        "gradient": { "$ref": "#/$defs/LinearGradient" },
-        "border_color": { "$ref": "#/$defs/HexColor" },
-        "border_width": { "type": "number", "default": 0.0 },
+        "flex_grow": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
+        "x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "radius": {
+          "type": "number",
+          "default": 0.0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
+        "scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Clockwise rotation in degrees"
+        },
+        "color": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "gradient": {
+          "$ref": "#/$defs/LinearGradient"
+        },
+        "border_color": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "border_width": {
+          "type": "number",
+          "default": 0.0
+        },
         "path_progress": {
           "type": "number",
           "minimum": 0,
@@ -545,15 +1036,28 @@
           "default": 1.0,
           "description": "Border stroke animation progress (0.0 - 1.0)"
         },
-        "stroke_dashoffset": { "type": "number", "description": "Stroke dash offset (px)" },
+        "stroke_dashoffset": {
+          "type": "number",
+          "description": "Stroke dash offset (px)"
+        },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         },
-        "margin_top": { "type": "number" },
-        "margin_right": { "type": "number" },
-        "margin_bottom": { "type": "number" },
-        "margin_left": { "type": "number" },
+        "margin_top": {
+          "type": "number"
+        },
+        "margin_right": {
+          "type": "number"
+        },
+        "margin_bottom": {
+          "type": "number"
+        },
+        "margin_left": {
+          "type": "number"
+        },
         "anchor": {
           "enum": [
             "top_left",
@@ -568,14 +1072,42 @@
           ],
           "default": "top_left"
         },
-        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
-        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
-        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
-        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
-        "skew_x": { "type": "number", "default": 0.0 },
-        "skew_y": { "type": "number", "default": 0.0 },
-        "rotate_y": { "type": "number", "default": 0.0 },
-        "rotate_x": { "type": "number", "default": 0.0 },
+        "scale_x": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Horizontal scale multiplier composed with scale"
+        },
+        "scale_y": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Vertical scale multiplier composed with scale"
+        },
+        "pivot_x": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized horizontal transform pivot (0 = left, 1 = right)"
+        },
+        "pivot_y": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)"
+        },
+        "skew_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "skew_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_x": {
+          "type": "number",
+          "default": 0.0
+        },
         "perspective": {
           "type": "number",
           "default": 800.0,
@@ -591,7 +1123,10 @@
           "default": 0.0,
           "description": "Painter's depth sort order within root or parent container"
         },
-        "z": { "type": "number", "description": "Alias of z_index" },
+        "z": {
+          "type": "number",
+          "description": "Alias of z_index"
+        },
         "grain": {
           "type": "number",
           "minimum": 0,
@@ -612,28 +1147,79 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
-        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
+        "wave_warp": {
+          "$ref": "#/$defs/WaveWarp"
+        },
         "track_matte": {
-          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "enum": [
+            "none",
+            "alpha",
+            "alpha_inverted",
+            "luma",
+            "luma_inverted"
+          ],
           "default": "none"
         },
-        "matte_layer": { "$ref": "#/$defs/Layer" },
-        "echo": { "$ref": "#/$defs/Echo" }
+        "matte_layer": {
+          "$ref": "#/$defs/Layer"
+        },
+        "echo": {
+          "$ref": "#/$defs/Echo"
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "world"
+          ],
+          "default": "screen"
+        },
+        "depth_slot": {
+          "type": "string",
+          "enum": [
+            "backdrop",
+            "far",
+            "mid",
+            "subject",
+            "foreground"
+          ]
+        },
+        "depth_z": {
+          "type": "number"
+        }
       }
     },
     "CircleLayer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "r", "color"],
+      "required": [
+        "type",
+        "r",
+        "color"
+      ],
       "properties": {
-        "name": { "type": "string" },
-        "type": { "const": "circle" },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "const": "circle"
+        },
         "position": {
-          "enum": ["relative", "absolute"],
+          "enum": [
+            "relative",
+            "absolute"
+          ],
           "default": "relative"
         },
-        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-        "end_sec": { "type": "number", "minimum": 0 },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0
+        },
         "duration_secs": {
           "type": "number",
           "minimum": 0,
@@ -645,17 +1231,45 @@
           "default": 0.0,
           "description": "Backward overlap in container timeline series mode"
         },
-        "flex_grow": { "type": "number" },
-        "margin": { "type": "number" },
-        "blend_mode": { "$ref": "#/$defs/BlendMode" },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
-        "shadow": { "$ref": "#/$defs/Shadow" },
-        "cx": { "type": "number", "default": 0.0 },
-        "cy": { "type": "number", "default": 0.0 },
-        "r": { "type": "number", "exclusiveMinimum": 0 },
-        "color": { "$ref": "#/$defs/HexColor" },
-        "border_color": { "$ref": "#/$defs/HexColor" },
-        "border_width": { "type": "number", "default": 0.0 },
+        "flex_grow": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
+        "cx": {
+          "type": "number",
+          "default": 0.0
+        },
+        "cy": {
+          "type": "number",
+          "default": 0.0
+        },
+        "r": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "color": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "border_color": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "border_width": {
+          "type": "number",
+          "default": 0.0
+        },
         "path_progress": {
           "type": "number",
           "minimum": 0,
@@ -663,8 +1277,16 @@
           "default": 1.0,
           "description": "Border stroke animation progress (0.0 - 1.0)"
         },
-        "stroke_dashoffset": { "type": "number", "description": "Stroke dash offset (px)" },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "stroke_dashoffset": {
+          "type": "number",
+          "description": "Stroke dash offset (px)"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
         "scale": {
           "type": "number",
           "default": 1.0,
@@ -672,12 +1294,22 @@
         },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         },
-        "margin_top": { "type": "number" },
-        "margin_right": { "type": "number" },
-        "margin_bottom": { "type": "number" },
-        "margin_left": { "type": "number" },
+        "margin_top": {
+          "type": "number"
+        },
+        "margin_right": {
+          "type": "number"
+        },
+        "margin_bottom": {
+          "type": "number"
+        },
+        "margin_left": {
+          "type": "number"
+        },
         "anchor": {
           "enum": [
             "top_left",
@@ -692,14 +1324,42 @@
           ],
           "default": "top_left"
         },
-        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
-        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
-        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
-        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
-        "skew_x": { "type": "number", "default": 0.0 },
-        "skew_y": { "type": "number", "default": 0.0 },
-        "rotate_y": { "type": "number", "default": 0.0 },
-        "rotate_x": { "type": "number", "default": 0.0 },
+        "scale_x": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Horizontal scale multiplier composed with scale"
+        },
+        "scale_y": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Vertical scale multiplier composed with scale"
+        },
+        "pivot_x": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized horizontal transform pivot (0 = left, 1 = right)"
+        },
+        "pivot_y": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)"
+        },
+        "skew_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "skew_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_x": {
+          "type": "number",
+          "default": 0.0
+        },
         "perspective": {
           "type": "number",
           "default": 800.0,
@@ -715,7 +1375,10 @@
           "default": 0.0,
           "description": "Painter's depth sort order within root or parent container"
         },
-        "z": { "type": "number", "description": "Alias of z_index" },
+        "z": {
+          "type": "number",
+          "description": "Alias of z_index"
+        },
         "grain": {
           "type": "number",
           "minimum": 0,
@@ -736,28 +1399,74 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
-        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
+        "wave_warp": {
+          "$ref": "#/$defs/WaveWarp"
+        },
         "track_matte": {
-          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "enum": [
+            "none",
+            "alpha",
+            "alpha_inverted",
+            "luma",
+            "luma_inverted"
+          ],
           "default": "none"
         },
-        "matte_layer": { "$ref": "#/$defs/Layer" },
-        "echo": { "$ref": "#/$defs/Echo" }
+        "matte_layer": {
+          "$ref": "#/$defs/Layer"
+        },
+        "echo": {
+          "$ref": "#/$defs/Echo"
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "world"
+          ],
+          "default": "screen"
+        },
+        "depth_slot": {
+          "type": "string",
+          "enum": [
+            "backdrop",
+            "far",
+            "mid",
+            "subject",
+            "foreground"
+          ]
+        },
+        "depth_z": {
+          "type": "number"
+        }
       }
     },
     "TextLayer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "name": { "type": "string" },
-        "type": { "const": "text" },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "const": "text"
+        },
         "position": {
-          "enum": ["relative", "absolute"],
+          "enum": [
+            "relative",
+            "absolute"
+          ],
           "default": "relative",
           "description": "absolute = explicit position relative to canvas or parent container"
         },
-        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
         "end_sec": {
           "type": "number",
           "minimum": 0,
@@ -774,18 +1483,36 @@
           "default": 0.0,
           "description": "Backward overlap in container timeline series mode"
         },
-        "flex_grow": { "type": "number" },
-        "margin": { "type": "number" },
-        "blend_mode": { "$ref": "#/$defs/BlendMode" },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
-        "shadow": { "$ref": "#/$defs/Shadow" },
-        "x": { "type": "number", "default": 0.0, "description": "Horizontal top-left position in px" },
+        "flex_grow": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
+        "x": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Horizontal top-left position in px"
+        },
         "y": {
           "type": "number",
           "default": 0.0,
           "description": "Vertical top position of text box in px"
         },
-        "content": { "type": "string" },
+        "content": {
+          "type": "string"
+        },
         "dynamic": {
           "type": "object",
           "description": "Declarative dynamic text: typewriter, counter, or timecode mode"
@@ -804,78 +1531,180 @@
           ],
           "default": "top_left"
         },
-        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
-        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
-        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
-        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
-        "skew_x": { "type": "number", "default": 0.0 },
-        "skew_y": { "type": "number", "default": 0.0 },
+        "scale_x": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Horizontal scale multiplier composed with scale"
+        },
+        "scale_y": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Vertical scale multiplier composed with scale"
+        },
+        "pivot_x": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized horizontal transform pivot (0 = left, 1 = right)"
+        },
+        "pivot_y": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)"
+        },
+        "skew_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "skew_y": {
+          "type": "number",
+          "default": 0.0
+        },
         "track_matte": {
           "type": "string",
-          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "enum": [
+            "none",
+            "alpha",
+            "alpha_inverted",
+            "luma",
+            "luma_inverted"
+          ],
           "default": "none"
         },
-        "matte_layer": { "$ref": "#/$defs/Layer" },
+        "matte_layer": {
+          "$ref": "#/$defs/Layer"
+        },
         "spans": {
           "type": "array",
-          "items": { "$ref": "#/$defs/TextSpan" },
+          "items": {
+            "$ref": "#/$defs/TextSpan"
+          },
           "description": "Rich text spans (overrides content when provided)"
         },
-        "font_size": { "type": "number", "exclusiveMinimum": 0, "default": 48.0 },
-        "line_height": { "type": "number", "exclusiveMinimum": 0 },
+        "font_size": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 48.0
+        },
+        "line_height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "letter_spacing": {
           "type": "number",
           "default": 0.0,
           "description": "Extra spacing between characters in px"
         },
-        "font_family": { "type": "string" },
+        "font_family": {
+          "type": "string"
+        },
         "font_weight": {
           "oneOf": [
-            { "enum": ["thin", "extralight", "light", "normal", "medium", "semibold", "bold", "extrabold", "black"] },
-            { "type": "integer", "minimum": 100, "maximum": 900 }
+            {
+              "enum": [
+                "thin",
+                "extralight",
+                "light",
+                "normal",
+                "medium",
+                "semibold",
+                "bold",
+                "extrabold",
+                "black"
+              ]
+            },
+            {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 900
+            }
           ],
           "default": "normal"
         },
         "text_align": {
-          "enum": ["left", "center", "right", "start", "end"],
+          "enum": [
+            "left",
+            "center",
+            "right",
+            "start",
+            "end"
+          ],
           "default": "left"
         },
         "direction": {
-          "enum": ["auto", "ltr", "rtl"],
+          "enum": [
+            "auto",
+            "ltr",
+            "rtl"
+          ],
           "default": "auto",
           "description": "Text layout direction for RTL/BiDi shaping (Arabic, Hebrew)"
         },
-        "color": { "$ref": "#/$defs/HexColor", "default": "#FFFFFF" },
-        "gradient": { "$ref": "#/$defs/LinearGradient" },
+        "color": {
+          "$ref": "#/$defs/HexColor",
+          "default": "#FFFFFF"
+        },
+        "gradient": {
+          "$ref": "#/$defs/LinearGradient"
+        },
         "outline": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "color": { "$ref": "#/$defs/HexColor", "default": "#000000" },
-            "width": { "type": "number", "minimum": 0, "default": 2.0 }
+            "color": {
+              "$ref": "#/$defs/HexColor",
+              "default": "#000000"
+            },
+            "width": {
+              "type": "number",
+              "minimum": 0,
+              "default": 2.0
+            }
           }
         },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
         "scale": {
           "type": "number",
           "default": 1.0,
           "description": "Scale factor for font_size and line_height"
         },
-        "text_animator": { "$ref": "#/$defs/TextAnimator" },
+        "text_animator": {
+          "$ref": "#/$defs/TextAnimator"
+        },
         "max_width": {
           "type": "number",
           "description": "Text wrapping max width (px); recommended inside containers"
         },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         },
-        "margin_top": { "type": "number" },
-        "margin_right": { "type": "number" },
-        "margin_bottom": { "type": "number" },
-        "margin_left": { "type": "number" },
-        "rotate_y": { "type": "number", "default": 0.0 },
-        "rotate_x": { "type": "number", "default": 0.0 },
+        "margin_top": {
+          "type": "number"
+        },
+        "margin_right": {
+          "type": "number"
+        },
+        "margin_bottom": {
+          "type": "number"
+        },
+        "margin_left": {
+          "type": "number"
+        },
+        "rotate_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_x": {
+          "type": "number",
+          "default": 0.0
+        },
         "perspective": {
           "type": "number",
           "default": 800.0,
@@ -891,7 +1720,10 @@
           "default": 0.0,
           "description": "Painter's depth sort order within root or parent container"
         },
-        "z": { "type": "number", "description": "Alias of z_index" },
+        "z": {
+          "type": "number",
+          "description": "Alias of z_index"
+        },
         "grain": {
           "type": "number",
           "minimum": 0,
@@ -912,23 +1744,65 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
-        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
-        "echo": { "$ref": "#/$defs/Echo" }
+        "wave_warp": {
+          "$ref": "#/$defs/WaveWarp"
+        },
+        "echo": {
+          "$ref": "#/$defs/Echo"
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "world"
+          ],
+          "default": "screen"
+        },
+        "depth_slot": {
+          "type": "string",
+          "enum": [
+            "backdrop",
+            "far",
+            "mid",
+            "subject",
+            "foreground"
+          ]
+        },
+        "depth_z": {
+          "type": "number"
+        }
       }
     },
     "SvgLayer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "src"],
+      "required": [
+        "type",
+        "src"
+      ],
       "properties": {
-        "name": { "type": "string" },
-        "type": { "const": "svg" },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "const": "svg"
+        },
         "position": {
-          "enum": ["relative", "absolute"],
+          "enum": [
+            "relative",
+            "absolute"
+          ],
           "default": "relative"
         },
-        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-        "end_sec": { "type": "number", "minimum": 0 },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0
+        },
         "duration_secs": {
           "type": "number",
           "minimum": 0,
@@ -940,16 +1814,41 @@
           "default": 0.0,
           "description": "Backward overlap in container timeline series mode"
         },
-        "flex_grow": { "type": "number" },
-        "margin": { "type": "number" },
-        "blend_mode": { "$ref": "#/$defs/BlendMode" },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
-        "shadow": { "$ref": "#/$defs/Shadow" },
-        "x": { "type": "number", "default": 0.0 },
-        "y": { "type": "number", "default": 0.0 },
-        "width": { "type": "number" },
-        "height": { "type": "number" },
-        "src": { "type": "string", "description": "Local path, URL, or inline <svg>...</svg>" },
+        "flex_grow": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
+        "x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "src": {
+          "type": "string",
+          "description": "Local path, URL, or inline <svg>...</svg>"
+        },
         "path_progress": {
           "type": "number",
           "minimum": 0,
@@ -957,22 +1856,46 @@
           "default": 1.0,
           "description": "SVG path/stroke draw progress (0.0 - 1.0)"
         },
-        "stroke_dashoffset": { "type": "number", "description": "SVG stroke dash offset (px)" },
+        "stroke_dashoffset": {
+          "type": "number",
+          "description": "SVG stroke dash offset (px)"
+        },
         "stroke_dasharray": {
           "type": "array",
-          "items": { "type": "number", "minimum": 0 },
+          "items": {
+            "type": "number",
+            "minimum": 0
+          },
           "description": "Custom SVG stroke dash pattern"
         },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
-        "rotation": { "type": "number", "default": 0.0 },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0.0
+        },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         },
-        "margin_top": { "type": "number" },
-        "margin_right": { "type": "number" },
-        "margin_bottom": { "type": "number" },
-        "margin_left": { "type": "number" },
+        "margin_top": {
+          "type": "number"
+        },
+        "margin_right": {
+          "type": "number"
+        },
+        "margin_bottom": {
+          "type": "number"
+        },
+        "margin_left": {
+          "type": "number"
+        },
         "anchor": {
           "enum": [
             "top_left",
@@ -987,14 +1910,42 @@
           ],
           "default": "top_left"
         },
-        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
-        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
-        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
-        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
-        "skew_x": { "type": "number", "default": 0.0 },
-        "skew_y": { "type": "number", "default": 0.0 },
-        "rotate_y": { "type": "number", "default": 0.0 },
-        "rotate_x": { "type": "number", "default": 0.0 },
+        "scale_x": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Horizontal scale multiplier composed with scale"
+        },
+        "scale_y": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Vertical scale multiplier composed with scale"
+        },
+        "pivot_x": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized horizontal transform pivot (0 = left, 1 = right)"
+        },
+        "pivot_y": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)"
+        },
+        "skew_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "skew_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_x": {
+          "type": "number",
+          "default": 0.0
+        },
         "perspective": {
           "type": "number",
           "default": 800.0,
@@ -1010,7 +1961,10 @@
           "default": 0.0,
           "description": "Painter's depth sort order within root or parent container"
         },
-        "z": { "type": "number", "description": "Alias of z_index" },
+        "z": {
+          "type": "number",
+          "description": "Alias of z_index"
+        },
         "grain": {
           "type": "number",
           "minimum": 0,
@@ -1031,28 +1985,78 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
-        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
+        "wave_warp": {
+          "$ref": "#/$defs/WaveWarp"
+        },
         "track_matte": {
-          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "enum": [
+            "none",
+            "alpha",
+            "alpha_inverted",
+            "luma",
+            "luma_inverted"
+          ],
           "default": "none"
         },
-        "matte_layer": { "$ref": "#/$defs/Layer" },
-        "echo": { "$ref": "#/$defs/Echo" }
+        "matte_layer": {
+          "$ref": "#/$defs/Layer"
+        },
+        "echo": {
+          "$ref": "#/$defs/Echo"
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "world"
+          ],
+          "default": "screen"
+        },
+        "depth_slot": {
+          "type": "string",
+          "enum": [
+            "backdrop",
+            "far",
+            "mid",
+            "subject",
+            "foreground"
+          ]
+        },
+        "depth_z": {
+          "type": "number"
+        }
       }
     },
     "ImageLayer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "src"],
+      "required": [
+        "type",
+        "src"
+      ],
       "properties": {
-        "name": { "type": "string" },
-        "type": { "const": "image" },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "const": "image"
+        },
         "position": {
-          "enum": ["relative", "absolute"],
+          "enum": [
+            "relative",
+            "absolute"
+          ],
           "default": "relative"
         },
-        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-        "end_sec": { "type": "number", "minimum": 0 },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0
+        },
         "duration_secs": {
           "type": "number",
           "minimum": 0,
@@ -1064,31 +2068,82 @@
           "default": 0.0,
           "description": "Backward overlap in container timeline series mode"
         },
-        "flex_grow": { "type": "number" },
-        "margin": { "type": "number" },
-        "blend_mode": { "$ref": "#/$defs/BlendMode" },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
-        "shadow": { "$ref": "#/$defs/Shadow" },
-        "x": { "type": "number", "default": 0.0 },
-        "y": { "type": "number", "default": 0.0 },
-        "width": { "type": "number" },
-        "height": { "type": "number" },
-        "src": { "type": "string", "description": "Local path or image URL" },
+        "flex_grow": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
+        "x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "src": {
+          "type": "string",
+          "description": "Local path or image URL"
+        },
         "fit": {
-          "enum": ["fill", "cover", "contain"],
+          "enum": [
+            "fill",
+            "cover",
+            "contain"
+          ],
           "default": "fill"
         },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
-        "rotation": { "type": "number", "default": 0.0 },
-        "scale": { "type": "number", "default": 1.0, "description": "Image scale factor from center" },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0.0
+        },
+        "scale": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Image scale factor from center"
+        },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         },
-        "margin_top": { "type": "number" },
-        "margin_right": { "type": "number" },
-        "margin_bottom": { "type": "number" },
-        "margin_left": { "type": "number" },
+        "margin_top": {
+          "type": "number"
+        },
+        "margin_right": {
+          "type": "number"
+        },
+        "margin_bottom": {
+          "type": "number"
+        },
+        "margin_left": {
+          "type": "number"
+        },
         "anchor": {
           "enum": [
             "top_left",
@@ -1103,14 +2158,42 @@
           ],
           "default": "top_left"
         },
-        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
-        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
-        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
-        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
-        "skew_x": { "type": "number", "default": 0.0 },
-        "skew_y": { "type": "number", "default": 0.0 },
-        "rotate_y": { "type": "number", "default": 0.0 },
-        "rotate_x": { "type": "number", "default": 0.0 },
+        "scale_x": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Horizontal scale multiplier composed with scale"
+        },
+        "scale_y": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Vertical scale multiplier composed with scale"
+        },
+        "pivot_x": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized horizontal transform pivot (0 = left, 1 = right)"
+        },
+        "pivot_y": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)"
+        },
+        "skew_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "skew_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_x": {
+          "type": "number",
+          "default": 0.0
+        },
         "perspective": {
           "type": "number",
           "default": 800.0,
@@ -1126,7 +2209,10 @@
           "default": 0.0,
           "description": "Painter's depth sort order within root or parent container"
         },
-        "z": { "type": "number", "description": "Alias of z_index" },
+        "z": {
+          "type": "number",
+          "description": "Alias of z_index"
+        },
         "grain": {
           "type": "number",
           "minimum": 0,
@@ -1147,47 +2233,115 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
-        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
+        "wave_warp": {
+          "$ref": "#/$defs/WaveWarp"
+        },
         "track_matte": {
-          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "enum": [
+            "none",
+            "alpha",
+            "alpha_inverted",
+            "luma",
+            "luma_inverted"
+          ],
           "default": "none"
         },
-        "matte_layer": { "$ref": "#/$defs/Layer" },
-        "echo": { "$ref": "#/$defs/Echo" }
+        "matte_layer": {
+          "$ref": "#/$defs/Layer"
+        },
+        "echo": {
+          "$ref": "#/$defs/Echo"
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "world"
+          ],
+          "default": "screen"
+        },
+        "depth_slot": {
+          "type": "string",
+          "enum": [
+            "backdrop",
+            "far",
+            "mid",
+            "subject",
+            "foreground"
+          ]
+        },
+        "depth_z": {
+          "type": "number"
+        }
       }
     },
     "VideoLayer": {
       "type": "object",
-      "required": ["type", "src"],
+      "required": [
+        "type",
+        "src"
+      ],
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string" },
-        "type": { "const": "video" },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "const": "video"
+        },
         "position": {
-          "enum": ["relative", "absolute"],
+          "enum": [
+            "relative",
+            "absolute"
+          ],
           "default": "relative"
         },
-        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-        "end_sec": { "type": "number", "minimum": 0 },
-        "flex_grow": { "type": "number" },
-        "margin": { "type": "number" },
-        "blend_mode": { "$ref": "#/$defs/BlendMode" },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "flex_grow": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode"
+        },
         "blur": {
           "type": "number",
           "minimum": 0,
           "default": 0.0,
           "description": "Gaussian blur radius in px"
         },
-        "shadow": { "$ref": "#/$defs/Shadow" },
-        "duration_secs": { "type": "number", "minimum": 0, "description": "Active duration for series sequencing" },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Active duration for series sequencing"
+        },
         "overlap_secs": {
           "type": "number",
           "minimum": 0,
           "default": 0.0,
           "description": "Overlap with previous element in series (seconds)"
         },
-        "x": { "type": "number", "description": "Explicit X position (optional inside flexbox layout)" },
-        "y": { "type": "number", "description": "Explicit Y position (optional inside flexbox layout)" },
+        "x": {
+          "type": "number",
+          "description": "Explicit X position (optional inside flexbox layout)"
+        },
+        "y": {
+          "type": "number",
+          "description": "Explicit Y position (optional inside flexbox layout)"
+        },
         "width": {
           "type": "number",
           "minimum": 0,
@@ -1204,7 +2358,11 @@
           "description": "Local path or video URL (MP4/MOV/WEBM)"
         },
         "fit": {
-          "enum": ["fill", "cover", "contain"],
+          "enum": [
+            "fill",
+            "cover",
+            "contain"
+          ],
           "default": "fill"
         },
         "trim_start_sec": {
@@ -1260,18 +2418,45 @@
           "default": 1.0,
           "description": "Audio volume of video clip (0.0 - 1.0)"
         },
-        "muted": { "type": "boolean", "default": false, "description": "Mute audio from video clip" },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
-        "rotation": { "type": "number", "default": 0.0, "description": "Rotation angle in degrees" },
-        "scale": { "type": "number", "default": 1.0, "description": "Video scale factor from center" },
+        "muted": {
+          "type": "boolean",
+          "default": false,
+          "description": "Mute audio from video clip"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Rotation angle in degrees"
+        },
+        "scale": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Video scale factor from center"
+        },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         },
-        "margin_top": { "type": "number" },
-        "margin_right": { "type": "number" },
-        "margin_bottom": { "type": "number" },
-        "margin_left": { "type": "number" },
+        "margin_top": {
+          "type": "number"
+        },
+        "margin_right": {
+          "type": "number"
+        },
+        "margin_bottom": {
+          "type": "number"
+        },
+        "margin_left": {
+          "type": "number"
+        },
         "anchor": {
           "enum": [
             "top_left",
@@ -1286,14 +2471,42 @@
           ],
           "default": "top_left"
         },
-        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
-        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
-        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
-        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
-        "skew_x": { "type": "number", "default": 0.0 },
-        "skew_y": { "type": "number", "default": 0.0 },
-        "rotate_y": { "type": "number", "default": 0.0 },
-        "rotate_x": { "type": "number", "default": 0.0 },
+        "scale_x": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Horizontal scale multiplier composed with scale"
+        },
+        "scale_y": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Vertical scale multiplier composed with scale"
+        },
+        "pivot_x": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized horizontal transform pivot (0 = left, 1 = right)"
+        },
+        "pivot_y": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)"
+        },
+        "skew_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "skew_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_x": {
+          "type": "number",
+          "default": 0.0
+        },
         "perspective": {
           "type": "number",
           "default": 800.0,
@@ -1309,7 +2522,10 @@
           "default": 0.0,
           "description": "Painter's depth sort order within root or parent container"
         },
-        "z": { "type": "number", "description": "Alias of z_index" },
+        "z": {
+          "type": "number",
+          "description": "Alias of z_index"
+        },
         "grain": {
           "type": "number",
           "minimum": 0,
@@ -1330,35 +2546,105 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
-        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
+        "wave_warp": {
+          "$ref": "#/$defs/WaveWarp"
+        },
         "track_matte": {
-          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "enum": [
+            "none",
+            "alpha",
+            "alpha_inverted",
+            "luma",
+            "luma_inverted"
+          ],
           "default": "none"
         },
-        "matte_layer": { "$ref": "#/$defs/Layer" },
-        "echo": { "$ref": "#/$defs/Echo" }
+        "matte_layer": {
+          "$ref": "#/$defs/Layer"
+        },
+        "echo": {
+          "$ref": "#/$defs/Echo"
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "world"
+          ],
+          "default": "screen"
+        },
+        "depth_slot": {
+          "type": "string",
+          "enum": [
+            "backdrop",
+            "far",
+            "mid",
+            "subject",
+            "foreground"
+          ]
+        },
+        "depth_z": {
+          "type": "number"
+        }
       }
     },
     "WaveformLayer": {
       "type": "object",
-      "required": ["type", "width", "height"],
+      "required": [
+        "type",
+        "width",
+        "height"
+      ],
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string" },
-        "type": { "const": "waveform" },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "const": "waveform"
+        },
         "position": {
-          "enum": ["relative", "absolute"],
+          "enum": [
+            "relative",
+            "absolute"
+          ],
           "default": "relative"
         },
-        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-        "end_sec": { "type": "number", "minimum": 0 },
-        "duration_secs": { "type": "number", "minimum": 0 },
-        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0 },
-        "flex_grow": { "type": "number" },
-        "margin": { "type": "number" },
-        "blend_mode": { "$ref": "#/$defs/BlendMode" },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
-        "shadow": { "$ref": "#/$defs/Shadow" },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "overlap_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "flex_grow": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
         "anchor": {
           "enum": [
             "top_left",
@@ -1373,40 +2659,126 @@
           ],
           "default": "top_left"
         },
-        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
-        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
-        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
-        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
-        "skew_x": { "type": "number", "default": 0.0 },
-        "skew_y": { "type": "number", "default": 0.0 },
+        "scale_x": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Horizontal scale multiplier composed with scale"
+        },
+        "scale_y": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Vertical scale multiplier composed with scale"
+        },
+        "pivot_x": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized horizontal transform pivot (0 = left, 1 = right)"
+        },
+        "pivot_y": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)"
+        },
+        "skew_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "skew_y": {
+          "type": "number",
+          "default": 0.0
+        },
         "track_matte": {
           "type": "string",
-          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "enum": [
+            "none",
+            "alpha",
+            "alpha_inverted",
+            "luma",
+            "luma_inverted"
+          ],
           "default": "none"
         },
-        "matte_layer": { "$ref": "#/$defs/Layer" },
-        "x": { "type": "number", "default": 0.0 },
-        "y": { "type": "number", "default": 0.0 },
-        "width": { "type": "number", "minimum": 1 },
-        "height": { "type": "number", "minimum": 1 },
-        "bars": { "type": "integer", "minimum": 1, "default": 24 },
-        "bar_gap": { "type": "number", "minimum": 0, "default": 4.0 },
-        "color": { "$ref": "#/$defs/HexColor", "default": "#FFFFFF" },
-        "seed": { "type": "integer", "default": 42 },
-        "speed": { "type": "number", "default": 1.0 },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
-        "rotation": { "type": "number", "default": 0.0 },
-        "scale": { "type": "number", "default": 1.0 },
+        "matte_layer": {
+          "$ref": "#/$defs/Layer"
+        },
+        "x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1
+        },
+        "height": {
+          "type": "number",
+          "minimum": 1
+        },
+        "bars": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 24
+        },
+        "bar_gap": {
+          "type": "number",
+          "minimum": 0,
+          "default": 4.0
+        },
+        "color": {
+          "$ref": "#/$defs/HexColor",
+          "default": "#FFFFFF"
+        },
+        "seed": {
+          "type": "integer",
+          "default": 42
+        },
+        "speed": {
+          "type": "number",
+          "default": 1.0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0.0
+        },
+        "scale": {
+          "type": "number",
+          "default": 1.0
+        },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         },
-        "margin_top": { "type": "number" },
-        "margin_right": { "type": "number" },
-        "margin_bottom": { "type": "number" },
-        "margin_left": { "type": "number" },
-        "rotate_y": { "type": "number", "default": 0.0 },
-        "rotate_x": { "type": "number", "default": 0.0 },
+        "margin_top": {
+          "type": "number"
+        },
+        "margin_right": {
+          "type": "number"
+        },
+        "margin_bottom": {
+          "type": "number"
+        },
+        "margin_left": {
+          "type": "number"
+        },
+        "rotate_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_x": {
+          "type": "number",
+          "default": 0.0
+        },
         "perspective": {
           "type": "number",
           "default": 800.0,
@@ -1422,7 +2794,10 @@
           "default": 0.0,
           "description": "Painter's depth sort order within root or parent container"
         },
-        "z": { "type": "number", "description": "Alias of z_index" },
+        "z": {
+          "type": "number",
+          "description": "Alias of z_index"
+        },
         "grain": {
           "type": "number",
           "minimum": 0,
@@ -1443,30 +2818,91 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
-        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
-        "echo": { "$ref": "#/$defs/Echo" }
+        "wave_warp": {
+          "$ref": "#/$defs/WaveWarp"
+        },
+        "echo": {
+          "$ref": "#/$defs/Echo"
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "world"
+          ],
+          "default": "screen"
+        },
+        "depth_slot": {
+          "type": "string",
+          "enum": [
+            "backdrop",
+            "far",
+            "mid",
+            "subject",
+            "foreground"
+          ]
+        },
+        "depth_z": {
+          "type": "number"
+        }
       }
     },
     "LottieLayer": {
       "type": "object",
-      "required": ["type", "src"],
+      "required": [
+        "type",
+        "src"
+      ],
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string" },
-        "type": { "const": "lottie" },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "const": "lottie"
+        },
         "position": {
-          "enum": ["relative", "absolute"],
+          "enum": [
+            "relative",
+            "absolute"
+          ],
           "default": "relative"
         },
-        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-        "end_sec": { "type": "number", "minimum": 0 },
-        "duration_secs": { "type": "number", "minimum": 0 },
-        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0 },
-        "flex_grow": { "type": "number" },
-        "margin": { "type": "number" },
-        "blend_mode": { "$ref": "#/$defs/BlendMode" },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
-        "shadow": { "$ref": "#/$defs/Shadow" },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "overlap_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "flex_grow": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
         "anchor": {
           "enum": [
             "top_left",
@@ -1481,38 +2917,116 @@
           ],
           "default": "top_left"
         },
-        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
-        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
-        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
-        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
-        "skew_x": { "type": "number", "default": 0.0 },
-        "skew_y": { "type": "number", "default": 0.0 },
+        "scale_x": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Horizontal scale multiplier composed with scale"
+        },
+        "scale_y": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Vertical scale multiplier composed with scale"
+        },
+        "pivot_x": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized horizontal transform pivot (0 = left, 1 = right)"
+        },
+        "pivot_y": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)"
+        },
+        "skew_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "skew_y": {
+          "type": "number",
+          "default": 0.0
+        },
         "track_matte": {
           "type": "string",
-          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "enum": [
+            "none",
+            "alpha",
+            "alpha_inverted",
+            "luma",
+            "luma_inverted"
+          ],
           "default": "none"
         },
-        "matte_layer": { "$ref": "#/$defs/Layer" },
-        "x": { "type": "number", "default": 0.0 },
-        "y": { "type": "number", "default": 0.0 },
-        "width": { "type": "number", "minimum": 1 },
-        "height": { "type": "number", "minimum": 1 },
-        "src": { "type": "string", "minLength": 1 },
-        "loop_animation": { "type": "boolean", "default": false },
-        "speed": { "type": "number", "default": 1.0 },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
-        "rotation": { "type": "number", "default": 0.0 },
-        "scale": { "type": "number", "default": 1.0 },
+        "matte_layer": {
+          "$ref": "#/$defs/Layer"
+        },
+        "x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1
+        },
+        "height": {
+          "type": "number",
+          "minimum": 1
+        },
+        "src": {
+          "type": "string",
+          "minLength": 1
+        },
+        "loop_animation": {
+          "type": "boolean",
+          "default": false
+        },
+        "speed": {
+          "type": "number",
+          "default": 1.0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0.0
+        },
+        "scale": {
+          "type": "number",
+          "default": 1.0
+        },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         },
-        "margin_top": { "type": "number" },
-        "margin_right": { "type": "number" },
-        "margin_bottom": { "type": "number" },
-        "margin_left": { "type": "number" },
-        "rotate_y": { "type": "number", "default": 0.0 },
-        "rotate_x": { "type": "number", "default": 0.0 },
+        "margin_top": {
+          "type": "number"
+        },
+        "margin_right": {
+          "type": "number"
+        },
+        "margin_bottom": {
+          "type": "number"
+        },
+        "margin_left": {
+          "type": "number"
+        },
+        "rotate_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_x": {
+          "type": "number",
+          "default": 0.0
+        },
         "perspective": {
           "type": "number",
           "default": 800.0,
@@ -1528,7 +3042,10 @@
           "default": 0.0,
           "description": "Painter's depth sort order within root or parent container"
         },
-        "z": { "type": "number", "description": "Alias of z_index" },
+        "z": {
+          "type": "number",
+          "description": "Alias of z_index"
+        },
         "grain": {
           "type": "number",
           "minimum": 0,
@@ -1549,21 +3066,61 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
-        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
-        "echo": { "$ref": "#/$defs/Echo" }
+        "wave_warp": {
+          "$ref": "#/$defs/WaveWarp"
+        },
+        "echo": {
+          "$ref": "#/$defs/Echo"
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "world"
+          ],
+          "default": "screen"
+        },
+        "depth_slot": {
+          "type": "string",
+          "enum": [
+            "backdrop",
+            "far",
+            "mid",
+            "subject",
+            "foreground"
+          ]
+        },
+        "depth_z": {
+          "type": "number"
+        }
       }
     },
     "Echo": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "count": { "type": "integer", "minimum": 0, "default": 5 },
-        "step_sec": { "type": "number", "default": 0.03 },
-        "decay": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.65 }
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 5
+        },
+        "step_sec": {
+          "type": "number",
+          "default": 0.03
+        },
+        "decay": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.65
+        }
       }
     },
     "TextAnimatorMode": {
-      "enum": ["char", "word"],
+      "enum": [
+        "char",
+        "word"
+      ],
       "default": "char",
       "description": "Stagger unit: individual characters or whole words"
     },
@@ -1571,81 +3128,244 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "mode": { "$ref": "#/$defs/TextAnimatorMode" },
-        "start_sec": { "type": "number", "default": 0.0, "description": "Delay before the first unit animates" },
-        "stagger_secs": { "type": "number", "minimum": 0, "default": 0.05, "description": "Delay between consecutive units" },
-        "duration_secs": { "type": "number", "minimum": 0, "default": 0.4, "description": "Per-unit animation duration" },
-        "y_offset": { "type": "number", "default": 0.0, "description": "Starting vertical offset in pixels" },
-        "x_offset": { "type": "number", "default": 0.0, "description": "Starting horizontal offset in pixels" },
-        "opacity_from": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0, "description": "Starting opacity" },
-        "scale_from": { "type": "number", "minimum": 0, "default": 1.0, "description": "Starting scale" },
-        "easing": { "$ref": "#/$defs/Easing" }
+        "mode": {
+          "$ref": "#/$defs/TextAnimatorMode"
+        },
+        "start_sec": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Delay before the first unit animates"
+        },
+        "stagger_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.05,
+          "description": "Delay between consecutive units"
+        },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.4,
+          "description": "Per-unit animation duration"
+        },
+        "y_offset": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Starting vertical offset in pixels"
+        },
+        "x_offset": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Starting horizontal offset in pixels"
+        },
+        "opacity_from": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "Starting opacity"
+        },
+        "scale_from": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1.0,
+          "description": "Starting scale"
+        },
+        "easing": {
+          "$ref": "#/$defs/Easing"
+        }
       }
     },
     "WaveWarp": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["amplitude", "wavelength"],
+      "required": [
+        "amplitude",
+        "wavelength"
+      ],
       "properties": {
-        "amplitude": { "type": "number", "description": "Peak displacement in pixels" },
-        "wavelength": { "type": "number", "exclusiveMinimum": 0, "description": "Sine wavelength in pixels" },
-        "speed": { "type": "number", "default": 0.0, "description": "Phase advance per second" },
-        "phase": { "type": "number", "default": 0.0, "description": "Constant phase offset in radians" },
-        "axis": { "enum": ["x", "y", "stretch_x", "stretch_y"], "default": "x", "description": "Displacement axis (x/y = transverse wave, stretch_x/stretch_y = longitudinal rubber-band stretch)" }
+        "amplitude": {
+          "type": "number",
+          "description": "Peak displacement in pixels"
+        },
+        "wavelength": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Sine wavelength in pixels"
+        },
+        "speed": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Phase advance per second"
+        },
+        "phase": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Constant phase offset in radians"
+        },
+        "axis": {
+          "enum": [
+            "x",
+            "y",
+            "stretch_x",
+            "stretch_y"
+          ],
+          "default": "x",
+          "description": "Displacement axis (x/y = transverse wave, stretch_x/stretch_y = longitudinal rubber-band stretch)"
+        }
       }
     },
     "ParticlesLayer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "name": { "type": "string" },
-        "type": { "const": "particles" },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "const": "particles"
+        },
         "position": {
-          "enum": ["relative", "absolute"],
+          "enum": [
+            "relative",
+            "absolute"
+          ],
           "default": "relative"
         },
-        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-        "end_sec": { "type": "number", "minimum": 0 },
-        "duration_secs": { "type": "number", "minimum": 0 },
-        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0 },
-        "flex_grow": { "type": "number" },
-        "margin": { "type": "number" },
-        "blend_mode": { "$ref": "#/$defs/BlendMode" },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
-        "shadow": { "$ref": "#/$defs/Shadow" },
-        "x": { "type": "number", "default": 0.0 },
-        "y": { "type": "number", "default": 0.0 },
-        "width": { "type": "number", "default": 400.0 },
-        "height": { "type": "number", "default": 400.0 },
-        "count": { "type": "integer", "minimum": 0, "default": 40 },
-        "seed": { "type": "integer", "default": 42 },
-        "speed": { "type": "number", "default": 1.0 },
-        "gravity": { "type": "number", "default": 120.0 },
-        "spread": { "type": "number", "default": 360.0 },
-        "angle": { "type": "number", "default": -90.0 },
-        "size": { "type": "number", "default": 8.0 },
-        "color": { "$ref": "#/$defs/HexColor", "default": "#FFFFFF" },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "overlap_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "flex_grow": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
+        "x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "width": {
+          "type": "number",
+          "default": 400.0
+        },
+        "height": {
+          "type": "number",
+          "default": 400.0
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 40
+        },
+        "seed": {
+          "type": "integer",
+          "default": 42
+        },
+        "speed": {
+          "type": "number",
+          "default": 1.0
+        },
+        "gravity": {
+          "type": "number",
+          "default": 120.0
+        },
+        "spread": {
+          "type": "number",
+          "default": 360.0
+        },
+        "angle": {
+          "type": "number",
+          "default": -90.0
+        },
+        "size": {
+          "type": "number",
+          "default": 8.0
+        },
+        "color": {
+          "$ref": "#/$defs/HexColor",
+          "default": "#FFFFFF"
+        },
         "colors": {
           "type": "array",
-          "items": { "$ref": "#/$defs/HexColor" },
+          "items": {
+            "$ref": "#/$defs/HexColor"
+          },
           "description": "Palette override for particle colors"
         },
         "shape": {
-          "enum": ["circle", "rect", "confetti"],
+          "enum": [
+            "circle",
+            "rect",
+            "confetti"
+          ],
           "default": "circle"
         },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
-        "rotation": { "type": "number", "default": 0.0 },
-        "scale": { "type": "number", "default": 1.0 },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0.0
+        },
+        "scale": {
+          "type": "number",
+          "default": 1.0
+        },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         },
-        "margin_top": { "type": "number" },
-        "margin_right": { "type": "number" },
-        "margin_bottom": { "type": "number" },
-        "margin_left": { "type": "number" },
+        "margin_top": {
+          "type": "number"
+        },
+        "margin_right": {
+          "type": "number"
+        },
+        "margin_bottom": {
+          "type": "number"
+        },
+        "margin_left": {
+          "type": "number"
+        },
         "anchor": {
           "enum": [
             "top_left",
@@ -1660,14 +3380,42 @@
           ],
           "default": "top_left"
         },
-        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
-        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
-        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
-        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
-        "skew_x": { "type": "number", "default": 0.0 },
-        "skew_y": { "type": "number", "default": 0.0 },
-        "rotate_y": { "type": "number", "default": 0.0 },
-        "rotate_x": { "type": "number", "default": 0.0 },
+        "scale_x": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Horizontal scale multiplier composed with scale"
+        },
+        "scale_y": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Vertical scale multiplier composed with scale"
+        },
+        "pivot_x": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized horizontal transform pivot (0 = left, 1 = right)"
+        },
+        "pivot_y": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)"
+        },
+        "skew_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "skew_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_x": {
+          "type": "number",
+          "default": 0.0
+        },
         "perspective": {
           "type": "number",
           "default": 800.0,
@@ -1683,7 +3431,10 @@
           "default": 0.0,
           "description": "Painter's depth sort order within root or parent container"
         },
-        "z": { "type": "number", "description": "Alias of z_index" },
+        "z": {
+          "type": "number",
+          "description": "Alias of z_index"
+        },
         "grain": {
           "type": "number",
           "minimum": 0,
@@ -1704,42 +3455,127 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
-        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
+        "wave_warp": {
+          "$ref": "#/$defs/WaveWarp"
+        },
         "track_matte": {
-          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "enum": [
+            "none",
+            "alpha",
+            "alpha_inverted",
+            "luma",
+            "luma_inverted"
+          ],
           "default": "none"
         },
-        "matte_layer": { "$ref": "#/$defs/Layer" },
-        "echo": { "$ref": "#/$defs/Echo" }
+        "matte_layer": {
+          "$ref": "#/$defs/Layer"
+        },
+        "echo": {
+          "$ref": "#/$defs/Echo"
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "world"
+          ],
+          "default": "screen"
+        },
+        "depth_slot": {
+          "type": "string",
+          "enum": [
+            "backdrop",
+            "far",
+            "mid",
+            "subject",
+            "foreground"
+          ]
+        },
+        "depth_z": {
+          "type": "number"
+        }
       }
     },
     "Mesh3dLayer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "description": "experimental (build with the exp-3d feature)",
       "properties": {
-        "name": { "type": "string" },
-        "type": { "const": "mesh3d" },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "const": "mesh3d"
+        },
         "position": {
-          "enum": ["relative", "absolute"],
+          "enum": [
+            "relative",
+            "absolute"
+          ],
           "default": "relative"
         },
-        "start_sec": { "type": "number", "minimum": 0, "default": 0.0 },
-        "end_sec": { "type": "number", "minimum": 0 },
-        "duration_secs": { "type": "number", "minimum": 0 },
-        "overlap_secs": { "type": "number", "minimum": 0, "default": 0.0 },
-        "flex_grow": { "type": "number" },
-        "margin": { "type": "number" },
-        "blend_mode": { "$ref": "#/$defs/BlendMode" },
-        "blur": { "type": "number", "minimum": 0, "default": 0.0 },
-        "shadow": { "$ref": "#/$defs/Shadow" },
-        "x": { "type": "number", "default": 0.0 },
-        "y": { "type": "number", "default": 0.0 },
-        "width": { "type": "number", "minimum": 1 },
-        "height": { "type": "number", "minimum": 1 },
+        "start_sec": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "end_sec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration_secs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "overlap_secs": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "flex_grow": {
+          "type": "number"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.0
+        },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
+        "x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1
+        },
+        "height": {
+          "type": "number",
+          "minimum": 1
+        },
         "primitive": {
-          "enum": ["cube", "sphere", "pyramid", "torus"],
+          "enum": [
+            "cube",
+            "sphere",
+            "pyramid",
+            "torus"
+          ],
           "default": "cube"
         },
         "src": {
@@ -1750,29 +3586,70 @@
           "type": "string",
           "description": "PNG/JPEG texture sampled with vertex UVs (requires exp-3d)"
         },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 },
-        "scale": { "type": "number", "default": 1.0 },
-        "rotation": { "type": "number", "default": 0.0 },
-        "rotate_x": { "type": "number", "default": 0.0 },
-        "rotate_y": { "type": "number", "default": 0.0 },
-        "rotate_z": { "type": "number", "default": 0.0 },
-        "fov": { "type": "number", "default": 45.0 },
-        "color": { "$ref": "#/$defs/HexColor", "default": "#38BDF8" },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0
+        },
+        "scale": {
+          "type": "number",
+          "default": 1.0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_y": {
+          "type": "number",
+          "default": 0.0
+        },
+        "rotate_z": {
+          "type": "number",
+          "default": 0.0
+        },
+        "fov": {
+          "type": "number",
+          "default": 45.0
+        },
+        "color": {
+          "$ref": "#/$defs/HexColor",
+          "default": "#38BDF8"
+        },
         "light_dir": {
           "type": "array",
-          "items": { "type": "number" },
+          "items": {
+            "type": "number"
+          },
           "minItems": 3,
           "maxItems": 3
         },
-        "wireframe": { "type": "boolean", "default": false },
+        "wireframe": {
+          "type": "boolean",
+          "default": false
+        },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         },
-        "margin_top": { "type": "number" },
-        "margin_right": { "type": "number" },
-        "margin_bottom": { "type": "number" },
-        "margin_left": { "type": "number" },
+        "margin_top": {
+          "type": "number"
+        },
+        "margin_right": {
+          "type": "number"
+        },
+        "margin_bottom": {
+          "type": "number"
+        },
+        "margin_left": {
+          "type": "number"
+        },
         "anchor": {
           "enum": [
             "top_left",
@@ -1787,12 +3664,34 @@
           ],
           "default": "top_left"
         },
-        "scale_x": { "type": "number", "default": 1.0, "description": "Horizontal scale multiplier composed with scale" },
-        "scale_y": { "type": "number", "default": 1.0, "description": "Vertical scale multiplier composed with scale" },
-        "pivot_x": { "type": "number", "default": 0.5, "description": "Normalized horizontal transform pivot (0 = left, 1 = right)" },
-        "pivot_y": { "type": "number", "default": 0.5, "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)" },
-        "skew_x": { "type": "number", "default": 0.0 },
-        "skew_y": { "type": "number", "default": 0.0 },
+        "scale_x": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Horizontal scale multiplier composed with scale"
+        },
+        "scale_y": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Vertical scale multiplier composed with scale"
+        },
+        "pivot_x": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized horizontal transform pivot (0 = left, 1 = right)"
+        },
+        "pivot_y": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Normalized vertical transform pivot (0 = top, 1 = bottom)"
+        },
+        "skew_x": {
+          "type": "number",
+          "default": 0.0
+        },
+        "skew_y": {
+          "type": "number",
+          "default": 0.0
+        },
         "perspective": {
           "type": "number",
           "default": 800.0,
@@ -1808,7 +3707,10 @@
           "default": 0.0,
           "description": "Painter's depth sort order within root or parent container"
         },
-        "z": { "type": "number", "description": "Alias of z_index" },
+        "z": {
+          "type": "number",
+          "description": "Alias of z_index"
+        },
         "grain": {
           "type": "number",
           "minimum": 0,
@@ -1829,28 +3731,77 @@
           "default": 0.0,
           "description": "45-degree halftone dot screen intensity"
         },
-        "wave_warp": { "$ref": "#/$defs/WaveWarp" },
+        "wave_warp": {
+          "$ref": "#/$defs/WaveWarp"
+        },
         "track_matte": {
-          "enum": ["none", "alpha", "alpha_inverted", "luma", "luma_inverted"],
+          "enum": [
+            "none",
+            "alpha",
+            "alpha_inverted",
+            "luma",
+            "luma_inverted"
+          ],
           "default": "none"
         },
-        "matte_layer": { "$ref": "#/$defs/Layer" },
-        "echo": { "$ref": "#/$defs/Echo" }
+        "matte_layer": {
+          "$ref": "#/$defs/Layer"
+        },
+        "echo": {
+          "$ref": "#/$defs/Echo"
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "world"
+          ],
+          "default": "screen"
+        },
+        "depth_slot": {
+          "type": "string",
+          "enum": [
+            "backdrop",
+            "far",
+            "mid",
+            "subject",
+            "foreground"
+          ]
+        },
+        "depth_z": {
+          "type": "number"
+        }
       }
     },
     "IncludeLayer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "src"],
+      "required": [
+        "type",
+        "src"
+      ],
       "description": "Reusable component: expands another JSON file's layers",
       "properties": {
-        "type": { "const": "include" },
-        "src": { "type": "string", "minLength": 1 },
-        "vars": { "type": "object", "additionalProperties": true },
-        "variables": { "type": "object", "additionalProperties": true },
+        "type": {
+          "const": "include"
+        },
+        "src": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vars": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "variables": {
+          "type": "object",
+          "additionalProperties": true
+        },
         "animations": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Animation" }
+          "items": {
+            "$ref": "#/$defs/Animation"
+          }
         }
       }
     }

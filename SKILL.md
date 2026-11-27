@@ -4,8 +4,8 @@ description: Render MP4 videos from declarative HTML or JSON scenes with the bro
 metadata:
   skill_version: "1.4.1"
   rustren_version: "0.5.1"
-  schema_version: "1.1"
-  renderer_version: "1.1"
+  schema_version: "1.2"
+  renderer_version: "1.2"
 ---
 
 # rustren — AI Agent Skill

@@ -109,7 +109,92 @@ pub fn collect_lint_warnings_structured(scene: &Scene) -> Vec<LintWarning> {
             });
         }
     }
+
+    // Phase 1 pre-flight 2.5D QA: EDGE_REVEAL & PACING_STAGNATION
+    collect_25d_preflight_qa(scene, &mut out);
+
     out
+}
+
+fn collect_25d_preflight_qa(scene: &Scene, out: &mut Vec<LintWarning>) {
+    let cw = scene.canvas.width as f32;
+    let ch = scene.canvas.height as f32;
+    let dur = scene.canvas.duration_secs;
+
+    if let Some(world) = &scene.world {
+        for (i, layer) in scene.layers.iter().enumerate() {
+            if layer.space != crate::schema::LayerSpace::World {
+                continue;
+            }
+            if layer.depth_slot != Some(crate::schema::DepthSlot::Backdrop) {
+                continue;
+            }
+            let Some((lx, ly, lw, lh)) = static_layer_bounds(layer) else {
+                continue;
+            };
+            let layer_z = layer.effective_depth_z();
+            for &sample_t in &[0.0, dur * 0.5, dur] {
+                let cam = world.eval_at(sample_t, dur);
+                let tf = crate::renderer::camera25d::compute_plane_camera_transform(
+                    cam, layer_z, cw, ch,
+                );
+                let x0 = lx * tf.sx + tf.tx;
+                let y0 = ly * tf.sy + tf.ty;
+                let x1 = (lx + lw) * tf.sx + tf.tx;
+                let y1 = (ly + lh) * tf.sy + tf.ty;
+                if x0 > 1.0 || y0 > 1.0 || x1 < cw - 1.0 || y1 < ch - 1.0 {
+                    out.push(LintWarning {
+                        code: "EDGE_REVEAL",
+                        path: format!("layers[{i}]"),
+                        message: format!(
+                            "layers[{i}] (backdrop) exposes canvas void at t={sample_t:.2}s under world camera (projected [{x0:.0}..{x1:.0}, {y0:.0}..{y1:.0}] vs {cw:.0}x{ch:.0})"
+                        ),
+                        fix: Some("overscale the backdrop plane (e.g. 1.15x) or reduce camera truck/zoom amplitude".to_string()),
+                        affected_paths: Vec::new(),
+                    });
+                    break;
+                }
+            }
+        }
+    }
+
+    // PACING_STAGNATION: warn when a >8s contiguous window has zero layer cues and zero animations
+    if dur > 8.0 && !scene.layers.is_empty() {
+        let mut events: Vec<f32> = vec![0.0, dur];
+        let mut has_any_anim = scene
+            .world
+            .as_ref()
+            .map(|w| w.preset.is_some() || !w.animations.is_empty())
+            .unwrap_or(false);
+        for l in &scene.layers {
+            events.push(l.start_sec.clamp(0.0, dur));
+            if let Some(e) = l.end_sec {
+                events.push(e.clamp(0.0, dur));
+            }
+            if !l.animations.is_empty() {
+                has_any_anim = true;
+            }
+        }
+        if !has_any_anim {
+            events.sort_by(|a, b| a.total_cmp(b));
+            for win in events.windows(2) {
+                let gap = win[1] - win[0];
+                if gap > 8.0 {
+                    out.push(LintWarning {
+                        code: "PACING_STAGNATION",
+                        path: "canvas".to_string(),
+                        message: format!(
+                            "Static hold of {gap:.1}s ({:.1}s..{:.1}s) with zero layer transitions or animations (>8s retention risk)",
+                            win[0], win[1]
+                        ),
+                        fix: Some("add a camera preset, layer transition, or secondary motion every 3-6 seconds".to_string()),
+                        affected_paths: Vec::new(),
+                    });
+                    break;
+                }
+            }
+        }
+    }
 }
 
 /// Suggested remediation for a warning category, or `None` when there is no
@@ -461,12 +546,29 @@ pub fn validate_no_unknown_fields(raw: &str) -> anyhow::Result<()> {
             "schema_version",
             "min_renderer_version",
             "canvas",
+            "world",
             "profiles",
             "fonts",
             "audio",
             "layers",
         ],
     )?;
+    if let Some(world) = root.get("world").and_then(|v| v.as_object()) {
+        check_allowed_keys(
+            world,
+            "world",
+            &[
+                "x",
+                "y",
+                "z",
+                "roll",
+                "focus_z",
+                "dof_strength",
+                "preset",
+                "animations",
+            ],
+        )?;
+    }
     if let Some(profiles) = root.get("profiles").and_then(|v| v.as_object()) {
         for (name, prof) in profiles {
             if let Some(po) = prof.as_object() {
@@ -562,6 +664,9 @@ pub(crate) const COMMON_LAYER_FIELDS: &[&str] = &[
     "wave_warp",
     "track_matte",
     "matte_layer",
+    "space",
+    "depth_slot",
+    "depth_z",
     "echo",
     "animations",
 ];

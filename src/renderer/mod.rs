@@ -1,4 +1,5 @@
 mod cache;
+pub(crate) mod camera25d;
 mod fx;
 mod lottie;
 pub mod inspect;
@@ -195,6 +196,9 @@ pub fn build_static_prefix_pixmap(
     scene: &Scene,
     assets: &AssetStore,
 ) -> Result<(usize, Option<Pixmap>)> {
+    if scene.world.is_some() {
+        return Ok((0, None));
+    }
     let prefix_len = scene
         .layers
         .iter()
@@ -551,6 +555,11 @@ pub fn render_frame_at_time_with_base_profile(
             active_indices = ranked.into_iter().map(|(i, _)| i).collect();
         }
 
+        let world_cam = scene
+            .world
+            .as_ref()
+            .map(|w| w.eval_at(time_sec, scene.canvas.duration_secs));
+
         for idx in active_indices {
             let layer = &slice[idx];
             let t0 = if collect_profile {
@@ -558,17 +567,37 @@ pub fn render_frame_at_time_with_base_profile(
             } else {
                 None
             };
-            render_layer(
-                layer,
-                scene.canvas.duration_secs,
-                time_sec,
-                assets,
-                font_system,
-                swash_cache,
-                &mut pixmap,
-                None,
-                1.0,
-            )?;
+            if let Some(cam) = world_cam
+                && layer.space == crate::schema::LayerSpace::World
+            {
+                let mut layer_pm = Pixmap::new(width, height).ok_or_else(|| {
+                    anyhow!("Failed to allocate world layer pixmap {}x{}", width, height)
+                })?;
+                render_layer(
+                    layer,
+                    scene.canvas.duration_secs,
+                    time_sec,
+                    assets,
+                    font_system,
+                    swash_cache,
+                    &mut layer_pm,
+                    None,
+                    1.0,
+                )?;
+                camera25d::composite_world_layer(&mut pixmap, layer, &layer_pm, cam)?;
+            } else {
+                render_layer(
+                    layer,
+                    scene.canvas.duration_secs,
+                    time_sec,
+                    assets,
+                    font_system,
+                    swash_cache,
+                    &mut pixmap,
+                    None,
+                    1.0,
+                )?;
+            }
             if let Some(start) = t0 {
                 layer_ns[static_prefix_len + idx] += start.elapsed().as_nanos() as u64;
             }
