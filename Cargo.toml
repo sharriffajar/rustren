@@ -54,5 +54,11 @@ lto = "thin"
 codegen-units = 1
 strip = true
 
+[profile.release-fast]
+inherits = "release"
+lto = false
+codegen-units = 16
+incremental = true
+
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"
