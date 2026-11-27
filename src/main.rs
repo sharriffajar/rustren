@@ -401,6 +401,15 @@ fn gate_error_message(input: &Path, e: &anyhow::Error) -> String {
 }
 
 fn main() -> Result<()> {
+    if std::env::var_os("RAYON_NUM_THREADS").is_none() {
+        let cpus = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4);
+        let (rayon_threads, _) = encoder::compute_vcpu_partition(cpus);
+        let _ = rayon::ThreadPoolBuilder::new()
+            .num_threads(rayon_threads)
+            .build_global();
+    }
     let cli = Cli::parse();
 
     match cli.command {
@@ -1133,7 +1142,7 @@ pub fn render_scene_to_file_with_base(
     } else {
         renderer::clear_render_caches();
     }
-    let assets = AssetStore::load_for_scene_with_base(scene, cache_dir, base_dir)?;
+    let mut assets = AssetStore::load_for_scene_with_base(scene, cache_dir, base_dir)?;
     let mut audio_tracks: Vec<_> = scene
         .audio
         .iter()
@@ -1184,6 +1193,10 @@ pub fn render_scene_to_file_with_base(
 
     let mut render_err: Option<anyhow::Error> = None;
     'batches: for batch_start in (0..total_frames).step_by(batch_size as usize) {
+        if assets.images.len() > 8 {
+            let batch_start_sec = batch_start as f32 / scene.canvas.fps as f32;
+            assets.evict_images_before(scene, batch_start_sec - 0.5);
+        }
         let batch_end = (batch_start + batch_size).min(total_frames);
         let mut batch_sigs: Vec<(u32, Option<u64>)> =
             Vec::with_capacity((batch_end - batch_start) as usize);

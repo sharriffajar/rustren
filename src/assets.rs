@@ -203,6 +203,85 @@ pub struct AssetStore {
     pub mesh3d: HashMap<String, std::sync::Arc<crate::renderer::mesh3d::Mesh>>,
 }
 
+impl AssetStore {
+    /// Shot-windowed memory eviction: drops decoded `RgbaImage` assets whose
+    /// latest active `end_sec` across the entire scene has already passed
+    /// `evict_before_sec`. Keeps long-form (5-20 min) renders bounded to active
+    /// + upcoming shots instead of holding 100+ shots in RAM.
+    pub fn evict_images_before(&mut self, scene: &Scene, evict_before_sec: f32) -> usize {
+        if self.images.is_empty() || evict_before_sec <= 0.0 {
+            return 0;
+        }
+        let mut last_use: HashMap<String, f32> = HashMap::new();
+        collect_image_last_use(
+            &scene.layers,
+            crate::schema::TimelineMode::Global,
+            0.0,
+            scene.canvas.duration_secs,
+            &mut last_use,
+        );
+        let before = self.images.len();
+        self.images.retain(|src, _| {
+            last_use
+                .get(src)
+                .map(|&end_t| end_t >= evict_before_sec)
+                .unwrap_or(false)
+        });
+        before - self.images.len()
+    }
+}
+
+fn collect_image_last_use(
+    layers: &[Layer],
+    mode: crate::schema::TimelineMode,
+    parent_start: f32,
+    parent_end: f32,
+    out: &mut HashMap<String, f32>,
+) {
+    let mut cursor = parent_start;
+    for layer in layers {
+        let (eff_start, eff_end) = match mode {
+            crate::schema::TimelineMode::Global => (
+                layer.start_sec.max(parent_start),
+                layer.end_sec.unwrap_or(parent_end).min(parent_end),
+            ),
+            crate::schema::TimelineMode::Local => {
+                let s = parent_start + layer.start_sec;
+                let e = layer
+                    .end_sec
+                    .map(|end| parent_start + end)
+                    .unwrap_or(parent_end)
+                    .min(parent_end);
+                (s, e)
+            }
+            crate::schema::TimelineMode::Series => {
+                let dur = layer
+                    .end_sec
+                    .map(|e| (e - layer.start_sec).max(0.0))
+                    .unwrap_or((parent_end - cursor).max(0.0));
+                let s = cursor;
+                let e = (s + dur).min(parent_end);
+                cursor = e;
+                (s, e)
+            }
+        };
+        match &layer.kind {
+            LayerKind::Image { src, .. } => {
+                let entry = out.entry(src.clone()).or_insert(eff_end);
+                if eff_end > *entry {
+                    *entry = eff_end;
+                }
+            }
+            LayerKind::Container {
+                children, timeline, ..
+            } => {
+                collect_image_last_use(children, *timeline, eff_start, eff_end, out);
+            }
+            _ => {}
+        }
+    }
+}
+
 /// Convert straight (non-premultiplied) RGBA8 pixels to premultiplied RGBA8 in
 /// place.
 ///

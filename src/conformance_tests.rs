@@ -1308,3 +1308,64 @@ fn test_all_examples_compile_and_validate() {
         }
     }
 }
+
+#[test]
+fn test_v1_1_frozen_golden_regression_and_phase0_primitives() {
+    // 1. Verify vCPU partitioning matches 4-vCPU (3/1) and 8-vCPU (6/2) contract
+    assert_eq!(crate::encoder::compute_vcpu_partition(4), (3, 1));
+    assert_eq!(crate::encoder::compute_vcpu_partition(8), (6, 2));
+
+    // 2. Verify shot-windowed 2-shot image eviction drops expired shots and retains active/future shots
+    let shot_json = r##"{
+        "schema_version": "1.1",
+        "canvas": { "width": 160, "height": 90, "fps": 24, "duration_secs": 30.0 },
+        "layers": [
+            { "type": "image", "src": "shot1.png", "x": 0, "y": 0, "width": 160, "height": 90, "start_sec": 0.0, "end_sec": 10.0 },
+            { "type": "image", "src": "shot2.png", "x": 0, "y": 0, "width": 160, "height": 90, "start_sec": 10.0, "end_sec": 20.0 },
+            { "type": "image", "src": "shot3.png", "x": 0, "y": 0, "width": 160, "height": 90, "start_sec": 20.0, "end_sec": 30.0 }
+        ]
+    }"##;
+    let shot_scene: crate::schema::Scene = serde_json::from_str(shot_json).unwrap();
+    let mut store = crate::assets::AssetStore {
+        fonts: Vec::new(),
+        images: std::collections::HashMap::from([
+            ("shot1.png".to_string(), image::RgbaImage::new(2, 2)),
+            ("shot2.png".to_string(), image::RgbaImage::new(2, 2)),
+            ("shot3.png".to_string(), image::RgbaImage::new(2, 2)),
+        ]),
+        svgs: std::collections::HashMap::new(),
+        lotties: std::collections::HashMap::new(),
+        videos: std::collections::HashMap::new(),
+        audio_paths: Vec::new(),
+    };
+    let evicted = store.evict_images_before(&shot_scene, 11.0);
+    assert_eq!(evicted, 1, "shot1.png (end=10.0) should be evicted at t=11.0");
+    assert!(!store.images.contains_key("shot1.png"));
+    assert!(store.images.contains_key("shot2.png"));
+    assert!(store.images.contains_key("shot3.png"));
+
+    // 3. Frozen v1.1 golden regression: deterministic render across repeated calls
+    let v11_json = r##"{
+        "schema_version": "1.1",
+        "canvas": { "width": 160, "height": 90, "fps": 24, "duration_secs": 2.0, "background": "#0f172a" },
+        "layers": [
+            {
+                "type": "container",
+                "x": 10, "y": 10, "width": 140, "height": 70,
+                "layout": { "direction": "column" },
+                "background": "#1e293b", "radius": 8,
+                "children": [
+                    { "type": "rect", "width": 80, "height": 20, "color": "#38bdf8", "radius": 4 }
+                ]
+            }
+        ]
+    }"##;
+    crate::lint::validate_no_unknown_fields(v11_json).unwrap();
+    let v11_scene: crate::schema::Scene = serde_json::from_str(v11_json).unwrap();
+    assert_eq!(v11_scene.schema_version, "1.1");
+    let assets = crate::assets::AssetStore::load_for_scene(&v11_scene, &std::env::temp_dir()).unwrap();
+    let f_a = crate::renderer::render_frame_at_time(&v11_scene, &assets, 0.5).unwrap();
+    let f_b = crate::renderer::render_frame_at_time(&v11_scene, &assets, 0.5).unwrap();
+    assert_eq!(f_a, f_b, "frozen v1.1 scene must remain bit-for-bit deterministic");
+    assert!(f_a.iter().any(|&b| b > 0));
+}

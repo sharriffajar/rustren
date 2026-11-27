@@ -10,6 +10,23 @@ pub struct FfmpegPipe {
     stdin: ChildStdin,
 }
 
+/// Partition host vCPUs between Rayon frame rendering and FFmpeg x264 encoding
+/// so both stages run in parallel without thread-oversubscription thrashing:
+/// - 4 vCPU -> (3 rayon, 1 ffmpeg)
+/// - 8 vCPU -> (6 rayon, 2 ffmpeg)
+pub fn compute_vcpu_partition(total_cpus: usize) -> (usize, usize) {
+    match total_cpus {
+        0..=2 => (1, 1),
+        3 => (2, 1),
+        4 => (3, 1),
+        5..=8 => (total_cpus - 2, 2),
+        n => {
+            let ffmpeg = (n / 4).clamp(2, 4);
+            (n - ffmpeg, ffmpeg)
+        }
+    }
+}
+
 /// Probe whether an FFmpeg hardware video encoder actually works on this host
 /// by encoding a single tiny black frame to null.
 fn probe_hw_encoder(encoder: &str) -> bool {
@@ -270,6 +287,12 @@ impl FfmpegPipe {
             "-pix_fmt",
             "yuv420p",
         ]);
+        let (_, ffmpeg_threads) = compute_vcpu_partition(
+            std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(4),
+        );
+        let ffmpeg_threads_arg = ffmpeg_threads.to_string();
         match vcodec {
             "h264_nvenc" => {
                 cmd.args(["-preset", "p4", "-cq", &crf_arg]);
@@ -281,7 +304,14 @@ impl FfmpegPipe {
                 cmd.args(["-q:v", "65"]);
             }
             _ => {
-                cmd.args(["-preset", preset, "-crf", &crf_arg]);
+                cmd.args([
+                    "-threads",
+                    &ffmpeg_threads_arg,
+                    "-preset",
+                    preset,
+                    "-crf",
+                    &crf_arg,
+                ]);
             }
         }
         cmd.arg(output)
