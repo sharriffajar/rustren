@@ -15,6 +15,77 @@ thread_local! {
     static LOTTIE_SCRATCH_POOL: RefCell<Vec<Pixmap>> = const { RefCell::new(Vec::new()) };
     /// Scoped per-render color overrides (`sid` / `nm` / lowercase `#rrggbb` -> RGBA `[0..1]`).
     static LOTTIE_COLOR_OVERRIDES: RefCell<Option<HashMap<String, [f32; 4]>>> = const { RefCell::new(None) };
+    /// Per-thread pre-parsed typed vector keyframe cache keyed by `prop as *const Value as usize`.
+    static COMPILED_VEC_CACHE: RefCell<HashMap<usize, CompiledVecProp>> = RefCell::new(HashMap::new());
+    /// Per-thread pre-parsed typed bezier shape keyframe cache keyed by `prop as *const Value as usize`.
+    static COMPILED_SHAPE_CACHE: RefCell<HashMap<usize, CompiledShapeProp>> = RefCell::new(HashMap::new());
+}
+
+fn clear_compiled_prop_caches() {
+    COMPILED_VEC_CACHE.with(|c| c.borrow_mut().clear());
+    COMPILED_SHAPE_CACHE.with(|c| c.borrow_mut().clear());
+}
+
+#[derive(Clone)]
+struct TypedVecKf {
+    t: f32,
+    hold: bool,
+    s: Vec<f32>,
+    e: Option<Vec<f32>>,
+    ox: f32,
+    oy: f32,
+    ix: f32,
+    iy: f32,
+}
+
+#[derive(Clone)]
+enum CompiledVecProp {
+    Static(Vec<f32>),
+    Animated(Vec<TypedVecKf>),
+}
+
+type ShapePts = (Vec<[f32; 2]>, Vec<[f32; 2]>, Vec<[f32; 2]>, bool);
+
+#[derive(Clone)]
+struct TypedShapeKf {
+    t: f32,
+    hold: bool,
+    s: Option<ShapePts>,
+    e: Option<ShapePts>,
+    ox: f32,
+    oy: f32,
+    ix: f32,
+    iy: f32,
+}
+
+#[derive(Clone)]
+enum CompiledShapeProp {
+    Static(Option<ShapePts>),
+    Animated(Vec<TypedShapeKf>),
+}
+
+fn eval_bezier_params(ox: f32, oy: f32, ix: f32, iy: f32, t: f32) -> f32 {
+    if (ox - oy).abs() < 1e-4 && (ix - iy).abs() < 1e-4 {
+        return t;
+    }
+    let mut lo = 0.0f32;
+    let mut hi = 1.0f32;
+    let mut u = t;
+    for _ in 0..8 {
+        let inv = 1.0 - u;
+        let x = 3.0 * inv * inv * u * ox + 3.0 * inv * u * u * ix + u * u * u;
+        if (x - t).abs() < 1e-4 {
+            break;
+        }
+        if x < t {
+            lo = u;
+        } else {
+            hi = u;
+        }
+        u = 0.5 * (lo + hi);
+    }
+    let inv = 1.0 - u;
+    3.0 * inv * inv * u * oy + 3.0 * inv * u * u * iy + u * u * u
 }
 
 fn parse_override_hex(hex: &str) -> Option<[f32; 4]> {
@@ -324,7 +395,7 @@ pub fn render_lottie_json(
     let Ok(doc) = serde_json::from_slice::<Value>(json_bytes) else {
         return false;
     };
-    render_lottie_doc(
+    let ok = render_lottie_doc(
         pixmap,
         &doc,
         time_sec,
@@ -336,7 +407,9 @@ pub fn render_lottie_json(
         h,
         rot_deg,
         opacity,
-    )
+    );
+    clear_compiled_prop_caches();
+    ok
 }
 
 pub fn render_lottie_doc(
@@ -1411,57 +1484,82 @@ fn lerp_pts(a: &[[f32; 2]], b: &[[f32; 2]], t: f32) -> Vec<[f32; 2]> {
         .collect()
 }
 
-fn eval_shape_points(prop: &Value, frame: f32) -> Option<(Vec<[f32; 2]>, Vec<[f32; 2]>, Vec<[f32; 2]>, bool)> {
-    let k = prop.get("k")?;
+fn compile_shape_prop(prop: &Value) -> CompiledShapeProp {
+    let Some(k) = prop.get("k") else {
+        return CompiledShapeProp::Static(None);
+    };
     let animated = prop.get("a").and_then(|v| v.as_i64()).unwrap_or(0) == 1
         || k.as_array()
             .and_then(|a| a.first())
             .and_then(|v| v.get("t"))
             .is_some();
     if !animated {
-        return extract_shape_points(k);
+        return CompiledShapeProp::Static(extract_shape_points(k));
     }
-    let kfs = k.as_array()?;
-    if kfs.is_empty() {
-        return None;
+    let Some(kfs) = k.as_array() else {
+        return CompiledShapeProp::Static(None);
+    };
+    let mut out = Vec::with_capacity(kfs.len());
+    for kf in kfs {
+        let t = kf.get("t").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+        let hold = kf.get("h").and_then(|v| v.as_i64()) == Some(1);
+        let s = kf
+            .get("s")
+            .and_then(|v| v.as_array())
+            .and_then(|a| a.first())
+            .and_then(extract_shape_points);
+        let e = kf
+            .get("e")
+            .and_then(|v| v.as_array())
+            .and_then(|a| a.first())
+            .and_then(extract_shape_points);
+        let ox = kf.pointer("/o/x").and_then(first_f32).unwrap_or(0.0);
+        let oy = kf.pointer("/o/y").and_then(first_f32).unwrap_or(0.0);
+        let ix = kf.pointer("/i/x").and_then(first_f32).unwrap_or(1.0);
+        let iy = kf.pointer("/i/y").and_then(first_f32).unwrap_or(1.0);
+        out.push(TypedShapeKf { t, hold, s, e, ox, oy, ix, iy });
     }
-    let t0 = kfs[0].get("t").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-    if frame <= t0 {
-        let s = kfs[0].get("s")?.as_array()?.first()?;
-        return extract_shape_points(s);
-    }
-    for idx in 0..kfs.len() {
-        let cur = &kfs[idx];
-        let t_cur = cur.get("t").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-        if idx + 1 >= kfs.len() {
-            let s = cur
-                .get("s")
-                .or_else(|| if idx > 0 { kfs[idx - 1].get("e") } else { None })?
-                .as_array()?
-                .first()?;
-            return extract_shape_points(s);
+    CompiledShapeProp::Animated(out)
+}
+
+fn eval_shape_points(prop: &Value, frame: f32) -> Option<ShapePts> {
+    let key = prop as *const Value as usize;
+    COMPILED_SHAPE_CACHE.with(|cache| {
+        let mut map = cache.borrow_mut();
+        if map.len() > 16384 {
+            map.clear();
         }
-        let next = &kfs[idx + 1];
-        let t_next = next.get("t").and_then(|v| v.as_f64()).unwrap_or(t_cur as f64) as f32;
-        if frame >= t_cur && frame < t_next {
-            let s_val = cur.get("s")?.as_array()?.first()?;
-            let s_pts = extract_shape_points(s_val)?;
-            if cur.get("h").and_then(|v| v.as_i64()) == Some(1) || t_next <= t_cur {
-                return Some(s_pts);
-            }
-            let e_val = cur
-                .get("e")
-                .or_else(|| next.get("s"))
-                .and_then(|v| v.as_array())
-                .and_then(|a| a.first());
-            if let Some(ev) = e_val {
-                if let Some(e_pts) = extract_shape_points(ev) {
+        let compiled = map.entry(key).or_insert_with(|| compile_shape_prop(prop));
+        match compiled {
+            CompiledShapeProp::Static(pts) => pts.clone(),
+            CompiledShapeProp::Animated(kfs) => {
+                if kfs.is_empty() {
+                    return None;
+                }
+                if frame <= kfs[0].t {
+                    return kfs[0].s.clone();
+                }
+                let pos = kfs.partition_point(|kf| kf.t <= frame);
+                let idx = pos.saturating_sub(1);
+                if idx + 1 >= kfs.len() {
+                    return kfs[idx]
+                        .s
+                        .clone()
+                        .or_else(|| if idx > 0 { kfs[idx - 1].e.clone() } else { None });
+                }
+                let cur = &kfs[idx];
+                let next = &kfs[idx + 1];
+                let s_pts = cur.s.as_ref()?;
+                if cur.hold || next.t <= cur.t {
+                    return Some(s_pts.clone());
+                }
+                if let Some(e_pts) = cur.e.as_ref().or(next.s.as_ref()) {
                     if s_pts.0.len() == e_pts.0.len()
                         && s_pts.1.len() == e_pts.1.len()
                         && s_pts.2.len() == e_pts.2.len()
                     {
-                        let raw_t = ((frame - t_cur) / (t_next - t_cur)).clamp(0.0, 1.0);
-                        let eased = eval_lottie_bezier(cur, raw_t);
+                        let raw_t = ((frame - cur.t) / (next.t - cur.t)).clamp(0.0, 1.0);
+                        let eased = eval_bezier_params(cur.ox, cur.oy, cur.ix, cur.iy, raw_t);
                         return Some((
                             lerp_pts(&s_pts.0, &e_pts.0, eased),
                             lerp_pts(&s_pts.1, &e_pts.1, eased),
@@ -1470,11 +1568,10 @@ fn eval_shape_points(prop: &Value, frame: f32) -> Option<(Vec<[f32; 2]>, Vec<[f3
                         ));
                     }
                 }
+                Some(s_pts.clone())
             }
-            return Some(s_pts);
         }
-    }
-    None
+    })
 }
 
 fn eval_scalar(prop: &Value, frame: f32, default: f32) -> f32 {
@@ -1511,9 +1608,9 @@ fn eval_color(prop: &Value, frame: f32) -> [f32; 4] {
     [r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0), a.clamp(0.0, 1.0)]
 }
 
-fn eval_vec_n(prop: &Value, frame: f32, default: &[f32]) -> Vec<f32> {
+fn compile_vec_prop(prop: &Value) -> CompiledVecProp {
     let Some(k) = prop.get("k") else {
-        return default.to_vec();
+        return CompiledVecProp::Static(Vec::new());
     };
     let animated = prop.get("a").and_then(|v| v.as_i64()).unwrap_or(0) == 1
         || k.as_array()
@@ -1521,59 +1618,100 @@ fn eval_vec_n(prop: &Value, frame: f32, default: &[f32]) -> Vec<f32> {
             .and_then(|v| v.get("t"))
             .is_some();
     if !animated {
-        return value_to_floats(k, default);
+        return CompiledVecProp::Static(value_to_floats(k, &[]));
     }
     let Some(kfs) = k.as_array() else {
-        return default.to_vec();
+        return CompiledVecProp::Static(Vec::new());
     };
-    if kfs.is_empty() {
-        return default.to_vec();
-    }
-    let t0 = kfs[0].get("t").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-    if frame <= t0 {
-        return kfs[0]
+    let mut out = Vec::with_capacity(kfs.len());
+    for kf in kfs {
+        let t = kf.get("t").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+        let hold = kf.get("h").and_then(|v| v.as_i64()) == Some(1);
+        let s = kf
             .get("s")
-            .map(|v| value_to_floats(v, default))
-            .unwrap_or_else(|| default.to_vec());
+            .map(|v| value_to_floats(v, &[]))
+            .unwrap_or_default();
+        let e = kf.get("e").map(|v| value_to_floats(v, &[]));
+        let ox = kf.pointer("/o/x").and_then(first_f32).unwrap_or(0.0);
+        let oy = kf.pointer("/o/y").and_then(first_f32).unwrap_or(0.0);
+        let ix = kf.pointer("/i/x").and_then(first_f32).unwrap_or(1.0);
+        let iy = kf.pointer("/i/y").and_then(first_f32).unwrap_or(1.0);
+        out.push(TypedVecKf { t, hold, s, e, ox, oy, ix, iy });
     }
-    for i in 0..kfs.len() {
-        let cur = &kfs[i];
-        let t_cur = cur.get("t").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-        if i + 1 >= kfs.len() {
-            return cur
-                .get("s")
-                .or_else(|| if i > 0 { kfs[i - 1].get("e") } else { None })
-                .map(|v| value_to_floats(v, default))
-                .unwrap_or_else(|| default.to_vec());
+    CompiledVecProp::Animated(out)
+}
+
+fn eval_vec_n(prop: &Value, frame: f32, default: &[f32]) -> Vec<f32> {
+    let key = prop as *const Value as usize;
+    COMPILED_VEC_CACHE.with(|cache| {
+        let mut map = cache.borrow_mut();
+        if map.len() > 32768 {
+            map.clear();
         }
-        let next = &kfs[i + 1];
-        let t_next = next.get("t").and_then(|v| v.as_f64()).unwrap_or(t_cur as f64) as f32;
-        if frame >= t_cur && frame < t_next {
-            let s_vals = cur
-                .get("s")
-                .map(|v| value_to_floats(v, default))
-                .unwrap_or_else(|| default.to_vec());
-            if cur.get("h").and_then(|v| v.as_i64()) == Some(1) || t_next <= t_cur {
-                return s_vals;
+        let compiled = map.entry(key).or_insert_with(|| compile_vec_prop(prop));
+        match compiled {
+            CompiledVecProp::Static(v) => {
+                if v.is_empty() {
+                    default.to_vec()
+                } else {
+                    v.clone()
+                }
             }
-            let e_vals = cur
-                .get("e")
-                .or_else(|| next.get("s"))
-                .map(|v| value_to_floats(v, &s_vals))
-                .unwrap_or_else(|| s_vals.clone());
-            let raw_t = ((frame - t_cur) / (t_next - t_cur)).clamp(0.0, 1.0);
-            let eased = eval_lottie_bezier(cur, raw_t);
-            let len = s_vals.len().max(e_vals.len());
-            return (0..len)
-                .map(|idx| {
-                    let a = s_vals.get(idx).copied().unwrap_or(0.0);
-                    let b = e_vals.get(idx).copied().unwrap_or(a);
-                    a + (b - a) * eased
-                })
-                .collect();
+            CompiledVecProp::Animated(kfs) => {
+                if kfs.is_empty() {
+                    return default.to_vec();
+                }
+                if frame <= kfs[0].t {
+                    return if kfs[0].s.is_empty() {
+                        default.to_vec()
+                    } else {
+                        kfs[0].s.clone()
+                    };
+                }
+                let pos = kfs.partition_point(|kf| kf.t <= frame);
+                let idx = pos.saturating_sub(1);
+                if idx + 1 >= kfs.len() {
+                    if !kfs[idx].s.is_empty() {
+                        return kfs[idx].s.clone();
+                    }
+                    if idx > 0 {
+                        if let Some(prev_e) = &kfs[idx - 1].e {
+                            if !prev_e.is_empty() {
+                                return prev_e.clone();
+                            }
+                        }
+                    }
+                    return default.to_vec();
+                }
+                let cur = &kfs[idx];
+                let next = &kfs[idx + 1];
+                let s_vals = if cur.s.is_empty() {
+                    default
+                } else {
+                    cur.s.as_slice()
+                };
+                if cur.hold || next.t <= cur.t {
+                    return s_vals.to_vec();
+                }
+                let e_vals = cur
+                    .e
+                    .as_deref()
+                    .filter(|v| !v.is_empty())
+                    .or_else(|| (!next.s.is_empty()).then_some(next.s.as_slice()))
+                    .unwrap_or(s_vals);
+                let raw_t = ((frame - cur.t) / (next.t - cur.t)).clamp(0.0, 1.0);
+                let eased = eval_bezier_params(cur.ox, cur.oy, cur.ix, cur.iy, raw_t);
+                let len = s_vals.len().max(e_vals.len());
+                (0..len)
+                    .map(|i| {
+                        let a = s_vals.get(i).copied().unwrap_or(0.0);
+                        let b = e_vals.get(i).copied().unwrap_or(a);
+                        a + (b - a) * eased
+                    })
+                    .collect()
+            }
         }
-    }
-    default.to_vec()
+    })
 }
 
 fn value_to_floats(v: &Value, default: &[f32]) -> Vec<f32> {
