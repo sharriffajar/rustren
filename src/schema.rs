@@ -16,6 +16,17 @@ pub struct Scene {
     pub layers: Vec<Layer>,
 }
 
+/// Film grain rendering mode:
+/// - `fine` (default, v1.1 compatible): 1x1 per-pixel noise at 30fps (highest detail, larger H.264 bitrate)
+/// - `film`: coarse 2x2 grain at 12fps cadence (organic 16mm look, much faster libx264 encode & smaller MP4)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GrainMode {
+    #[default]
+    Fine,
+    Film,
+}
+
 /// Coordinate space for a layer: `screen` (default, v1.1 behavior, unaffected by 2.5D camera)
 /// or `world` (opt-in v1.2 2.5D diorama plane).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
@@ -299,6 +310,8 @@ pub struct Layer {
     pub z_index: f32,
     #[serde(default)]
     pub grain: f32,
+    #[serde(default)]
+    pub grain_mode: GrainMode,
     #[serde(default)]
     pub vignette: f32,
     #[serde(default)]

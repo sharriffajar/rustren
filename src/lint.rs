@@ -686,6 +686,7 @@ pub(crate) const COMMON_LAYER_FIELDS: &[&str] = &[
     "z_index",
     "z",
     "grain",
+    "grain_mode",
     "vignette",
     "halftone",
     "wave_warp",

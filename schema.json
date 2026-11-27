@@ -928,6 +928,14 @@
         "relight": {
           "type": "object",
           "description": "Half-res 2D normal & emission relighting (v1.2)"
+        },
+        "grain_mode": {
+          "type": "string",
+          "enum": [
+            "fine",
+            "film"
+          ],
+          "default": "fine"
         }
       }
     },
@@ -1203,6 +1211,14 @@
         "relight": {
           "type": "object",
           "description": "Half-res 2D normal & emission relighting (v1.2)"
+        },
+        "grain_mode": {
+          "type": "string",
+          "enum": [
+            "fine",
+            "film"
+          ],
+          "default": "fine"
         }
       }
     },
@@ -1466,6 +1482,14 @@
         "relight": {
           "type": "object",
           "description": "Half-res 2D normal & emission relighting (v1.2)"
+        },
+        "grain_mode": {
+          "type": "string",
+          "enum": [
+            "fine",
+            "film"
+          ],
+          "default": "fine"
         }
       }
     },
@@ -1806,6 +1830,14 @@
         "relight": {
           "type": "object",
           "description": "Half-res 2D normal & emission relighting (v1.2)"
+        },
+        "grain_mode": {
+          "type": "string",
+          "enum": [
+            "fine",
+            "film"
+          ],
+          "default": "fine"
         }
       }
     },
@@ -2068,6 +2100,14 @@
         "relight": {
           "type": "object",
           "description": "Half-res 2D normal & emission relighting (v1.2)"
+        },
+        "grain_mode": {
+          "type": "string",
+          "enum": [
+            "fine",
+            "film"
+          ],
+          "default": "fine"
         }
       }
     },
@@ -2324,6 +2364,14 @@
         "relight": {
           "type": "object",
           "description": "Half-res 2D normal & emission relighting (v1.2)"
+        },
+        "grain_mode": {
+          "type": "string",
+          "enum": [
+            "fine",
+            "film"
+          ],
+          "default": "fine"
         }
       }
     },
@@ -2645,6 +2693,14 @@
         "relight": {
           "type": "object",
           "description": "Half-res 2D normal & emission relighting (v1.2)"
+        },
+        "grain_mode": {
+          "type": "string",
+          "enum": [
+            "fine",
+            "film"
+          ],
+          "default": "fine"
         }
       }
     },
@@ -2912,6 +2968,14 @@
         "relight": {
           "type": "object",
           "description": "Half-res 2D normal & emission relighting (v1.2)"
+        },
+        "grain_mode": {
+          "type": "string",
+          "enum": [
+            "fine",
+            "film"
+          ],
+          "default": "fine"
         }
       }
     },
@@ -3181,6 +3245,14 @@
         "relight": {
           "type": "object",
           "description": "Half-res 2D normal & emission relighting (v1.2)"
+        },
+        "grain_mode": {
+          "type": "string",
+          "enum": [
+            "fine",
+            "film"
+          ],
+          "default": "fine"
         }
       }
     },
@@ -3591,6 +3663,14 @@
         "relight": {
           "type": "object",
           "description": "Half-res 2D normal & emission relighting (v1.2)"
+        },
+        "grain_mode": {
+          "type": "string",
+          "enum": [
+            "fine",
+            "film"
+          ],
+          "default": "fine"
         }
       }
     },
@@ -3875,6 +3955,14 @@
         "relight": {
           "type": "object",
           "description": "Half-res 2D normal & emission relighting (v1.2)"
+        },
+        "grain_mode": {
+          "type": "string",
+          "enum": [
+            "fine",
+            "film"
+          ],
+          "default": "fine"
         }
       }
     },

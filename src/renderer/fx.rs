@@ -412,6 +412,7 @@ pub(super) fn apply_surface_effects_cropped(
     bx: i32,
     by: i32,
     grain: f32,
+    grain_mode: crate::schema::GrainMode,
     vignette: f32,
     halftone: f32,
     time_sec: f32,
@@ -424,8 +425,13 @@ pub(super) fn apply_surface_effects_cropped(
     let vig = vignette.clamp(0.0, 1.0);
     let gr = grain.clamp(0.0, 1.0);
     let has_ht = halftone > 0.0;
+    let is_film_grain = grain_mode == crate::schema::GrainMode::Film;
 
-    let frame_seed = (time_sec * 30.0).round() as i64 as u64;
+    let frame_seed = if is_film_grain {
+        (time_sec * 12.0).floor() as i64 as u64
+    } else {
+        (time_sec * 30.0).round() as i64 as u64
+    };
     let frame_hash = splitmix64(frame_seed.wrapping_mul(83_492_791));
     let grain_ox = (frame_hash & 255) as i32;
     let grain_oy = ((frame_hash >> 8) & 255) as i32;
@@ -455,14 +461,20 @@ pub(super) fn apply_surface_effects_cropped(
         if vig <= 0.0 && !has_ht && gr > 0.0 {
             let scale_q8 = (gr * 48.0 * 65536.0 / (127.0 * 255.0)).round() as i32;
             for y in 0..h {
-                let ty = (((by + y as i32 + grain_oy) & 255) as usize) << 8;
+                let gy = if is_film_grain { (by + y as i32) >> 1 } else { by + y as i32 };
+                let ty = (((gy + grain_oy) & 255) as usize) << 8;
                 let row = &mut data[y * w * 4..(y + 1) * w * 4];
                 for (x, px) in row.chunks_exact_mut(4).enumerate() {
                     let a = px[3];
                     if a == 0 {
                         continue;
                     }
-                    let delta = (lut[ty | txs[x]] as i32 * scale_q8 * (a as i32)) / 65536;
+                    let tx = if is_film_grain {
+                        (((bx + x as i32) >> 1) + grain_ox) as usize & 255
+                    } else {
+                        txs[x]
+                    };
+                    let delta = (lut[ty | tx] as i32 * scale_q8 * (a as i32)) / 65536;
                     let ai = a as i32;
                     px[0] = (px[0] as i32 + delta).clamp(0, ai) as u8;
                     px[1] = (px[1] as i32 + delta).clamp(0, ai) as u8;
@@ -484,7 +496,8 @@ pub(super) fn apply_surface_effects_cropped(
             for y in 0..h {
                 let ny = (y as f32 + 0.5 - half_h) / half_h;
                 let ny_sq = ny * ny;
-                let ty = (((by + y as i32 + grain_oy) & 255) as usize) << 8;
+                let gy = if is_film_grain { (by + y as i32) >> 1 } else { by + y as i32 };
+                let ty = (((gy + grain_oy) & 255) as usize) << 8;
                 let row = &mut data[y * w * 4..(y + 1) * w * 4];
                 for (x, px) in row.chunks_exact_mut(4).enumerate() {
                     let a = px[3];
@@ -493,7 +506,12 @@ pub(super) fn apply_surface_effects_cropped(
                     }
                     let fac_q8 = ((1.0 - ((vx[x] + ny_sq) * vig_k).min(vig)).max(0.0) * 256.0) as i32;
                     let delta = if scale_q8 != 0 {
-                        (lut[ty | txs[x]] as i32 * scale_q8 * (a as i32)) >> 16
+                        let tx = if is_film_grain {
+                            (((bx + x as i32) >> 1) + grain_ox) as usize & 255
+                        } else {
+                            txs[x]
+                        };
+                        (lut[ty | tx] as i32 * scale_q8 * (a as i32)) >> 16
                     } else {
                         0
                     };
