@@ -979,6 +979,7 @@ struct CommonLayerMeta {
     backface_visible: bool,
     z_index: f32,
     grain: f32,
+    grain_mode: crate::schema::GrainMode,
     vignette: f32,
     halftone: f32,
     wave_warp: Option<WaveWarpSpec>,
@@ -1023,7 +1024,7 @@ impl CommonLayerMeta {
             backface_visible: self.backface_visible,
             z_index: self.z_index,
             grain: self.grain,
-            grain_mode: crate::schema::GrainMode::Fine,
+            grain_mode: self.grain_mode,
             vignette: self.vignette,
             halftone: self.halftone,
             wave_warp: self.wave_warp,
@@ -1169,6 +1170,15 @@ fn parse_common_layer_meta(
         .or_else(|| get_attr_f32(elem, "z"))
         .unwrap_or(0.0);
     let grain = get_attr_f32(elem, "grain").unwrap_or(0.0);
+    let grain_mode = match get_attr_str(elem, "grain-mode")
+        .or_else(|| get_attr_str(elem, "grain_mode"))
+        .as_deref()
+        .map(|s| s.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("film") => crate::schema::GrainMode::Film,
+        _ => crate::schema::GrainMode::Fine,
+    };
     let vignette = get_attr_f32(elem, "vignette").unwrap_or(0.0);
     let halftone = get_attr_f32(elem, "halftone").unwrap_or(0.0);
 
@@ -1201,6 +1211,7 @@ fn parse_common_layer_meta(
         backface_visible,
         z_index,
         grain,
+        grain_mode,
         vignette,
         halftone,
         wave_warp: parse_wave_warp(elem),
