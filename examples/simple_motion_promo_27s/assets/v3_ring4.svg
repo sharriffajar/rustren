@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="720" viewBox="0 0 720 720">
+  <circle cx="360" cy="360" r="290" fill="none" stroke="#8A1C7C" stroke-width="64" stroke-dasharray="456 1822" stroke-dashoffset="0"/>
+  <circle cx="360" cy="360" r="290" fill="none" stroke="#E35B54" stroke-width="64" stroke-dasharray="456 1822" stroke-dashoffset="-456"/>
+  <circle cx="360" cy="360" r="290" fill="none" stroke="#EEB843" stroke-width="64" stroke-dasharray="456 1822" stroke-dashoffset="-911"/>
+  <circle cx="360" cy="360" r="290" fill="none" stroke="#A7DBD8" stroke-width="64" stroke-dasharray="456 1822" stroke-dashoffset="-1367"/>
+</svg>
