@@ -13,6 +13,72 @@ use tiny_skia::{
 thread_local! {
     /// Per-thread reusable zeroed Pixmap pool to avoid repeated 5+ MB heap alloc/zero/free per layer.
     static LOTTIE_SCRATCH_POOL: RefCell<Vec<Pixmap>> = const { RefCell::new(Vec::new()) };
+    /// Scoped per-render color overrides (`sid` / `nm` / lowercase `#rrggbb` -> RGBA `[0..1]`).
+    static LOTTIE_COLOR_OVERRIDES: RefCell<Option<HashMap<String, [f32; 4]>>> = const { RefCell::new(None) };
+}
+
+fn parse_override_hex(hex: &str) -> Option<[f32; 4]> {
+    let s = hex.trim().trim_start_matches('#');
+    match s.len() {
+        3 => {
+            let r = u8::from_str_radix(&s[0..1], 16).ok()? * 17;
+            let g = u8::from_str_radix(&s[1..2], 16).ok()? * 17;
+            let b = u8::from_str_radix(&s[2..3], 16).ok()? * 17;
+            Some([r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0])
+        }
+        6 => {
+            let r = u8::from_str_radix(&s[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&s[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&s[4..6], 16).ok()?;
+            Some([r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0])
+        }
+        8 => {
+            let r = u8::from_str_radix(&s[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&s[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&s[4..6], 16).ok()?;
+            let a = u8::from_str_radix(&s[6..8], 16).ok()?;
+            Some([
+                r as f32 / 255.0,
+                g as f32 / 255.0,
+                b as f32 / 255.0,
+                a as f32 / 255.0,
+            ])
+        }
+        _ => None,
+    }
+}
+
+fn resolve_color_override(item: &Value, base: [f32; 4]) -> [f32; 4] {
+    LOTTIE_COLOR_OVERRIDES.with(|cell| {
+        let borrow = cell.borrow();
+        let Some(map) = borrow.as_ref() else {
+            return base;
+        };
+        if let Some(sid) = item
+            .get("c")
+            .and_then(|c| c.get("sid"))
+            .and_then(|v| v.as_str())
+            .or_else(|| item.get("sid").and_then(|v| v.as_str()))
+            && let Some(ov) = map.get(sid)
+        {
+            return [ov[0], ov[1], ov[2], ov[3] * base[3]];
+        }
+        if let Some(nm) = item.get("nm").and_then(|v| v.as_str())
+            && let Some(ov) = map.get(nm)
+        {
+            return [ov[0], ov[1], ov[2], ov[3] * base[3]];
+        }
+        let hex_key = format!(
+            "#{:02x}{:02x}{:02x}",
+            (base[0].clamp(0.0, 1.0) * 255.0).round() as u8,
+            (base[1].clamp(0.0, 1.0) * 255.0).round() as u8,
+            (base[2].clamp(0.0, 1.0) * 255.0).round() as u8,
+        );
+        if let Some(ov) = map.get(&hex_key) {
+            return [ov[0], ov[1], ov[2], ov[3] * base[3]];
+        }
+        base
+    })
 }
 
 fn acquire_zeroed_pixmap(w: u32, h: u32) -> Option<Pixmap> {
@@ -286,6 +352,37 @@ pub fn render_lottie_doc(
     rot_deg: f32,
     opacity: f32,
 ) -> bool {
+    let dst_tf = Transform::from_translate(rx, ry)
+        .post_concat(Transform::from_rotate_at(rot_deg, rx + w * 0.5, ry + h * 0.5));
+    render_lottie_doc_ex(
+        pixmap,
+        doc,
+        time_sec,
+        loop_animation,
+        speed,
+        None,
+        None,
+        w,
+        h,
+        dst_tf,
+        opacity,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn render_lottie_doc_ex(
+    pixmap: &mut Pixmap,
+    doc: &Value,
+    time_sec: f32,
+    loop_animation: bool,
+    speed: f32,
+    progress_override: Option<f32>,
+    color_overrides: Option<&HashMap<String, String>>,
+    w: f32,
+    h: f32,
+    dst_tf: Transform,
+    opacity: f32,
+) -> bool {
     let comp_w = doc.get("w").and_then(|v| v.as_f64()).unwrap_or(512.0) as f32;
     let comp_h = doc.get("h").and_then(|v| v.as_f64()).unwrap_or(512.0) as f32;
     let fr = doc.get("fr").and_then(|v| v.as_f64()).unwrap_or(30.0) as f32;
@@ -297,11 +394,15 @@ pub fn render_lottie_doc(
     }
 
     let dur_frames = (op - ip).max(1.0);
-    let raw_frame = time_sec.max(0.0) * speed.max(0.0) * fr;
-    let frame = if loop_animation {
-        ip + (raw_frame % dur_frames)
+    let frame = if let Some(p) = progress_override {
+        ip + p.clamp(0.0, 1.0) * (dur_frames - 0.001).max(0.0)
     } else {
-        (ip + raw_frame).min(op - 0.001)
+        let raw_frame = time_sec.max(0.0) * speed.max(0.0) * fr;
+        if loop_animation {
+            ip + (raw_frame % dur_frames)
+        } else {
+            (ip + raw_frame).min(op - 0.001)
+        }
     };
 
     let off_w = (w.ceil() as u32).max(1);
@@ -313,8 +414,31 @@ pub fn render_lottie_doc(
     let sy = h / comp_h;
     let local_tf = Transform::from_scale(sx, sy);
 
+    let parsed_overrides = color_overrides.and_then(|m| {
+        if m.is_empty() {
+            return None;
+        }
+        let mut out = HashMap::with_capacity(m.len());
+        for (k, v) in m {
+            if let Some(rgba) = parse_override_hex(v) {
+                let norm_k = if k.trim().starts_with('#') {
+                    k.trim().to_ascii_lowercase()
+                } else {
+                    k.clone()
+                };
+                out.insert(norm_k, rgba);
+            }
+        }
+        if out.is_empty() { None } else { Some(out) }
+    });
+    let prev_overrides =
+        LOTTIE_COLOR_OVERRIDES.with(|cell| cell.borrow_mut().replace(parsed_overrides.unwrap_or_default()));
+    if color_overrides.is_none_or(|m| m.is_empty()) {
+        LOTTIE_COLOR_OVERRIDES.with(|cell| *cell.borrow_mut() = None);
+    }
+
     let assets = doc.get("assets").and_then(|v| v.as_array());
-    if let Some(layers) = doc.get("layers").and_then(|v| v.as_array()) {
+    let result = if let Some(layers) = doc.get("layers").and_then(|v| v.as_array()) {
         render_layer_list(&mut off, layers, assets, frame, local_tf, 1.0);
         let dirty = find_alpha_bounds(&off);
         if dirty.is_some() {
@@ -323,15 +447,17 @@ pub fn render_lottie_doc(
                 quality: FilterQuality::Bilinear,
                 ..PixmapPaint::default()
             };
-            let dst_tf = Transform::from_translate(rx, ry)
-                .post_concat(Transform::from_rotate_at(rot_deg, rx + w * 0.5, ry + h * 0.5));
             pixmap.draw_pixmap(0, 0, off.as_ref(), &paint, dst_tf, None);
         }
         release_zeroed_pixmap(off, dirty);
-        return true;
-    }
-    release_zeroed_pixmap(off, None);
-    false
+        true
+    } else {
+        release_zeroed_pixmap(off, None);
+        false
+    };
+
+    LOTTIE_COLOR_OVERRIDES.with(|cell| *cell.borrow_mut() = prev_overrides);
+    result
 }
 
 fn map_lottie_blend_mode(bm: i64) -> BlendMode {
@@ -849,7 +975,10 @@ fn render_shape_group(
                 }
             }
             "fl" => {
-                let c = item.get("c").map(|v| eval_color(v, frame)).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+                let c = resolve_color_override(
+                    item,
+                    item.get("c").map(|v| eval_color(v, frame)).unwrap_or([1.0, 1.0, 1.0, 1.0]),
+                );
                 let o = item.get("o").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0) / 100.0;
                 let alpha = (c[3] * o * group_op).clamp(0.0, 1.0);
                 if alpha > 0.001 && !paths.is_empty() {
@@ -884,7 +1013,10 @@ fn render_shape_group(
                 }
             }
             "st" => {
-                let c = item.get("c").map(|v| eval_color(v, frame)).unwrap_or([1.0, 1.0, 1.0, 1.0]);
+                let c = resolve_color_override(
+                    item,
+                    item.get("c").map(|v| eval_color(v, frame)).unwrap_or([1.0, 1.0, 1.0, 1.0]),
+                );
                 let o = item.get("o").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0) / 100.0;
                 let sw = item.get("w").map(|v| eval_scalar(v, frame, 2.0)).unwrap_or(2.0);
                 let alpha = (c[3] * o * group_op).clamp(0.0, 1.0);
@@ -1739,5 +1871,54 @@ mod tests {
         assert!(center.alpha() > 240 && center.red() > 80 && center.blue() > 80);
         // Outside matte (10, 10) must be clipped to transparent
         assert_eq!(pm.pixel(10, 10).unwrap().alpha(), 0);
+    }
+
+    #[test]
+    fn test_lottie_progress_and_color_overrides() {
+        let doc = serde_json::json!({
+            "v": "5.7.0", "fr": 30, "ip": 0, "op": 30, "w": 100, "h": 100,
+            "layers": [{
+                "ty": 4, "ind": 1, "ip": 0, "op": 30,
+                "ks": {
+                    "o": {"a":0,"k":100},
+                    "p": {"a":1,"k":[
+                        {"t":0,"s":[20,50],"e":[80,50]},
+                        {"t":30,"s":[80,50]}
+                    ]},
+                    "a": {"a":0,"k":[0,0]},
+                    "s": {"a":0,"k":[100,100]},
+                    "r": {"a":0,"k":0}
+                },
+                "shapes": [{
+                    "ty": "gr",
+                    "it": [
+                        { "ty": "rc", "p": {"a":0,"k":[0,0]}, "s": {"a":0,"k":[20,20]}, "r": {"a":0,"k":0} },
+                        { "ty": "fl", "nm": "AccentFill", "c": {"a":0,"k":[1,0,0,1], "sid":"accent_slot"}, "o": {"a":0,"k":100} }
+                    ]
+                }]
+            }]
+        });
+
+        let mut overrides = HashMap::new();
+        overrides.insert("accent_slot".to_string(), "#00FF00".to_string());
+
+        let mut pm = Pixmap::new(100, 100).unwrap();
+        // Scrubbing progress=1.0 overrides time_sec=0.0, moving rect to x=80 and coloring it green via sid
+        assert!(render_lottie_doc_ex(
+            &mut pm,
+            &doc,
+            0.0,
+            false,
+            1.0,
+            Some(1.0),
+            Some(&overrides),
+            100.0,
+            100.0,
+            Transform::identity(),
+            1.0,
+        ));
+        let px = pm.pixel(80, 50).unwrap();
+        assert!(px.alpha() > 240 && px.green() > 240 && px.red() < 15);
+        assert_eq!(pm.pixel(20, 50).unwrap().alpha(), 0);
     }
 }

@@ -1,0 +1,16 @@
+<!-- Modular Rig Kit: Thought / Question Bubble (auto-sized pill + spring pop-in) -->
+<!-- Usage: <include src="components/rig_thought_bubble.html" x="480" y="180" label="Why is the sky blue?" accent="#38BDF8" /> -->
+<container x="{{x|480}}" y="{{y|180}}" width="360" height="140" position="absolute">
+  <!-- Trail dots -->
+  <circle cx="24" cy="118" r="7" color="{{bg|#FFFFFF}}" opacity="0.9" position="absolute">
+    <animate prop="scale" from="0" to="1" start="0.0" end="0.35" easing="spring" />
+  </circle>
+  <circle cx="48" cy="96" r="11" color="{{bg|#FFFFFF}}" opacity="0.95" position="absolute">
+    <animate prop="scale" from="0" to="1" start="0.08" end="0.45" easing="spring" />
+  </circle>
+  <!-- Auto-sized pill badge -->
+  <container x="66" y="16" padding="16 26" radius="32" background="{{bg|#FFFFFF}}" border="3px solid {{accent|#38BDF8}}" pivot-x="0.1" pivot-y="0.8" position="absolute">
+    <animate prop="scale" from="0" to="1" start="0.15" end="0.6" easing="spring" />
+    <text content="{{label|How does it work?}}" font-size="26" font-weight="bold" color="{{text_color|#0F172A}}" />
+  </container>
+</container>

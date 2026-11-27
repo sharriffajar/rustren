@@ -1317,7 +1317,10 @@ fn render_layer_scoped(
     if !needs_fx {
         let is_vector_transform_native = matches!(
             layer.kind,
-            LayerKind::Rect { .. } | LayerKind::Circle { .. } | LayerKind::Container { .. }
+            LayerKind::Rect { .. }
+                | LayerKind::Circle { .. }
+                | LayerKind::Container { .. }
+                | LayerKind::Lottie { .. }
         );
         if !parent_transform.is_identity() && !is_vector_transform_native {
             let mut leaf_pm = cache::ScratchPixmap::new(pixmap.width(), pixmap.height())
@@ -2162,6 +2165,8 @@ fn render_layer_inner(
             src,
             loop_animation,
             speed,
+            progress,
+            color_overrides,
             opacity,
             rotation,
             scale,
@@ -2170,8 +2175,21 @@ fn render_layer_inner(
             let target_w = layout_override.map(|b| b.w).or(*width).unwrap_or(200.0);
             let target_h = layout_override.map(|b| b.h).or(*height).unwrap_or(200.0);
             let s = eval_property(&layer.animations, AnimProperty::Scale, time_sec, *scale);
+            let eff_sx = eval_property(
+                &layer.animations,
+                AnimProperty::ScaleX,
+                time_sec,
+                layer.scale_x,
+            );
+            let eff_sy = eval_property(
+                &layer.animations,
+                AnimProperty::ScaleY,
+                time_sec,
+                layer.scale_y,
+            );
             let w = eval_property(&layer.animations, AnimProperty::Width, time_sec, target_w) * s;
             let h = eval_property(&layer.animations, AnimProperty::Height, time_sec, target_h) * s;
+            let (rx, ry) = apply_anchor(rx, ry, w, h, layer.anchor);
             let op = eval_property(&layer.animations, AnimProperty::Opacity, time_sec, *opacity)
                 * parent_opacity;
             let rot = eval_property(
@@ -2180,23 +2198,68 @@ fn render_layer_inner(
                 time_sec,
                 *rotation,
             );
+            let sk_x = eval_property(
+                &layer.animations,
+                AnimProperty::SkewX,
+                time_sec,
+                layer.skew_x,
+            );
+            let sk_y = eval_property(
+                &layer.animations,
+                AnimProperty::SkewY,
+                time_sec,
+                layer.skew_y,
+            );
+            let has_progress_anim = layer
+                .animations
+                .iter()
+                .any(|a| a.property == AnimProperty::Progress);
+            let progress_override = if progress.is_some() || has_progress_anim {
+                Some(
+                    eval_property(
+                        &layer.animations,
+                        AnimProperty::Progress,
+                        time_sec,
+                        progress.unwrap_or(0.0),
+                    )
+                    .clamp(0.0, 1.0),
+                )
+            } else {
+                None
+            };
 
-            if op > 0.0 && w > 0.0 && h > 0.0 {
+            if op > 0.0 && w > 0.0 && h > 0.0 && eff_sx > 0.0 && eff_sy > 0.0 {
+                let xform = build_pivot_transform_with_skew(
+                    rx,
+                    ry,
+                    w,
+                    h,
+                    eff_sx,
+                    eff_sy,
+                    rot,
+                    sk_x,
+                    sk_y,
+                    layer.pivot_x,
+                    layer.pivot_y,
+                );
+                let dst_tf = Transform::from_translate(rx, ry)
+                    .post_concat(xform)
+                    .post_concat(parent_transform);
                 let rendered = assets
                     .lotties
                     .get(src)
                     .map(|doc| {
-                        lottie::render_lottie_doc(
+                        lottie::render_lottie_doc_ex(
                             pixmap,
                             doc,
                             time_sec,
                             *loop_animation,
                             *speed,
-                            rx,
-                            ry,
+                            progress_override,
+                            color_overrides.as_ref(),
                             w,
                             h,
-                            rot,
+                            dst_tf,
                             op,
                         )
                     })
@@ -2205,7 +2268,7 @@ fn render_layer_inner(
                     let mut paint = Paint::default();
                     paint.set_color_rgba8(70, 130, 180, (140.0 * op) as u8);
                     paint.anti_alias = true;
-                    let tf = Transform::from_rotate_at(rot, rx + w * 0.5, ry + h * 0.5);
+                    let tf = xform.post_concat(parent_transform);
                     if let Some(rect) = Rect::from_xywh(rx, ry, w, h) {
                         let mut pb = PathBuilder::new();
                         pb.push_rect(rect);

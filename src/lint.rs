@@ -312,6 +312,27 @@ fn lint_layers(
                     groups,
                 );
             }
+            LayerKind::Svg {
+                src,
+                width,
+                height,
+                ..
+            } => {
+                let is_large_inline = src.trim_start().starts_with('<') && src.len() > 2048;
+                let is_large_box = width.unwrap_or(0.0) >= 320.0 && height.unwrap_or(0.0) >= 320.0;
+                if (is_large_inline || is_large_box)
+                    && layer.animations.is_empty()
+                    && layer.wave_warp.is_none()
+                    && layer.uv_warp.is_none()
+                {
+                    groups.entry("static_monolithic_svg").or_default().push((
+                        path.clone(),
+                        format!(
+                            "{path} is a large static monolithic SVG; split into modular Container/Include rigs or use a curated Lottie layer with progress/color_overrides"
+                        ),
+                    ));
+                }
+            }
             _ => {}
         }
     }

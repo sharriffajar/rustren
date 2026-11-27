@@ -838,6 +838,10 @@ pub enum LayerKind {
         loop_animation: bool,
         #[serde(default = "default_scale")]
         speed: f32,
+        #[serde(default)]
+        progress: Option<f32>,
+        #[serde(default)]
+        color_overrides: Option<std::collections::HashMap<String, String>>,
         #[serde(default = "default_opacity")]
         opacity: f32,
         #[serde(default)]
@@ -1278,6 +1282,7 @@ pub enum AnimProperty {
     Color,
     BorderColor,
     PathProgress,
+    Progress,
     StrokeDashoffset,
 }
 

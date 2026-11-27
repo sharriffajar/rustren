@@ -335,6 +335,11 @@ curl -sS -H "Authorization: Bearer $API_KEY" "{base_url}/jobs/$JOB_ID/video" -o 
 - Manifest: https://nvm.web.id/rustren/studio/assets/catalog/catalog.json
 - Media base: https://nvm.web.id/rustren/studio/assets/catalog/media/<id>.jpg
 - Includes 18 lightweight 1280x720 assets: 8 neutral 3D/glass backdrops, 6 monochrome optical overlays (`screen`/`overlay`/`multiply`), and 4 high-contrast luma mattes (`track_matte: "luma"`).
+
+## Authoring Rules (Modular Rigs & Curated Lottie)
+- **Avoid monolithic static `<svg>`**: Split characters/diagrams into modular `<container>` + `<include>` rigs with `pivot_x`/`pivot_y` and `expr` (`sin`/`cos`) — unclipped containers propagate `parent_transform` directly without clipping or resampling blur.
+- **Lottie read-only policy**: Never hand-generate or edit raw Bodymovin Lottie JSON. Use curated `.json` assets with `progress` (animatable `0.0..1.0` for beat-sync scrubbing) and `color_overrides` (matches `sid`, `nm`, or exact `#rrggbb`).
+- **Radial gradients & transitions**: `Circle`, `Rect`, and `Container` support `radial-gradient(circle at X% Y%, ...)` and `cx`/`cy`/`fx`/`fy`/`r`; `<container timeline="series" transition="fade|pan-up|pan-left|iris">` lowers automatically to `overlap_secs` + animations/mattes.
 "##,
         version = version,
         notice_block = notice_block,

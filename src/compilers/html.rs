@@ -1737,6 +1737,10 @@ fn parse_layer_element(
             }
             let loop_animation = get_attr_str(elem, "loop").is_some();
             let speed = get_attr_f32(elem, "speed").unwrap_or(1.0);
+            let progress = get_attr_f32(elem, "progress");
+            let color_overrides = get_attr_str(elem, "color-overrides")
+                .or_else(|| get_attr_str(elem, "color_overrides"))
+                .and_then(|s| serde_json::from_str::<HashMap<String, String>>(&s).ok());
             let opacity = get_attr_f32(elem, "opacity").unwrap_or(1.0);
             let rotation = get_attr_f32(elem, "rotation").unwrap_or(0.0);
             let scale = get_attr_f32(elem, "scale").unwrap_or(1.0);
@@ -1749,6 +1753,8 @@ fn parse_layer_element(
                 src,
                 loop_animation,
                 speed,
+                progress,
+                color_overrides,
                 opacity,
                 rotation,
                 scale,
@@ -2210,6 +2216,7 @@ fn parse_animation_elem(a_elem: &ElementRef) -> Result<Animation> {
         "color" | "background" => AnimProperty::Color,
         "border_color" | "border-color" => AnimProperty::BorderColor,
         "path_progress" | "path-progress" => AnimProperty::PathProgress,
+        "progress" => AnimProperty::Progress,
         "stroke_dashoffset" | "stroke-dashoffset" => AnimProperty::StrokeDashoffset,
         "volume" => AnimProperty::Volume,
         _ => AnimProperty::Opacity,

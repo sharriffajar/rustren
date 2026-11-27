@@ -109,8 +109,10 @@ Fetch `https://nvm.web.id/rustren/studio/assets/catalog/catalog.json` to discove
 - **6 Animated 720p Video Loops** (`vid-*`, 2.5s H.264) — use as `video` layer with `loop: true` + `blend_mode: "screen"` (`vid-light-leak`, `vid-bokeh-drift`, `vid-film-burn`) or `track_matte: "luma"` (`vid-ink-wipe`, `vid-smoke-reveal`, `vid-diagonal-blinds`).
 - **20 CC0 1.0 Audio Assets** (`16 SFX + 4 Music Beds`, MP3) — add to `audio[]` synced to transition timestamps for instant broadcast polish.
 
-### Companion MCP for Advanced Vector Animations (Optional, Free)
-For complex custom vector animations (icons, loaders, character motion), pair `rustren` with **LottieFiles Creator MCP** (`https://creator.mcp.lottiefiles.com/mcp`): generate/export a Bodymovin Lottie `.json` there, then reference it in `rustren` as `{ "type": "lottie", "src": "anim.json", "loop_animation": true, "speed": 1.0 }` (or drag-and-drop the `.json` directly into Rustren Studio).
+### Modular Rig Kit & Curated Lottie Authoring Rules
+- **Modular Rigs (`IncludeLayer` + `ContainerLayer`)**: Avoid stuffing an entire character or diagram into one static `<svg>`. Split moving parts (head, eyes, arms, wave nodes) into nested unclipped `<container>`s with `pivot_x`/`pivot_y` and `expr` (`sin`/`cos`) — unclipped containers propagate `parent_transform` directly without clipping or bilinear blur. See reusable templates in `examples/components/rig_*.html`.
+- **Curated Lottie Policy (Read-Only)**: Never hand-author or edit raw Bodymovin Lottie JSON. Reference curated `.json` assets (or export via **LottieFiles Creator MCP** `https://creator.mcp.lottiefiles.com/mcp`) and customize them via `progress` (animatable `0.0..1.0` to scrub/sync to beats) and `color_overrides` (`{ "sid_or_nm_or_#rrggbb": "#38BDF8" }`).
+- **Radial Gradients & Series Transitions**: Use `radial-gradient(circle at X% Y%, ...)` (or `cx`/`cy`/`fx`/`fy`/`r`) on `Circle`/`Rect`/`Container`, and `<container timeline="series" transition="fade|pan-up|pan-left|iris" transition-duration="0.6">` for one-line inter-scene transitions.
 
 Responsive output: define `<profiles>` in the scene (e.g. `portrait` 1080x1920, `square` 720x720) and pass `--composition portrait` to `validate`, `snapshot`, `layout`, `render`.
 

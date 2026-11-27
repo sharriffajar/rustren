@@ -1,0 +1,22 @@
+<!-- Modular Rig Kit: Procedural Sine Wave Diagram (oscillating nodes + radial glow) -->
+<!-- Usage: <include src="components/rig_wave_diagram.html" x="120" y="420" color="#38BDF8" /> -->
+<container x="{{x|120}}" y="{{y|420}}" width="420" height="120" position="absolute">
+  <circle cx="30" cy="60" r="14" color="radial-gradient(circle at 35% 35%, #FFFFFF, {{color|#38BDF8}})" position="absolute">
+    <animate prop="cy" from="60" to="60" start="0" end="6" expr="60 + 36 * sin(t * 4.5 + 0.0)" />
+  </circle>
+  <circle cx="100" cy="60" r="14" color="radial-gradient(circle at 35% 35%, #FFFFFF, {{color|#38BDF8}})" position="absolute">
+    <animate prop="cy" from="60" to="60" start="0" end="6" expr="60 + 36 * sin(t * 4.5 + 0.8)" />
+  </circle>
+  <circle cx="170" cy="60" r="14" color="radial-gradient(circle at 35% 35%, #FFFFFF, {{color|#38BDF8}})" position="absolute">
+    <animate prop="cy" from="60" to="60" start="0" end="6" expr="60 + 36 * sin(t * 4.5 + 1.6)" />
+  </circle>
+  <circle cx="240" cy="60" r="14" color="radial-gradient(circle at 35% 35%, #FFFFFF, {{color|#38BDF8}})" position="absolute">
+    <animate prop="cy" from="60" to="60" start="0" end="6" expr="60 + 36 * sin(t * 4.5 + 2.4)" />
+  </circle>
+  <circle cx="310" cy="60" r="14" color="radial-gradient(circle at 35% 35%, #FFFFFF, {{color|#38BDF8}})" position="absolute">
+    <animate prop="cy" from="60" to="60" start="0" end="6" expr="60 + 36 * sin(t * 4.5 + 3.2)" />
+  </circle>
+  <circle cx="380" cy="60" r="14" color="radial-gradient(circle at 35% 35%, #FFFFFF, {{color|#38BDF8}})" position="absolute">
+    <animate prop="cy" from="60" to="60" start="0" end="6" expr="60 + 36 * sin(t * 4.5 + 4.0)" />
+  </circle>
+</container>
