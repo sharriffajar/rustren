@@ -1,6 +1,6 @@
 ---
 name: simple-motion
-description: Minimum quality floor ("batas bawah dari yang kita sebut simpel") for flat 2D kinetic motion-graphics videos built with rustren (Reels/TikTok/Shorts promos, kinetic typography openers, social explainers). Enforces flat tactile palettes, unique per-beat motifs, Rame <-> Sepi pacing, protected text islands, off-screen transitions, and pre-delivery visual QA.
+description: Minimum quality floor for flat 2D kinetic motion-graphics videos built with rustren (Reels/TikTok/Shorts promos, kinetic typography openers, social explainers). Enforces flat tactile palettes, unique per-beat motifs, dense-to-calm pacing contrast, protected text islands, off-screen transitions, and pre-delivery visual QA.
 ---
 
 # Simple Motion (`rustren`)
@@ -12,7 +12,7 @@ Use this skill whenever building **flat 2D motion-graphics videos** in `rustren`
 - Kinetic typography openers, feature teasers, and product launch reels.
 - Minimalist flat-vector explainers and brand stingers.
 
-> **Quality Floor Mandate**: Everything in this document defines the **absolute minimum quality bar ("batas bawah dari yang kita sebut simpel")**. You may exceed this bar with richer choreography or effects, but you must **never ship below it**. Any output violating the 6 Laws, triggering the Hard Reject List, or failing the Pre-Delivery Visual QA Gate is rejected.
+> **Quality Floor Mandate**: Everything in this document defines the **absolute minimum quality bar** for simple 2D motion graphics. You may exceed this bar with richer choreography or effects, but you must **never ship below it**. Any output violating the 6 Laws, triggering the Hard Reject List, or failing the Pre-Delivery Visual QA Gate is rejected.
 
 ---
 
@@ -28,16 +28,16 @@ Use a strict **flat tactile palette**: **0% gradients, 0% drop shadows, 0% outer
 ### Law 2 — 1 Beat = 1 Unique Hero Motif
 Every beat must introduce **one distinct hero visual motif** (e.g., 4-color segmented ring, 6-petal U-bend crawling snake outline, 4-layer oversized organic sweep, curved trim-path lines, overlapping giant circles, falling flat confetti, full-bleed diagonal wipe, orbiting perimeter shapes, isolated oval matte squash, staggered card drop, bottom-up mask reveal). **Never reuse the same hero motif twice** in a single video.
 
-### Law 3 — Rame <-> Sepi Pacing
+### Law 3 — Dense-to-Calm Pacing Contrast
 - Keep each beat to **1.0–2.5 seconds** (tight, scannable rhythm; ~1 keyword per 1–2s).
-- Alternate **Rame (high-energy / dense)** beats with **Sepi (calm breather / isolated focus)** beats. Never chain 3+ hyper-busy beats without a visual breather.
+- Alternate **High-Energy (dense)** beats with **Calm (breather / isolated focus)** beats. Never chain 3+ hyper-busy beats without a visual breather.
 
 ### Law 4 — Protected Center Text Island & Peripheral Budget
 On a `720x1280` (9:16) canvas:
 - **Protected Text Island**: `x: 100..620`, `y: 440..800`. Decorative shapes must **never** collide with or obscure legibility inside this zone while copy is on screen.
 - **Peripheral Shape Budget**:
-  - **Busy (Rame) beats**: `5–7` peripheral geometric accents framing the edges.
-  - **Calm (Sepi) breathers**: `0–2` peripheral shapes max.
+  - **High-Energy (dense) beats**: `5–7` peripheral geometric accents framing the edges.
+  - **Calm (breather) beats**: `0–2` peripheral shapes max.
 
 ### Law 5 — Zero Pop-In & Zero Hard-Vanish
 No element may abruptly appear at full size or snap-delete on an active frame.
@@ -126,5 +126,5 @@ Use an inline `matte_layer` rect so the ending brand wordmark rises cleanly from
 ## 5. Mandatory Pre-Delivery Visual QA Gate
 
 Before delivering any `simple-motion` video:
-1. **12-Beat Contact Sheet**: Extract 1 hero frame per beat into a 6×2 contact sheet and verify palette discipline, unique motif per beat, Rame <-> Sepi contrast, and clean center text island (`x: 100..620, y: 440..800`).
+1. **12-Beat Contact Sheet**: Extract 1 hero frame per beat into a 6×2 contact sheet and verify palette discipline, unique motif per beat, dense-to-calm contrast, and clean center text island (`x: 100..620, y: 440..800`).
 2. **Transition-Boundary Audit**: Verify zero text ghosting, zero color flash, zero pop-in, and clean bottom-up mask reveal on the ending brand mark.
