@@ -1,16 +1,23 @@
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Mutex, OnceLock};
+
 use serde_json::Value;
 use tiny_skia::{
-    Color, FillRule, FilterQuality, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap,
-    PixmapPaint, Rect, Stroke, StrokeDash, Transform,
+    BlendMode, Color, ColorU8, FillRule, FilterQuality, GradientStop, LineCap, LineJoin,
+    LinearGradient, Paint, Path, PathBuilder, Pixmap, PixmapPaint, Point, PremultipliedColorU8,
+    RadialGradient, Rect, Shader, SpreadMode, Stroke, StrokeDash, Transform,
 };
 
 /// Pure-Rust CPU Lottie (Bodymovin JSON) vector renderer on `tiny_skia`.
 /// Supports:
 /// - Composition `w`, `h`, `fr`, `ip`, `op`
-/// - Shape layers (`ty: 4`), Solid layers (`ty: 1`), Null layers (`ty: 3`), Precomp layers (`ty: 0`)
+/// - Shape layers (`ty: 4`), Image layers (`ty: 2`, embedded base64 or local path), Solid layers (`ty: 1`), Null layers (`ty: 3`), Precomp layers (`ty: 0`)
 /// - Layer parenting (`ind` / `parent`), `ip`/`op` visibility, `ks` transform (`a`, `p`, `s`, `r`, `o`)
-/// - Static & keyframed properties with cubic-bezier easing & hold frames
-/// - Shapes: `gr` (group + `tr`), `rc` (rect), `el` (ellipse), `sr` (star/polygon), `sh` (bezier path + morph), `fl` (fill), `st` (stroke)
+/// - Track mattes (`tt: 1..4` Alpha / AlphaInv / Luma / LumaInv, explicit `tp` or legacy previous-layer matte, `td` matte source suppression)
+/// - Layer blend modes (`bm`) and Gaussian Blur effects (`ef` `ty: 29`)
+/// - Static & keyframed properties with cubic-bezier easing, hold frames, and smooth bezier shape morphing
+/// - Shapes: `gr` (group + `tr`), `rc` (rect), `el` (ellipse), `sr` (star/polygon), `sh` (bezier path + morph), `fl` (solid fill), `st` (solid stroke), `gf` (linear/radial gradient fill + alpha stops), `gs` (gradient stroke), `tm` (trim paths)
 #[allow(dead_code)]
 pub fn render_lottie_json(
     pixmap: &mut Pixmap,
@@ -99,6 +106,49 @@ pub fn render_lottie_doc(
     false
 }
 
+fn map_lottie_blend_mode(bm: i64) -> BlendMode {
+    match bm {
+        1 => BlendMode::Multiply,
+        2 => BlendMode::Screen,
+        3 => BlendMode::Overlay,
+        4 => BlendMode::Darken,
+        5 => BlendMode::Lighten,
+        6 => BlendMode::ColorDodge,
+        7 => BlendMode::ColorBurn,
+        8 => BlendMode::HardLight,
+        9 => BlendMode::SoftLight,
+        10 => BlendMode::Difference,
+        11 => BlendMode::Exclusion,
+        12 => BlendMode::Hue,
+        13 => BlendMode::Saturation,
+        14 => BlendMode::Color,
+        15 => BlendMode::Luminosity,
+        _ => BlendMode::SourceOver,
+    }
+}
+
+fn extract_gaussian_blur_radius(layer: &Value, frame: f32) -> f32 {
+    let Some(effects) = layer.get("ef").and_then(|v| v.as_array()) else {
+        return 0.0;
+    };
+    let mut total = 0.0f32;
+    for ef in effects {
+        let ty = ef.get("ty").and_then(|v| v.as_i64()).unwrap_or(-1);
+        let en = ef.get("en").and_then(|v| v.as_i64()).unwrap_or(1);
+        if ty == 29 && en != 0 {
+            if let Some(params) = ef.get("ef").and_then(|v| v.as_array()) {
+                if let Some(blur_val) = params.first().and_then(|p| p.get("v")) {
+                    let b = eval_scalar(blur_val, frame, 0.0);
+                    if b > 0.0 {
+                        total += b * 0.35;
+                    }
+                }
+            }
+        }
+    }
+    total
+}
+
 fn render_layer_list(
     pixmap: &mut Pixmap,
     layers: &[Value],
@@ -107,8 +157,15 @@ fn render_layer_list(
     parent_tf: Transform,
     parent_opacity: f32,
 ) {
+    let mut matte_cache: HashMap<usize, Pixmap> = HashMap::new();
+
     // Lottie layers are ordered top-to-bottom, so render in reverse (bottom-to-top).
-    for layer in layers.iter().rev() {
+    for idx in (0..layers.len()).rev() {
+        let layer = &layers[idx];
+        // Skip matte source layers in normal pass; they are rendered on demand as mattes.
+        if layer.get("td").and_then(|v| v.as_i64()).unwrap_or(0) != 0 {
+            continue;
+        }
         if layer.get("hd").and_then(|v| v.as_bool()).unwrap_or(false) {
             continue;
         }
@@ -118,61 +175,214 @@ fn render_layer_list(
             continue;
         }
 
-        let (layer_tf, layer_op) = resolve_layer_transform(layer, layers, frame, parent_tf);
-        let final_op = (parent_opacity * layer_op).clamp(0.0, 1.0);
-        if final_op <= 0.001 {
+        let tt = layer.get("tt").and_then(|v| v.as_i64()).unwrap_or(0);
+        let bm_raw = layer.get("bm").and_then(|v| v.as_i64()).unwrap_or(0);
+        let blend_mode = map_lottie_blend_mode(bm_raw);
+        let blur_radius = extract_gaussian_blur_radius(layer, frame);
+        let needs_offscreen = (1..=4).contains(&tt) || bm_raw != 0 || blur_radius > 0.1;
+
+        if !needs_offscreen {
+            render_single_layer(pixmap, layer, layers, assets, frame, parent_tf, parent_opacity);
             continue;
         }
 
-        let ty = layer.get("ty").and_then(|v| v.as_i64()).unwrap_or(-1);
-        match ty {
-            1 => {
-                // Solid layer
-                let sw = layer.get("sw").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-                let sh = layer.get("sh").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-                if sw > 0.0 && sh > 0.0 {
-                    let hex = layer.get("sc").and_then(|v| v.as_str()).unwrap_or("#ffffff");
-                    if let Some((r, g, b)) = parse_hex_rgb(hex) {
-                        if let Some(rect) = Rect::from_xywh(0.0, 0.0, sw, sh) {
-                            let mut pb = PathBuilder::new();
-                            pb.push_rect(rect);
-                            if let Some(path) = pb.finish() {
-                                let mut paint = Paint::default();
-                                paint.set_color(Color::from_rgba(r, g, b, final_op).unwrap_or(Color::WHITE));
-                                paint.anti_alias = true;
-                                pixmap.fill_path(&path, &paint, FillRule::Winding, layer_tf, None);
-                            }
-                        }
+        let pw = pixmap.width();
+        let ph = pixmap.height();
+        let Some(mut layer_pm) = Pixmap::new(pw, ph) else {
+            continue;
+        };
+        render_single_layer(&mut layer_pm, layer, layers, assets, frame, parent_tf, parent_opacity);
+
+        if blur_radius > 0.1 {
+            let scale_est = ((parent_tf.sx * parent_tf.sx + parent_tf.ky * parent_tf.ky).sqrt()
+                + (parent_tf.kx * parent_tf.kx + parent_tf.sy * parent_tf.sy).sqrt())
+                * 0.5;
+            let eff_radius = (blur_radius * scale_est.max(0.1)).min(64.0);
+            if eff_radius > 0.2 {
+                super::fx::fast_blur_rgba(layer_pm.data_mut(), pw, ph, eff_radius);
+            }
+        }
+
+        if (1..=4).contains(&tt) {
+            let matte_idx = if let Some(tp) = layer.get("tp").and_then(|v| v.as_i64()) {
+                layers
+                    .iter()
+                    .position(|l| l.get("ind").and_then(|v| v.as_i64()) == Some(tp))
+            } else if idx > 0 {
+                Some(idx - 1)
+            } else {
+                None
+            };
+
+            if let Some(m_idx) = matte_idx {
+                let matte_pm = matte_cache.entry(m_idx).or_insert_with(|| {
+                    let mut m_pm = Pixmap::new(pw, ph).unwrap_or_else(|| Pixmap::new(1, 1).unwrap());
+                    let m_layer = &layers[m_idx];
+                    let m_ip = m_layer.get("ip").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+                    let m_op = m_layer.get("op").and_then(|v| v.as_f64()).unwrap_or(1e9) as f32;
+                    if frame >= m_ip && frame < m_op {
+                        render_single_layer(&mut m_pm, m_layer, layers, assets, frame, parent_tf, 1.0);
                     }
+                    m_pm
+                });
+
+                if matte_pm.width() == pw && matte_pm.height() == ph {
+                    apply_track_matte(&mut layer_pm, matte_pm, tt);
                 }
+            }
+        }
+
+        let paint = PixmapPaint {
+            opacity: 1.0,
+            blend_mode,
+            quality: FilterQuality::Nearest,
+        };
+        pixmap.draw_pixmap(0, 0, layer_pm.as_ref(), &paint, Transform::identity(), None);
+    }
+}
+
+fn apply_track_matte(target: &mut Pixmap, matte: &Pixmap, tt: i64) {
+    let dst = target.pixels_mut();
+    let msrc = matte.pixels();
+    for (d, m) in dst.iter_mut().zip(msrc.iter()) {
+        if d.alpha() == 0 {
+            continue;
+        }
+        let factor = match tt {
+            1 => m.alpha() as f32 / 255.0,
+            2 => 1.0 - (m.alpha() as f32 / 255.0),
+            3 => {
+                (0.2126 * m.red() as f32 + 0.7152 * m.green() as f32 + 0.0722 * m.blue() as f32)
+                    / 255.0
             }
             4 => {
-                // Shape layer
-                if let Some(shapes) = layer.get("shapes").and_then(|v| v.as_array()) {
-                    render_shape_group(pixmap, shapes, frame, layer_tf, final_op);
-                }
+                1.0 - (0.2126 * m.red() as f32
+                    + 0.7152 * m.green() as f32
+                    + 0.0722 * m.blue() as f32)
+                    / 255.0
             }
-            0 => {
-                // Precomp layer
-                if let (Some(ref_id), Some(asset_list)) = (
-                    layer.get("refId").and_then(|v| v.as_str()),
-                    assets,
-                ) {
-                    let st = layer.get("st").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-                    let sr = layer.get("sr").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
-                    let sub_frame = (frame - st) / sr.max(0.001);
-                    if let Some(comp) = asset_list
-                        .iter()
-                        .find(|a| a.get("id").and_then(|v| v.as_str()) == Some(ref_id))
-                    {
-                        if let Some(sub_layers) = comp.get("layers").and_then(|v| v.as_array()) {
-                            render_layer_list(pixmap, sub_layers, assets, sub_frame, layer_tf, final_op);
+            _ => 1.0,
+        };
+        if factor <= 0.001 {
+            *d = PremultipliedColorU8::TRANSPARENT;
+        } else if factor < 0.999 {
+            let r = ((d.red() as f32) * factor).round().clamp(0.0, 255.0) as u8;
+            let g = ((d.green() as f32) * factor).round().clamp(0.0, 255.0) as u8;
+            let b = ((d.blue() as f32) * factor).round().clamp(0.0, 255.0) as u8;
+            let a = ((d.alpha() as f32) * factor).round().clamp(0.0, 255.0) as u8;
+            *d = PremultipliedColorU8::from_rgba(r.min(a), g.min(a), b.min(a), a)
+                .unwrap_or(PremultipliedColorU8::TRANSPARENT);
+        }
+    }
+}
+
+fn render_single_layer(
+    pixmap: &mut Pixmap,
+    layer: &Value,
+    all_layers: &[Value],
+    assets: Option<&Vec<Value>>,
+    frame: f32,
+    parent_tf: Transform,
+    parent_opacity: f32,
+) {
+    let (layer_tf, layer_op) = resolve_layer_transform(layer, all_layers, frame, parent_tf);
+    let final_op = (parent_opacity * layer_op).clamp(0.0, 1.0);
+    if final_op <= 0.001 {
+        return;
+    }
+
+    let ty = layer.get("ty").and_then(|v| v.as_i64()).unwrap_or(-1);
+    match ty {
+        1 => {
+            // Solid layer
+            let sw = layer.get("sw").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+            let sh = layer.get("sh").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+            if sw > 0.0 && sh > 0.0 {
+                let hex = layer.get("sc").and_then(|v| v.as_str()).unwrap_or("#ffffff");
+                if let Some((r, g, b)) = parse_hex_rgb(hex) {
+                    if let Some(rect) = Rect::from_xywh(0.0, 0.0, sw, sh) {
+                        let mut pb = PathBuilder::new();
+                        pb.push_rect(rect);
+                        if let Some(path) = pb.finish() {
+                            let mut paint = Paint::default();
+                            paint.set_color(
+                                Color::from_rgba(r, g, b, final_op).unwrap_or(Color::WHITE),
+                            );
+                            paint.anti_alias = true;
+                            pixmap.fill_path(&path, &paint, FillRule::Winding, layer_tf, None);
                         }
                     }
                 }
             }
-            _ => {}
         }
+        4 => {
+            // Shape layer
+            if let Some(shapes) = layer.get("shapes").and_then(|v| v.as_array()) {
+                render_shape_group(pixmap, shapes, frame, layer_tf, final_op, None);
+            }
+        }
+        2 => {
+            // Image layer (embedded data:image/...;base64,... or local file path)
+            if let (Some(ref_id), Some(asset_list)) = (
+                layer.get("refId").and_then(|v| v.as_str()),
+                assets,
+            ) {
+                if let Some(asset) = asset_list
+                    .iter()
+                    .find(|a| a.get("id").and_then(|v| v.as_str()) == Some(ref_id))
+                {
+                    if let Some(img_pm) = decode_lottie_image_asset(asset) {
+                        let target_w = asset
+                            .get("w")
+                            .and_then(|v| v.as_f64())
+                            .map(|v| v as f32)
+                            .unwrap_or(img_pm.width() as f32);
+                        let target_h = asset
+                            .get("h")
+                            .and_then(|v| v.as_f64())
+                            .map(|v| v as f32)
+                            .unwrap_or(img_pm.height() as f32);
+                        let sx = if img_pm.width() > 0 {
+                            target_w / img_pm.width() as f32
+                        } else {
+                            1.0
+                        };
+                        let sy = if img_pm.height() > 0 {
+                            target_h / img_pm.height() as f32
+                        } else {
+                            1.0
+                        };
+                        let draw_tf = Transform::from_scale(sx, sy).post_concat(layer_tf);
+                        let paint = PixmapPaint {
+                            opacity: final_op,
+                            quality: FilterQuality::Bilinear,
+                            ..PixmapPaint::default()
+                        };
+                        pixmap.draw_pixmap(0, 0, (*img_pm).as_ref(), &paint, draw_tf, None);
+                    }
+                }
+            }
+        }
+        0 => {
+            // Precomp layer
+            if let (Some(ref_id), Some(asset_list)) = (
+                layer.get("refId").and_then(|v| v.as_str()),
+                assets,
+            ) {
+                let st = layer.get("st").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+                let sr = layer.get("sr").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
+                let sub_frame = (frame - st) / sr.max(0.001);
+                if let Some(comp) = asset_list
+                    .iter()
+                    .find(|a| a.get("id").and_then(|v| v.as_str()) == Some(ref_id))
+                {
+                    if let Some(sub_layers) = comp.get("layers").and_then(|v| v.as_array()) {
+                        render_layer_list(pixmap, sub_layers, assets, sub_frame, layer_tf, final_op);
+                    }
+                }
+            }
+        }
+        _ => {}
     }
 }
 
@@ -227,17 +437,64 @@ fn eval_ks(ks: &Value, frame: f32) -> (Transform, f32) {
     (tf, o.clamp(0.0, 1.0))
 }
 
+fn group_has_paint(items: &[Value]) -> bool {
+    items.iter().any(|it| {
+        !it.get("hd").and_then(|v| v.as_bool()).unwrap_or(false)
+            && matches!(
+                it.get("ty").and_then(|v| v.as_str()),
+                Some("fl" | "gf" | "st" | "gs")
+            )
+    })
+}
+
+fn collect_unpainted_group_paths(items: &[Value], frame: f32, local_tf: Transform, out: &mut Vec<Path>) {
+    let mut tf = local_tf;
+    for item in items {
+        if item.get("ty").and_then(|v| v.as_str()) == Some("tr") {
+            let (tr_tf, _) = eval_ks(item, frame);
+            tf = tr_tf.post_concat(tf);
+        }
+    }
+    for item in items {
+        if item.get("hd").and_then(|v| v.as_bool()).unwrap_or(false) {
+            continue;
+        }
+        let ty = item.get("ty").and_then(|v| v.as_str()).unwrap_or("");
+        let maybe_path = match ty {
+            "gr" => {
+                if let Some(sub) = item.get("it").and_then(|v| v.as_array()) {
+                    if !group_has_paint(sub) {
+                        collect_unpainted_group_paths(sub, frame, tf, out);
+                    }
+                }
+                None
+            }
+            "rc" => build_rect_path(item, frame),
+            "el" => build_ellipse_path(item, frame),
+            "sr" => build_polystar_path(item, frame),
+            "sh" => build_bezier_path(item, frame),
+            _ => None,
+        };
+        if let Some(path) = maybe_path {
+            if let Some(transformed) = path.transform(tf) {
+                out.push(transformed);
+            }
+        }
+    }
+}
+
 fn render_shape_group(
     pixmap: &mut Pixmap,
     items: &[Value],
     frame: f32,
     parent_tf: Transform,
     parent_op: f32,
+    parent_trim: Option<(f32, f32, f32)>,
 ) {
     // Check for group transform (`tr`) and trim paths (`tm`) in this item list
     let mut tf = parent_tf;
     let mut group_op = parent_op;
-    let mut trim_paths: Option<(f32, f32, f32)> = None;
+    let mut trim_paths: Option<(f32, f32, f32)> = parent_trim;
     for item in items {
         match item.get("ty").and_then(|v| v.as_str()) {
             Some("tr") => {
@@ -255,6 +512,7 @@ fn render_shape_group(
         }
     }
 
+    // Collect geometry paths in this group (including unpainted nested groups for parent-level fills)
     let mut paths: Vec<Path> = Vec::new();
     for item in items {
         if item.get("hd").and_then(|v| v.as_bool()).unwrap_or(false) {
@@ -264,7 +522,9 @@ fn render_shape_group(
         match ty {
             "gr" => {
                 if let Some(sub) = item.get("it").and_then(|v| v.as_array()) {
-                    render_shape_group(pixmap, sub, frame, tf, group_op);
+                    if !group_has_paint(sub) {
+                        collect_unpainted_group_paths(sub, frame, Transform::identity(), &mut paths);
+                    }
                 }
             }
             "rc" => {
@@ -287,11 +547,29 @@ fn render_shape_group(
                     paths.push(path);
                 }
             }
+            _ => {}
+        }
+    }
+
+    // Render items in reverse order (Lottie lists shapes/subgroups top-to-bottom)
+    for item in items.iter().rev() {
+        if item.get("hd").and_then(|v| v.as_bool()).unwrap_or(false) {
+            continue;
+        }
+        let ty = item.get("ty").and_then(|v| v.as_str()).unwrap_or("");
+        match ty {
+            "gr" => {
+                if let Some(sub) = item.get("it").and_then(|v| v.as_array()) {
+                    if group_has_paint(sub) {
+                        render_shape_group(pixmap, sub, frame, tf, group_op, trim_paths);
+                    }
+                }
+            }
             "fl" => {
                 let c = item.get("c").map(|v| eval_color(v, frame)).unwrap_or([1.0, 1.0, 1.0, 1.0]);
                 let o = item.get("o").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0) / 100.0;
                 let alpha = (c[3] * o * group_op).clamp(0.0, 1.0);
-                if alpha > 0.001 {
+                if alpha > 0.001 && !paths.is_empty() {
                     let mut paint = Paint::default();
                     paint.set_color(Color::from_rgba(c[0], c[1], c[2], alpha).unwrap_or(Color::WHITE));
                     paint.anti_alias = true;
@@ -300,8 +578,25 @@ fn render_shape_group(
                     } else {
                         FillRule::Winding
                     };
-                    for path in &paths {
-                        pixmap.fill_path(path, &paint, rule, tf, None);
+                    fill_paths_combined(pixmap, &paths, &paint, rule, tf);
+                }
+            }
+            "gf" => {
+                let o = item.get("o").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0) / 100.0;
+                let alpha = (o * group_op).clamp(0.0, 1.0);
+                if alpha > 0.001 && !paths.is_empty() {
+                    if let Some(shader) = build_gradient_shader(item, frame, alpha) {
+                        let paint = Paint {
+                            shader,
+                            anti_alias: true,
+                            ..Paint::default()
+                        };
+                        let rule = if item.get("r").and_then(|v| v.as_i64()) == Some(2) {
+                            FillRule::EvenOdd
+                        } else {
+                            FillRule::Winding
+                        };
+                        fill_paths_combined(pixmap, &paths, &paint, rule, tf);
                     }
                 }
             }
@@ -310,52 +605,254 @@ fn render_shape_group(
                 let o = item.get("o").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0) / 100.0;
                 let sw = item.get("w").map(|v| eval_scalar(v, frame, 2.0)).unwrap_or(2.0);
                 let alpha = (c[3] * o * group_op).clamp(0.0, 1.0);
-                if alpha > 0.001 && sw > 0.0 {
+                if alpha > 0.001 && sw > 0.0 && !paths.is_empty() {
                     let mut paint = Paint::default();
                     paint.set_color(Color::from_rgba(c[0], c[1], c[2], alpha).unwrap_or(Color::WHITE));
                     paint.anti_alias = true;
-                    let mut stroke = Stroke {
-                        width: sw,
-                        line_cap: match item.get("lc").and_then(|v| v.as_i64()) {
-                            Some(2) => LineCap::Round,
-                            Some(3) => LineCap::Square,
-                            _ => LineCap::Butt,
-                        },
-                        line_join: match item.get("lj").and_then(|v| v.as_i64()) {
-                            Some(2) => LineJoin::Round,
-                            Some(3) => LineJoin::Bevel,
-                            _ => LineJoin::Miter,
-                        },
-                        ..Stroke::default()
-                    };
-                    if let Some(ml) = item.get("ml").and_then(|v| v.as_f64()) {
-                        stroke.miter_limit = ml as f32;
-                    }
-                    for path in &paths {
-                        if let Some((ts, te, to)) = trim_paths {
-                            let lo = ts.min(te).clamp(0.0, 100.0) / 100.0;
-                            let hi = ts.max(te).clamp(0.0, 100.0) / 100.0;
-                            let span = (hi - lo).clamp(0.0, 1.0);
-                            if span <= 0.0005 {
-                                continue;
-                            }
-                            if span < 0.9995 {
-                                let b = path.bounds();
-                                let perim = (2.0 * (b.width() + b.height())).max(1.0);
-                                let seg_len = (perim * span).max(0.5);
-                                let off_frac = (lo + (to / 360.0)).rem_euclid(1.0);
-                                let mut trimmed = stroke.clone();
-                                trimmed.dash = StrokeDash::new(vec![seg_len, perim * 2.0], -perim * off_frac);
-                                pixmap.stroke_path(path, &paint, &trimmed, tf, None);
-                                continue;
-                            }
-                        }
-                        pixmap.stroke_path(path, &paint, &stroke, tf, None);
+                    let stroke = build_stroke_style(item, sw);
+                    stroke_paths_with_trim(pixmap, &paths, &paint, &stroke, tf, trim_paths);
+                }
+            }
+            "gs" => {
+                let o = item.get("o").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0) / 100.0;
+                let sw = item.get("w").map(|v| eval_scalar(v, frame, 2.0)).unwrap_or(2.0);
+                let alpha = (o * group_op).clamp(0.0, 1.0);
+                if alpha > 0.001 && sw > 0.0 && !paths.is_empty() {
+                    if let Some(shader) = build_gradient_shader(item, frame, alpha) {
+                        let paint = Paint {
+                            shader,
+                            anti_alias: true,
+                            ..Paint::default()
+                        };
+                        let stroke = build_stroke_style(item, sw);
+                        stroke_paths_with_trim(pixmap, &paths, &paint, &stroke, tf, trim_paths);
                     }
                 }
             }
             _ => {}
         }
+    }
+}
+
+fn fill_paths_combined(
+    pixmap: &mut Pixmap,
+    paths: &[Path],
+    paint: &Paint,
+    rule: FillRule,
+    tf: Transform,
+) {
+    if paths.len() == 1 {
+        pixmap.fill_path(&paths[0], paint, rule, tf, None);
+        return;
+    }
+    let mut pb = PathBuilder::new();
+    for p in paths {
+        pb.push_path(p);
+    }
+    if let Some(combined) = pb.finish() {
+        pixmap.fill_path(&combined, paint, rule, tf, None);
+    }
+}
+
+fn build_stroke_style(item: &Value, sw: f32) -> Stroke {
+    let mut stroke = Stroke {
+        width: sw,
+        line_cap: match item.get("lc").and_then(|v| v.as_i64()) {
+            Some(2) => LineCap::Round,
+            Some(3) => LineCap::Square,
+            _ => LineCap::Butt,
+        },
+        line_join: match item.get("lj").and_then(|v| v.as_i64()) {
+            Some(2) => LineJoin::Round,
+            Some(3) => LineJoin::Bevel,
+            _ => LineJoin::Miter,
+        },
+        ..Stroke::default()
+    };
+    if let Some(ml) = item.get("ml").and_then(|v| v.as_f64()) {
+        stroke.miter_limit = ml as f32;
+    }
+    stroke
+}
+
+fn stroke_paths_with_trim(
+    pixmap: &mut Pixmap,
+    paths: &[Path],
+    paint: &Paint,
+    stroke: &Stroke,
+    tf: Transform,
+    trim_paths: Option<(f32, f32, f32)>,
+) {
+    for path in paths {
+        if let Some((ts, te, to)) = trim_paths {
+            let lo = ts.min(te).clamp(0.0, 100.0) / 100.0;
+            let hi = ts.max(te).clamp(0.0, 100.0) / 100.0;
+            let span = (hi - lo).clamp(0.0, 1.0);
+            if span <= 0.0005 {
+                continue;
+            }
+            if span < 0.9995 {
+                let b = path.bounds();
+                let perim = (2.0 * (b.width() + b.height())).max(1.0);
+                let seg_len = (perim * span).max(0.5);
+                let off_frac = (lo + (to / 360.0)).rem_euclid(1.0);
+                let mut trimmed = stroke.clone();
+                trimmed.dash = StrokeDash::new(vec![seg_len, perim * 2.0], -perim * off_frac);
+                pixmap.stroke_path(path, paint, &trimmed, tf, None);
+                continue;
+            }
+        }
+        pixmap.stroke_path(path, paint, stroke, tf, None);
+    }
+}
+
+fn sample_color_stops(stops: &[(f32, f32, f32, f32)], pos: f32) -> (f32, f32, f32) {
+    if stops.is_empty() {
+        return (1.0, 1.0, 1.0);
+    }
+    if pos <= stops[0].0 {
+        return (stops[0].1, stops[0].2, stops[0].3);
+    }
+    let last = stops[stops.len() - 1];
+    if pos >= last.0 {
+        return (last.1, last.2, last.3);
+    }
+    for w in stops.windows(2) {
+        if pos >= w[0].0 && pos <= w[1].0 {
+            let denom = (w[1].0 - w[0].0).max(1e-6);
+            let t = ((pos - w[0].0) / denom).clamp(0.0, 1.0);
+            return (
+                w[0].1 + (w[1].1 - w[0].1) * t,
+                w[0].2 + (w[1].2 - w[0].2) * t,
+                w[0].3 + (w[1].3 - w[0].3) * t,
+            );
+        }
+    }
+    (last.1, last.2, last.3)
+}
+
+fn sample_alpha_stops(stops: &[(f32, f32)], pos: f32) -> f32 {
+    if stops.is_empty() {
+        return 1.0;
+    }
+    if pos <= stops[0].0 {
+        return stops[0].1;
+    }
+    let last = stops[stops.len() - 1];
+    if pos >= last.0 {
+        return last.1;
+    }
+    for w in stops.windows(2) {
+        if pos >= w[0].0 && pos <= w[1].0 {
+            let denom = (w[1].0 - w[0].0).max(1e-6);
+            let t = ((pos - w[0].0) / denom).clamp(0.0, 1.0);
+            return w[0].1 + (w[1].1 - w[0].1) * t;
+        }
+    }
+    last.1
+}
+
+fn build_gradient_shader(item: &Value, frame: f32, opacity: f32) -> Option<Shader<'static>> {
+    let g_obj = item.get("g")?;
+    let p_count = g_obj.get("p").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+    let k_prop = g_obj.get("k")?;
+    let vals = eval_vec_n(k_prop, frame, &[]);
+    if p_count == 0 || vals.len() < p_count * 4 {
+        return None;
+    }
+
+    let mut color_stops: Vec<(f32, f32, f32, f32)> = Vec::with_capacity(p_count);
+    for i in 0..p_count {
+        let base = i * 4;
+        let off = vals[base].clamp(0.0, 1.0);
+        let mut r = vals[base + 1];
+        let mut g = vals[base + 2];
+        let mut b = vals[base + 3];
+        if r > 1.0 || g > 1.0 || b > 1.0 {
+            r /= 255.0;
+            g /= 255.0;
+            b /= 255.0;
+        }
+        color_stops.push((off, r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0)));
+    }
+    color_stops.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    let mut alpha_stops: Vec<(f32, f32)> = Vec::new();
+    let alpha_start = p_count * 4;
+    if vals.len() >= alpha_start + 2 {
+        let mut idx = alpha_start;
+        while idx + 1 < vals.len() {
+            alpha_stops.push((vals[idx].clamp(0.0, 1.0), vals[idx + 1].clamp(0.0, 1.0)));
+            idx += 2;
+        }
+        alpha_stops.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    }
+
+    let mut all_offsets: Vec<f32> = color_stops.iter().map(|s| s.0).collect();
+    for a in &alpha_stops {
+        all_offsets.push(a.0);
+    }
+    all_offsets.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    all_offsets.dedup_by(|a, b| (*a - *b).abs() < 1e-4);
+
+    let stops: Vec<GradientStop> = all_offsets
+        .into_iter()
+        .filter_map(|pos| {
+            let (r, g, b) = sample_color_stops(&color_stops, pos);
+            let a = (sample_alpha_stops(&alpha_stops, pos) * opacity).clamp(0.0, 1.0);
+            let color = Color::from_rgba(r, g, b, a)?;
+            Some(GradientStop::new(pos, color))
+        })
+        .collect();
+
+    if stops.is_empty() {
+        return None;
+    }
+
+    let s = item.get("s").map(|v| eval_vec2(v, frame, [0.0, 0.0])).unwrap_or([0.0, 0.0]);
+    let e = item.get("e").map(|v| eval_vec2(v, frame, [100.0, 0.0])).unwrap_or([100.0, 0.0]);
+    let grad_type = item.get("t").and_then(|v| v.as_i64()).unwrap_or(1);
+
+    let dist = (e[0] - s[0]).hypot(e[1] - s[1]);
+    if dist < 1e-4 {
+        let (r, g, b) = sample_color_stops(&color_stops, 0.0);
+        let a = (sample_alpha_stops(&alpha_stops, 0.0) * opacity).clamp(0.0, 1.0);
+        return Color::from_rgba(r, g, b, a).map(Shader::SolidColor);
+    }
+
+    if grad_type == 2 {
+        // Radial gradient
+        let h_len = item
+            .get("h")
+            .map(|v| eval_scalar(v, frame, 0.0))
+            .unwrap_or(0.0)
+            .clamp(-99.0, 99.0)
+            / 100.0;
+        let h_ang = item
+            .get("a")
+            .map(|v| eval_scalar(v, frame, 0.0))
+            .unwrap_or(0.0)
+            .to_radians();
+        let base_ang = (e[1] - s[1]).atan2(e[0] - s[0]);
+        let fx = s[0] + h_len * dist * (base_ang + h_ang).cos();
+        let fy = s[1] + h_len * dist * (base_ang + h_ang).sin();
+        RadialGradient::new(
+            Point::from_xy(fx, fy),
+            Point::from_xy(s[0], s[1]),
+            dist,
+            stops,
+            SpreadMode::Pad,
+            Transform::identity(),
+        )
+    } else {
+        // Linear gradient
+        LinearGradient::new(
+            Point::from_xy(s[0], s[1]),
+            Point::from_xy(e[0], e[1]),
+            stops,
+            SpreadMode::Pad,
+            Transform::identity(),
+        )
     }
 }
 
@@ -438,32 +935,21 @@ fn build_polystar_path(item: &Value, frame: f32) -> Option<Path> {
 
 fn build_bezier_path(item: &Value, frame: f32) -> Option<Path> {
     let ks = item.get("ks")?;
-    let shape_val = eval_shape_value(ks, frame)?;
-    let v_arr = shape_val.get("v")?.as_array()?;
-    let i_arr = shape_val.get("i")?.as_array()?;
-    let o_arr = shape_val.get("o")?.as_array()?;
-    let closed = shape_val.get("c").and_then(|v| v.as_bool()).unwrap_or(false);
-    let n = v_arr.len();
-    if n == 0 || i_arr.len() < n || o_arr.len() < n {
+    let (v_pts, i_pts, o_pts, closed) = eval_shape_points(ks, frame)?;
+    let n = v_pts.len();
+    if n == 0 || i_pts.len() < n || o_pts.len() < n {
         return None;
     }
-    let pt = |arr: &[Value], idx: usize| -> [f32; 2] {
-        let a = arr[idx].as_array();
-        [
-            a.and_then(|x| x.first()).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
-            a.and_then(|x| x.get(1)).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
-        ]
-    };
     let mut pb = PathBuilder::new();
-    let p0 = pt(v_arr, 0);
+    let p0 = v_pts[0];
     pb.move_to(p0[0], p0[1]);
     let segs = if closed { n } else { n.saturating_sub(1) };
     for idx in 0..segs {
         let next = (idx + 1) % n;
-        let a = pt(v_arr, idx);
-        let oa = pt(o_arr, idx);
-        let b = pt(v_arr, next);
-        let ib = pt(i_arr, next);
+        let a = v_pts[idx];
+        let oa = o_pts[idx];
+        let b = v_pts[next];
+        let ib = i_pts[next];
         pb.cubic_to(a[0] + oa[0], a[1] + oa[1], b[0] + ib[0], b[1] + ib[1], b[0], b[1]);
     }
     if closed {
@@ -472,28 +958,96 @@ fn build_bezier_path(item: &Value, frame: f32) -> Option<Path> {
     pb.finish()
 }
 
-fn eval_shape_value(prop: &Value, frame: f32) -> Option<Value> {
-    let animated = prop.get("a").and_then(|v| v.as_i64()).unwrap_or(0) == 1;
+fn extract_shape_points(shape_val: &Value) -> Option<(Vec<[f32; 2]>, Vec<[f32; 2]>, Vec<[f32; 2]>, bool)> {
+    let v_arr = shape_val.get("v")?.as_array()?;
+    let i_arr = shape_val.get("i")?.as_array()?;
+    let o_arr = shape_val.get("o")?.as_array()?;
+    let closed = shape_val.get("c").and_then(|v| v.as_bool()).unwrap_or(false);
+    let parse_arr = |arr: &[Value]| -> Vec<[f32; 2]> {
+        arr.iter()
+            .map(|entry| {
+                let a = entry.as_array();
+                [
+                    a.and_then(|x| x.first()).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                    a.and_then(|x| x.get(1)).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                ]
+            })
+            .collect()
+    };
+    Some((parse_arr(v_arr), parse_arr(i_arr), parse_arr(o_arr), closed))
+}
+
+fn lerp_pts(a: &[[f32; 2]], b: &[[f32; 2]], t: f32) -> Vec<[f32; 2]> {
+    a.iter()
+        .zip(b.iter())
+        .map(|(p, q)| [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t])
+        .collect()
+}
+
+fn eval_shape_points(prop: &Value, frame: f32) -> Option<(Vec<[f32; 2]>, Vec<[f32; 2]>, Vec<[f32; 2]>, bool)> {
     let k = prop.get("k")?;
+    let animated = prop.get("a").and_then(|v| v.as_i64()).unwrap_or(0) == 1
+        || k.as_array()
+            .and_then(|a| a.first())
+            .and_then(|v| v.get("t"))
+            .is_some();
     if !animated {
-        return Some(k.clone());
+        return extract_shape_points(k);
     }
     let kfs = k.as_array()?;
     if kfs.is_empty() {
         return None;
     }
-    let mut chosen = &kfs[0];
-    for kf in kfs {
-        let t = kf.get("t").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-        if frame >= t {
-            chosen = kf;
+    let t0 = kfs[0].get("t").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+    if frame <= t0 {
+        let s = kfs[0].get("s")?.as_array()?.first()?;
+        return extract_shape_points(s);
+    }
+    for idx in 0..kfs.len() {
+        let cur = &kfs[idx];
+        let t_cur = cur.get("t").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+        if idx + 1 >= kfs.len() {
+            let s = cur
+                .get("s")
+                .or_else(|| if idx > 0 { kfs[idx - 1].get("e") } else { None })?
+                .as_array()?
+                .first()?;
+            return extract_shape_points(s);
+        }
+        let next = &kfs[idx + 1];
+        let t_next = next.get("t").and_then(|v| v.as_f64()).unwrap_or(t_cur as f64) as f32;
+        if frame >= t_cur && frame < t_next {
+            let s_val = cur.get("s")?.as_array()?.first()?;
+            let s_pts = extract_shape_points(s_val)?;
+            if cur.get("h").and_then(|v| v.as_i64()) == Some(1) || t_next <= t_cur {
+                return Some(s_pts);
+            }
+            let e_val = cur
+                .get("e")
+                .or_else(|| next.get("s"))
+                .and_then(|v| v.as_array())
+                .and_then(|a| a.first());
+            if let Some(ev) = e_val {
+                if let Some(e_pts) = extract_shape_points(ev) {
+                    if s_pts.0.len() == e_pts.0.len()
+                        && s_pts.1.len() == e_pts.1.len()
+                        && s_pts.2.len() == e_pts.2.len()
+                    {
+                        let raw_t = ((frame - t_cur) / (t_next - t_cur)).clamp(0.0, 1.0);
+                        let eased = eval_lottie_bezier(cur, raw_t);
+                        return Some((
+                            lerp_pts(&s_pts.0, &e_pts.0, eased),
+                            lerp_pts(&s_pts.1, &e_pts.1, eased),
+                            lerp_pts(&s_pts.2, &e_pts.2, eased),
+                            s_pts.3,
+                        ));
+                    }
+                }
+            }
+            return Some(s_pts);
         }
     }
-    chosen
-        .get("s")
-        .and_then(|s| s.as_array())
-        .and_then(|a| a.first())
-        .cloned()
+    None
 }
 
 fn eval_scalar(prop: &Value, frame: f32, default: f32) -> f32 {
@@ -531,10 +1085,14 @@ fn eval_color(prop: &Value, frame: f32) -> [f32; 4] {
 }
 
 fn eval_vec_n(prop: &Value, frame: f32, default: &[f32]) -> Vec<f32> {
-    let animated = prop.get("a").and_then(|v| v.as_i64()).unwrap_or(0) == 1;
     let Some(k) = prop.get("k") else {
         return default.to_vec();
     };
+    let animated = prop.get("a").and_then(|v| v.as_i64()).unwrap_or(0) == 1
+        || k.as_array()
+            .and_then(|a| a.first())
+            .and_then(|v| v.get("t"))
+            .is_some();
     if !animated {
         return value_to_floats(k, default);
     }
@@ -557,12 +1115,13 @@ fn eval_vec_n(prop: &Value, frame: f32, default: &[f32]) -> Vec<f32> {
         if i + 1 >= kfs.len() {
             return cur
                 .get("s")
+                .or_else(|| if i > 0 { kfs[i - 1].get("e") } else { None })
                 .map(|v| value_to_floats(v, default))
                 .unwrap_or_else(|| default.to_vec());
         }
         let next = &kfs[i + 1];
         let t_next = next.get("t").and_then(|v| v.as_f64()).unwrap_or(t_cur as f64) as f32;
-        if frame >= t_cur && frame <= t_next {
+        if frame >= t_cur && frame < t_next {
             let s_vals = cur
                 .get("s")
                 .map(|v| value_to_floats(v, default))
@@ -655,6 +1214,83 @@ fn parse_hex_rgb(hex: &str) -> Option<(f32, f32, f32)> {
     None
 }
 
+static LOTTIE_IMAGE_CACHE: OnceLock<Mutex<HashMap<u64, Option<Arc<Pixmap>>>>> = OnceLock::new();
+
+fn decode_lottie_image_asset(asset: &Value) -> Option<Arc<Pixmap>> {
+    let p = asset.get("p").and_then(|v| v.as_str())?;
+    if p.is_empty() {
+        return None;
+    }
+    let u = asset.get("u").and_then(|v| v.as_str()).unwrap_or("");
+
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    u.hash(&mut hasher);
+    p.hash(&mut hasher);
+    let key = hasher.finish();
+
+    let cache = LOTTIE_IMAGE_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(guard) = cache.lock() {
+        if let Some(cached) = guard.get(&key) {
+            return cached.clone();
+        }
+    }
+
+    let decoded = decode_image_bytes(u, p).and_then(|bytes| {
+        let rgba = image::load_from_memory(&bytes).ok()?.to_rgba8();
+        let (w, h) = rgba.dimensions();
+        let mut pm = Pixmap::new(w, h)?;
+        let dst = pm.pixels_mut();
+        for (i, px) in rgba.pixels().enumerate() {
+            dst[i] = ColorU8::from_rgba(px[0], px[1], px[2], px[3]).premultiply();
+        }
+        Some(Arc::new(pm))
+    });
+
+    if let Ok(mut guard) = cache.lock() {
+        guard.insert(key, decoded.clone());
+    }
+    decoded
+}
+
+fn decode_image_bytes(u: &str, p: &str) -> Option<Vec<u8>> {
+    if p.starts_with("data:") {
+        let (_, payload) = p.split_once(',')?;
+        decode_base64(payload)
+    } else {
+        let full = if u.is_empty() {
+            p.to_string()
+        } else {
+            format!("{}{}", u, p)
+        };
+        std::fs::read(full).ok()
+    }
+}
+
+fn decode_base64(input: &str) -> Option<Vec<u8>> {
+    let mut out = Vec::with_capacity(input.len() * 3 / 4);
+    let mut buf: u32 = 0;
+    let mut bits: u8 = 0;
+    for b in input.bytes() {
+        let val = match b {
+            b'A'..=b'Z' => b - b'A',
+            b'a'..=b'z' => b - b'a' + 26,
+            b'0'..=b'9' => b - b'0' + 52,
+            b'+' | b'-' => 62,
+            b'/' | b'_' => 63,
+            b'=' => break,
+            b' ' | b'\n' | b'\r' | b'\t' => continue,
+            _ => return None,
+        };
+        buf = (buf << 6) | (val as u32);
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push(((buf >> bits) & 0xff) as u8);
+        }
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -698,5 +1334,127 @@ mod tests {
         assert_eq!(pm1.pixel(40, 100).unwrap().alpha(), 0);
         // Pixel at (160, 100) should be orange at t=1
         assert!(pm1.pixel(160, 100).unwrap().alpha() > 200);
+    }
+
+    #[test]
+    fn test_eval_vec_n_bodymovin_legacy_and_hold_boundary() {
+        let prop = serde_json::json!({
+            "k": [
+                {"t": 0, "s": [10.0], "e": [50.0]},
+                {"t": 20}
+            ]
+        });
+        assert!((eval_scalar(&prop, 0.0, 0.0) - 10.0).abs() < 0.01);
+        assert!((eval_scalar(&prop, 25.0, 0.0) - 50.0).abs() < 0.01);
+
+        let hold = serde_json::json!({
+            "a": 1,
+            "k": [
+                {"t": 0, "s": [1.0], "h": 1},
+                {"t": 10, "s": [2.0], "h": 1},
+                {"t": 20, "s": [3.0]}
+            ]
+        });
+        assert!((eval_scalar(&hold, 0.0, 0.0) - 1.0).abs() < 0.01);
+        assert!((eval_scalar(&hold, 10.0, 0.0) - 2.0).abs() < 0.01);
+        assert!((eval_scalar(&hold, 20.0, 0.0) - 3.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_render_lottie_embedded_base64_image_layer() {
+        let png_b64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
+        let lottie_json = serde_json::json!({
+            "v": "5.7.7",
+            "fr": 30,
+            "ip": 0,
+            "op": 30,
+            "w": 100,
+            "h": 100,
+            "assets": [{
+                "id": "image_0",
+                "w": 50,
+                "h": 50,
+                "u": "",
+                "p": png_b64,
+                "e": 1
+            }],
+            "layers": [{
+                "ty": 2,
+                "ind": 1,
+                "refId": "image_0",
+                "ip": 0,
+                "op": 30,
+                "ks": {
+                    "o": { "a": 0, "k": 100 },
+                    "r": { "a": 0, "k": 0 },
+                    "p": { "a": 0, "k": [25, 25] },
+                    "a": { "a": 0, "k": [0, 0] },
+                    "s": { "a": 0, "k": [100, 100] }
+                }
+            }]
+        })
+        .to_string();
+
+        let mut pm = Pixmap::new(100, 100).unwrap();
+        assert!(render_lottie_json(
+            &mut pm,
+            lottie_json.as_bytes(),
+            0.0,
+            true,
+            1.0,
+            0.0,
+            0.0,
+            100.0,
+            100.0,
+            0.0,
+            1.0
+        ));
+        let inside = pm.pixel(50, 50).unwrap();
+        assert!(inside.red() > 240 && inside.green() < 10 && inside.alpha() > 240);
+        assert_eq!(pm.pixel(10, 10).unwrap().alpha(), 0);
+    }
+
+    #[test]
+    fn test_render_lottie_gradient_fill_and_track_matte_tp() {
+        let lottie_json = serde_json::json!({
+            "v": "5.7.0", "fr": 30, "ip": 0, "op": 30, "w": 100, "h": 100,
+            "layers": [
+                {
+                    "ty": 4, "ind": 10, "td": 1, "ip": 0, "op": 30,
+                    "ks": { "o": {"a":0,"k":100}, "p": {"a":0,"k":[50,50]}, "a": {"a":0,"k":[0,0]}, "s": {"a":0,"k":[100,100]}, "r": {"a":0,"k":0} },
+                    "shapes": [{
+                        "ty": "gr",
+                        "it": [
+                            { "ty": "rc", "p": {"a":0,"k":[0,0]}, "s": {"a":0,"k":[40,40]}, "r": {"a":0,"k":0} },
+                            { "ty": "fl", "c": {"a":0,"k":[1,1,1,1]}, "o": {"a":0,"k":100} }
+                        ]
+                    }]
+                },
+                {
+                    "ty": 4, "ind": 20, "tt": 1, "tp": 10, "ip": 0, "op": 30,
+                    "ks": { "o": {"a":0,"k":100}, "p": {"a":0,"k":[50,50]}, "a": {"a":0,"k":[0,0]}, "s": {"a":0,"k":[100,100]}, "r": {"a":0,"k":0} },
+                    "shapes": [{
+                        "ty": "gr",
+                        "it": [
+                            { "ty": "rc", "p": {"a":0,"k":[0,0]}, "s": {"a":0,"k":[100,100]}, "r": {"a":0,"k":0} },
+                            {
+                                "ty": "gf", "t": 1, "r": 1,
+                                "s": {"a":0,"k":[-50,0]}, "e": {"a":0,"k":[50,0]},
+                                "o": {"a":0,"k":100},
+                                "g": {"p": 2, "k": {"a":0,"k":[0, 1, 0, 0, 1, 0, 0, 1]}}
+                            }
+                        ]
+                    }]
+                }
+            ]
+        }).to_string();
+
+        let mut pm = Pixmap::new(100, 100).unwrap();
+        assert!(render_lottie_json(&mut pm, lottie_json.as_bytes(), 0.0, false, 1.0, 0.0, 0.0, 100.0, 100.0, 0.0, 1.0));
+        // Inside matte [30..70, 30..70] should be visible purple-ish gradient
+        let center = pm.pixel(50, 50).unwrap();
+        assert!(center.alpha() > 240 && center.red() > 80 && center.blue() > 80);
+        // Outside matte (10, 10) must be clipped to transparent
+        assert_eq!(pm.pixel(10, 10).unwrap().alpha(), 0);
     }
 }

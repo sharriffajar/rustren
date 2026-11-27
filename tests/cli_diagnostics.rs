@@ -513,7 +513,7 @@ fn mcp_tools_persist_and_sense_end_to_end() {
     assert_eq!(responses.len(), requests.len(), "{responses:#?}");
 
     let tools = responses[1]["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 10);
+    assert_eq!(tools.len(), 11);
     assert!(responses[2].get("error").is_none(), "{:?}", responses[2]);
 
     // The edit must be on disk.
