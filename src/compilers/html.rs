@@ -1126,6 +1126,15 @@ fn parse_common_layer_meta(
             decay: get_attr_f32(elem, "echo-decay")
                 .or_else(|| get_attr_f32(elem, "echo_decay"))
                 .unwrap_or(0.65),
+            tint_colors: get_attr_str(elem, "echo-colors")
+                .or_else(|| get_attr_str(elem, "echo_colors"))
+                .map(|s| {
+                    s.split(',')
+                        .map(|c| c.trim().to_string())
+                        .filter(|c| !c.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default(),
         });
     let track_matte = match get_attr_str(elem, "track-matte")
         .or_else(|| get_attr_str(elem, "track_matte"))

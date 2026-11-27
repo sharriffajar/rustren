@@ -395,7 +395,7 @@ pub struct WaveWarpSpec {
     pub axis: WaveAxisSpec,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct EchoSpec {
     #[serde(default = "default_echo_count")]
     pub count: u32,
@@ -403,6 +403,8 @@ pub struct EchoSpec {
     pub step_sec: f32,
     #[serde(default = "default_echo_decay")]
     pub decay: f32,
+    #[serde(default)]
+    pub tint_colors: Vec<String>,
 }
 
 fn default_echo_count() -> u32 {

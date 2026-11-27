@@ -3274,6 +3274,13 @@
           "minimum": 0,
           "maximum": 1,
           "default": 0.65
+        },
+        "tint_colors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional per-copy hex accent colors for Chromatic Echo trails"
         }
       }
     },

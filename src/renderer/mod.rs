@@ -1125,7 +1125,7 @@ fn render_layer_with_transform(
     parent_opacity: f32,
     parent_transform: Transform,
 ) -> Result<()> {
-    if let Some(echo) = layer.echo
+    if let Some(ref echo) = layer.echo
         && echo.count > 0
     {
         let mut echo_layer = layer.clone();
@@ -1133,6 +1133,18 @@ fn render_layer_with_transform(
         for i in (1..=echo.count).rev() {
             let echo_t = (time_sec - (i as f32 * echo.step_sec)).max(0.0);
             let echo_opacity = parent_opacity * echo.decay.powi(i as i32);
+            if !echo.tint_colors.is_empty() {
+                let tint = &echo.tint_colors[(i as usize - 1) % echo.tint_colors.len()];
+                match &mut echo_layer.kind {
+                    LayerKind::Text { color, .. }
+                    | LayerKind::Rect { color, .. }
+                    | LayerKind::Circle { color, .. }
+                    | LayerKind::Waveform { color, .. } => {
+                        *color = tint.clone();
+                    }
+                    _ => {}
+                }
+            }
             render_layer_scoped(
                 &echo_layer,
                 scene_duration,

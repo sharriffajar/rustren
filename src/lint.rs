@@ -195,6 +195,27 @@ fn collect_25d_preflight_qa(scene: &Scene, out: &mut Vec<LintWarning>) {
             }
         }
     }
+
+    // 9:16 Safe-Zone HUD check (TikTok / Reels / Shorts top 15% and bottom 22% UI danger zones)
+    if ch > cw {
+        let top_safe = ch * 0.15;
+        let bot_safe = ch * 0.78;
+        for (i, layer) in scene.layers.iter().enumerate() {
+            if let LayerKind::Text { y, .. } = &layer.kind
+                && (*y < top_safe || *y > bot_safe)
+            {
+                out.push(LintWarning {
+                    code: "SAFE_ZONE_9_16",
+                    path: format!("layers[{i}]"),
+                    message: format!(
+                        "layers[{i}] text at y={y:.0} is outside 9:16 safe band [{top_safe:.0}..{bot_safe:.0}] (risks TikTok/Reels HUD occlusion)"
+                    ),
+                    fix: Some("place 9:16 readable text within 25%-70% vertical band; keep top/bottom 25% for decorative shapes".to_string()),
+                    affected_paths: Vec::new(),
+                });
+            }
+        }
+    }
 }
 
 /// Suggested remediation for a warning category, or `None` when there is no
