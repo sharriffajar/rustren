@@ -15,6 +15,10 @@ Use this skill for **SaaS product launches, UI/dashboard tours, CLI/terminal wal
 3. **2.5D Depth & Subtle Film Finish**: Give floating UI cards clean rounded corners (`radius: 20..32`), subtle `rotate_y` (`±6°–14°`) with `perspective: 900`, and optional subtle `grain_mode: "film"` (`grain: 0.04..0.08`) to avoid sterile flat renders.
 4. **Simplicity Threshold**: Animate at most **2 properties** simultaneously per UI card (e.g., `x` + `rotate_y`, or `scale` + `opacity`). Avoid spinning or bouncing UI windows.
 5. **Hero-First Staging**: Lead with the product outcome (0–2s), then show 2–3 focused feature beats (2–3s each), and close with a crisp brand/CTA end-card.
+6. **Built-in Style Presets**:
+   - **Dark Tech Keynote (`dark-keynote`)**: `#09090B` obsidian canvas, crisp `#FFFFFF` hero type, subtle accent glow, Premium (`0%` overshoot).
+   - **Tabletop App Flythrough (`desktop-flythrough`)**: `world` camera `whip_left`/`truck_right` + `world.motion_blur: 1.2` gliding across 2.5D UI cards.
+   - **CRT ASCII Terminal (`ascii-crt`)**: Monospace terminal output on `#0A0F0D` with `#22C55E` phosphor ink + `grain_mode: "film"` + `vignette: 0.3`.
 
 ## 3. Exact `rustren` Schema 1.2 Recipe (Whip-Pan UI Handoff)
 ```json

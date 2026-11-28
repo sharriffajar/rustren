@@ -15,6 +15,10 @@ Use this skill for **information-first videos**: news explainers, stat/chart bre
 3. **9:16 Safe-Zone Discipline**: Keep all headlines, charts, and captions strictly inside the **15%–78% vertical band** (`SAFE_ZONE_9_16`) and **75% inner width** so TikTok/Reels/Shorts UI buttons never cover copy.
 4. **Corporate / Broadcast Motion Personality**: Use crisp, zero-clutter motion (`200–400ms`, `cubic_bezier(0.2, 0, 0, 1)`, `0–3%` overshoot). Bars, numbers, and captions should snap cleanly without excessive cartoon bounce.
 5. **Audio & Caption Sync**: Align visual beats and `text_animator` / karaoke highlights to speech phrasing (~1–2.5s per caption chunk). Use audio ducking when pairing background music with voiceover.
+6. **Built-in Style Presets**:
+   - **Caption News (`caption-news`)**: Fast 9:16 news cards, bold lower-thirds, high-contrast karaoke captions inside `SAFE_ZONE_9_16`.
+   - **Data Storytelling (`dataviz`)**: Animated bars, stat counters, and clean grid callouts on `#F8FAFC` or `#0F172A`.
+   - **Visual Investigation (`visual-investigation`)**: Vox/NYT documentary style — highlighted document crops, drawn callout arrows (`path_progress`), and `world` pan/zoom.
 
 ## 3. Exact `rustren` Patterns
 - **Animated Stat Counter / Bar Reveal**: Drive `width` or `scale_x` (`pivot_x: 0.0`) with `ease_out` (`0.4–0.6s`) + synchronized `text` dynamic counter.

@@ -398,10 +398,12 @@ Before authoring a scene, pick **at most one** genre skill matching the user's r
 
 | Genre Skill | When to Load (Mutually Exclusive) |
 | :--- | :--- |
-| [skills/simple-motion/SKILL.md](skills/simple-motion/SKILL.md) | Flat 2D kinetic typography, social promos, and vector openers (no photos or data charts) |
-| [skills/living-diorama/SKILL.md](skills/living-diorama/SKILL.md) | 2.5D motion comics, parallax photo/illustration dramatizations (`world` camera, DoF, `uv_warp`, `relight`) |
-| [skills/editorial-data/SKILL.md](skills/editorial-data/SKILL.md) | News reels, data/chart explainers, lower-thirds, and narrated caption videos (`SAFE_ZONE_9_16`) |
-| [skills/product-showcase/SKILL.md](skills/product-showcase/SKILL.md) | SaaS/UI demos, terminal/code walkthroughs, and 2.5D product carousels (`whip_left`/`whip_right`) |
+| [skills/simple-motion/SKILL.md](skills/simple-motion/SKILL.md) | Flat 2D kinetic typography, social promos, Swiss grids, and blueprints (no photos or heavy texture) |
+| [skills/living-diorama/SKILL.md](skills/living-diorama/SKILL.md) | 2.5D motion comics, paper-cut lightboxes, and archive light-table photo parallax (`world`, DoF, `uv_warp`, `relight`) |
+| [skills/editorial-data/SKILL.md](skills/editorial-data/SKILL.md) | News reels, data/chart explainers, visual investigations, lower-thirds, and karaoke captions (`SAFE_ZONE_9_16`) |
+| [skills/product-showcase/SKILL.md](skills/product-showcase/SKILL.md) | SaaS/UI demos, dark tech keynotes, CRT terminals, and 2.5D app flythroughs (`whip_left`/`whip_right`) |
+| [skills/sketch-explainer/SKILL.md](skills/sketch-explainer/SKILL.md) | Whiteboard, chalkboard, sketchnote, and one-line hand-drawn explainers (`path_progress` / `stroke_dashoffset`) |
+| [skills/retro-print/SKILL.md](skills/retro-print/SKILL.md) | Risograph prints, halftone dossiers, silkscreen posters, and 1920s newsreels (`halftone`, `grain_mode: "film"`) |
 
 ## 9:16 Kinetic Flat Promo Grammar (Agency-Grade Pattern)
 

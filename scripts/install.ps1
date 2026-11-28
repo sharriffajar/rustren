@@ -35,7 +35,7 @@ try {
             $SkillUrl = "https://raw.githubusercontent.com/$Repo/main/SKILL.md"
             New-Item -ItemType Directory -Path $SkillDir -Force | Out-Null
             Invoke-WebRequest -Uri $SkillUrl -OutFile (Join-Path $SkillDir "SKILL.md") -UseBasicParsing
-            foreach ($Genre in @("simple-motion", "living-diorama", "editorial-data", "product-showcase")) {
+            foreach ($Genre in @("simple-motion", "living-diorama", "editorial-data", "product-showcase", "sketch-explainer", "retro-print")) {
                 $SubDir = Join-Path $SkillDir "skills\$Genre"
                 $TopDir = Join-Path $HOME ".claude\skills\$Genre"
                 $GUrl = "https://raw.githubusercontent.com/$Repo/main/skills/$Genre/SKILL.md"
@@ -44,7 +44,7 @@ try {
                 Invoke-WebRequest -Uri $GUrl -OutFile (Join-Path $SubDir "SKILL.md") -UseBasicParsing
                 Copy-Item -Path (Join-Path $SubDir "SKILL.md") -Destination (Join-Path $TopDir "SKILL.md") -Force
             }
-            Write-Host "Installed agent skills to $SkillDir (+ 4 genre skills)"
+            Write-Host "Installed agent skills to $SkillDir (+ 6 genre skills)"
         } catch {
             # Best-effort; do not fail binary install if offline/rate-limited
         }

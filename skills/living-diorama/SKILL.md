@@ -15,6 +15,9 @@ Use this skill when animating **still images, photos, or layered illustrations**
 3. **Purposeful Rack Focus & Motion Personality**: Default to **Premium / Cinematic Slow-Burn** (`350–600ms` transitions, `0%` overshoot, smooth `ease_in_out` or `cubic_bezier(0.4, 0, 0.2, 1)`). Use `focus_z` + `dof_strength` (`0.8–1.6`) to guide the viewer's eye, not to blur the hero subject.
 4. **Living Micro-Motion (Anti-Slideshow)**: Never hold a still image frozen for >3s (`PACING_STAGNATION`). Combine slow camera drift with subtle `uv_warp` (hair, foliage, fabric, water) or flickering `relight` (lanterns, neon, sunbeams).
 5. **Three Motion Layers**: **Primary** (camera move / rack focus), **Secondary** (parallax plane separation), **Ambient** (`uv_warp`, `relight` flicker, `grain_mode: "film"`).
+6. **Built-in Style Presets**:
+   - **Paper-cut Lightbox (`paper-lantern`)**: Multi-plane silhouette cutouts (`depth_slot: backdrop/subject/foreground`) + `dof_strength: 1.2` + warm `relight` backlight.
+   - **Archive Light Table (`archive-lighttable`)**: Overhead 2.5D `world` camera (`truck_right`/`push_in`) gliding over archival photos/documents with subtle `grain_mode: "film"`.
 
 ## 3. Exact `rustren` Schema 1.2 Recipes
 

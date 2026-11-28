@@ -63,6 +63,10 @@ Pick **one** archetype per video and apply it consistently:
 - **Three Motion Layers**: Every beat needs **Primary** (hero text/action), **Secondary** (peripheral shapes reacting), and **Ambient** (continuous slow drift/crawl).
 - **Distance-Scaled Duration**: `100px = base`, `200px = 1.3×`, `400px = 1.6×` (large sweeps take longer than tiny accents).
 - **Simplicity Threshold**: `1` animated property = direct, `2` = polished, `3+` simultaneously on one element = noisy.
+- **Built-in Style Presets**:
+  - **Kinetic Flat Promo** *(default)*: `#F3F0E6` cream + 5 matte accents, Playful (`ease_out_back`).
+  - **Swiss Motion (`swiss-motion`)**: Strict typographic grid, `#F8FAFC` paper + `#111827` ink + 1 signal color (`#DC2626`), Corporate (`0–3%` overshoot).
+  - **Technical Blueprint (`blueprint`)**: `#0B2545` blueprint blue + `#E0F2FE` crisp `stroke_dashoffset` line-art + `#38BDF8` callouts.
 
 ---
 

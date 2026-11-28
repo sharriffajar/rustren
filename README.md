@@ -164,7 +164,7 @@ cargo install rustren
 ```bash
 npx skills add sharriffajar/rustren
 ```
-Installs the root `rustren` skill plus genre skills (`simple-motion`, `living-diorama`, `editorial-data`, `product-showcase`).
+Installs the root `rustren` skill plus all 6 genre skills (`simple-motion`, `living-diorama`, `editorial-data`, `product-showcase`, `sketch-explainer`, `retro-print`).
 
 ### Build from Source
 ```bash
