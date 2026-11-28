@@ -57,13 +57,13 @@ if [ "${RUSTREN_NO_SKILLS:-0}" != "1" ]; then
   SKILL_URL="https://raw.githubusercontent.com/${REPO}/main/SKILL.md"
   if mkdir -p "$SKILL_DIR" 2>/dev/null && curl -fsSL "$SKILL_URL" -o "${SKILL_DIR}/SKILL.md" 2>/dev/null; then
     echo "Installed agent skill to ${SKILL_DIR}/SKILL.md"
-    for GENRE in simple-motion living-diorama editorial-data product-showcase sketch-explainer retro-print; do
+    for GENRE in simple-motion living-diorama editorial-data product-showcase sketch-explainer retro-print dark-story; do
       G_URL="https://raw.githubusercontent.com/${REPO}/main/skills/${GENRE}/SKILL.md"
       if mkdir -p "${SKILL_DIR}/skills/${GENRE}" 2>/dev/null && curl -fsSL "$G_URL" -o "${SKILL_DIR}/skills/${GENRE}/SKILL.md" 2>/dev/null; then
         mkdir -p "${HOME}/.claude/skills/${GENRE}" 2>/dev/null && cp "${SKILL_DIR}/skills/${GENRE}/SKILL.md" "${HOME}/.claude/skills/${GENRE}/SKILL.md" 2>/dev/null || true
       fi
     done
-    echo "Installed 6 genre skills (simple-motion, living-diorama, editorial-data, product-showcase, sketch-explainer, retro-print)"
+    echo "Installed 7 genre skills (simple-motion, living-diorama, editorial-data, product-showcase, sketch-explainer, retro-print, dark-story)"
   fi
 fi
 

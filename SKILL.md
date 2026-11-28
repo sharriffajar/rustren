@@ -404,6 +404,7 @@ Before authoring a scene, pick **at most one** genre skill matching the user's r
 | [skills/product-showcase/SKILL.md](skills/product-showcase/SKILL.md) | SaaS/UI demos, dark tech keynotes, CRT terminals, and 2.5D app flythroughs (`whip_left`/`whip_right`) |
 | [skills/sketch-explainer/SKILL.md](skills/sketch-explainer/SKILL.md) | Whiteboard, chalkboard, sketchnote, and one-line hand-drawn explainers (`path_progress` / `stroke_dashoffset`) |
 | [skills/retro-print/SKILL.md](skills/retro-print/SKILL.md) | Risograph prints, halftone dossiers, silkscreen posters, and 1920s newsreels (`halftone`, `grain_mode: "film"`) |
+| [skills/dark-story/SKILL.md](skills/dark-story/SKILL.md) | Indonesian dark-story, horror folklore, shadow-puppet (wayang/kelir), and stepped 2D cut-out rigging animations |
 
 ## 9:16 Kinetic Flat Promo Grammar (Agency-Grade Pattern)
 
