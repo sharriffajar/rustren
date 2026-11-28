@@ -392,6 +392,17 @@ errors point at the offending tag (`line 2, column 3: <include> is missing a src
 - **1.0.1** (rustren 0.3.1, schema 1.1): updated hardware encoder guidance to reflect default safe 1-frame auto-probe (`RUSTREN_HW_ENCODER=off` to force CPU).
 - **1.0.0** (rustren 0.3.0, schema 1.1): first release. Golden loop, command cheat sheet, authoring rules, motion-comic and explainer recipes, cache-aware authoring, debugging playbook, version check.
 
+## Genre Skills Router (1 Task = Max 1 Genre Skill)
+
+Before authoring a scene, pick **at most one** genre skill matching the user's request (never load multiple genre skills at once):
+
+| Genre Skill | When to Load (Mutually Exclusive) |
+| :--- | :--- |
+| [skills/simple-motion/SKILL.md](skills/simple-motion/SKILL.md) | Flat 2D kinetic typography, social promos, and vector openers (no photos or data charts) |
+| [skills/living-diorama/SKILL.md](skills/living-diorama/SKILL.md) | 2.5D motion comics, parallax photo/illustration dramatizations (`world` camera, DoF, `uv_warp`, `relight`) |
+| [skills/editorial-data/SKILL.md](skills/editorial-data/SKILL.md) | News reels, data/chart explainers, lower-thirds, and narrated caption videos (`SAFE_ZONE_9_16`) |
+| [skills/product-showcase/SKILL.md](skills/product-showcase/SKILL.md) | SaaS/UI demos, terminal/code walkthroughs, and 2.5D product carousels (`whip_left`/`whip_right`) |
+
 ## 9:16 Kinetic Flat Promo Grammar (Agency-Grade Pattern)
 
 > **Mandatory Skill**: Whenever authoring flat 2D kinetic motion-graphics videos, Reels/TikTok/Shorts promos, or kinetic typography openers, **read [skills/simple-motion/SKILL.md](skills/simple-motion/SKILL.md) first** — it defines the minimum quality floor (The 6 Laws, Anti-Slop Hard Reject List, exact primitive recipes, and pre-delivery visual QA gate).

@@ -32,16 +32,19 @@ try {
     if ($env:RUSTREN_NO_SKILLS -ne "1") {
         try {
             $SkillDir = Join-Path $HOME ".claude\skills\rustren"
-            $SmSubDir = Join-Path $SkillDir "skills\simple-motion"
-            $SmTopDir = Join-Path $HOME ".claude\skills\simple-motion"
             $SkillUrl = "https://raw.githubusercontent.com/$Repo/main/SKILL.md"
-            $SmUrl = "https://raw.githubusercontent.com/$Repo/main/skills/simple-motion/SKILL.md"
-            New-Item -ItemType Directory -Path $SmSubDir -Force | Out-Null
-            New-Item -ItemType Directory -Path $SmTopDir -Force | Out-Null
+            New-Item -ItemType Directory -Path $SkillDir -Force | Out-Null
             Invoke-WebRequest -Uri $SkillUrl -OutFile (Join-Path $SkillDir "SKILL.md") -UseBasicParsing
-            Invoke-WebRequest -Uri $SmUrl -OutFile (Join-Path $SmSubDir "SKILL.md") -UseBasicParsing
-            Copy-Item -Path (Join-Path $SmSubDir "SKILL.md") -Destination (Join-Path $SmTopDir "SKILL.md") -Force
-            Write-Host "Installed agent skills to $SkillDir and $SmTopDir"
+            foreach ($Genre in @("simple-motion", "living-diorama", "editorial-data", "product-showcase")) {
+                $SubDir = Join-Path $SkillDir "skills\$Genre"
+                $TopDir = Join-Path $HOME ".claude\skills\$Genre"
+                $GUrl = "https://raw.githubusercontent.com/$Repo/main/skills/$Genre/SKILL.md"
+                New-Item -ItemType Directory -Path $SubDir -Force | Out-Null
+                New-Item -ItemType Directory -Path $TopDir -Force | Out-Null
+                Invoke-WebRequest -Uri $GUrl -OutFile (Join-Path $SubDir "SKILL.md") -UseBasicParsing
+                Copy-Item -Path (Join-Path $SubDir "SKILL.md") -Destination (Join-Path $TopDir "SKILL.md") -Force
+            }
+            Write-Host "Installed agent skills to $SkillDir (+ 4 genre skills)"
         } catch {
             # Best-effort; do not fail binary install if offline/rate-limited
         }

@@ -160,6 +160,12 @@ irm https://raw.githubusercontent.com/sharriffajar/rustren/main/scripts/install.
 cargo install rustren
 ```
 
+### Install AI Agent Skills (40+ Agents via `skills.sh`)
+```bash
+npx skills add sharriffajar/rustren
+```
+Installs the root `rustren` skill plus genre skills (`simple-motion`, `living-diorama`, `editorial-data`, `product-showcase`).
+
 ### Build from Source
 ```bash
 git clone https://github.com/sharriffajar/rustren.git

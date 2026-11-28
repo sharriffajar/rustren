@@ -55,13 +55,15 @@ echo "Installed rustren to ${INSTALL_DIR}/rustren"
 if [ "${RUSTREN_NO_SKILLS:-0}" != "1" ]; then
   SKILL_DIR="${HOME}/.claude/skills/rustren"
   SKILL_URL="https://raw.githubusercontent.com/${REPO}/main/SKILL.md"
-  if mkdir -p "$SKILL_DIR/skills/simple-motion" 2>/dev/null && curl -fsSL "$SKILL_URL" -o "${SKILL_DIR}/SKILL.md" 2>/dev/null; then
+  if mkdir -p "$SKILL_DIR" 2>/dev/null && curl -fsSL "$SKILL_URL" -o "${SKILL_DIR}/SKILL.md" 2>/dev/null; then
     echo "Installed agent skill to ${SKILL_DIR}/SKILL.md"
-    SM_URL="https://raw.githubusercontent.com/${REPO}/main/skills/simple-motion/SKILL.md"
-    if curl -fsSL "$SM_URL" -o "${SKILL_DIR}/skills/simple-motion/SKILL.md" 2>/dev/null; then
-      mkdir -p "${HOME}/.claude/skills/simple-motion" 2>/dev/null && cp "${SKILL_DIR}/skills/simple-motion/SKILL.md" "${HOME}/.claude/skills/simple-motion/SKILL.md" 2>/dev/null || true
-      echo "Installed agent skill to ${HOME}/.claude/skills/simple-motion/SKILL.md"
-    fi
+    for GENRE in simple-motion living-diorama editorial-data product-showcase; do
+      G_URL="https://raw.githubusercontent.com/${REPO}/main/skills/${GENRE}/SKILL.md"
+      if mkdir -p "${SKILL_DIR}/skills/${GENRE}" 2>/dev/null && curl -fsSL "$G_URL" -o "${SKILL_DIR}/skills/${GENRE}/SKILL.md" 2>/dev/null; then
+        mkdir -p "${HOME}/.claude/skills/${GENRE}" 2>/dev/null && cp "${SKILL_DIR}/skills/${GENRE}/SKILL.md" "${HOME}/.claude/skills/${GENRE}/SKILL.md" 2>/dev/null || true
+      fi
+    done
+    echo "Installed genre skills (simple-motion, living-diorama, editorial-data, product-showcase)"
   fi
 fi
 

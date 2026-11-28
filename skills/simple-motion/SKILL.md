@@ -50,6 +50,22 @@ No element may abruptly appear at full size or snap-delete on an active frame.
 
 ---
 
+## 2.5 Motion Personality & Craft Rules
+Pick **one** archetype per video and apply it consistently:
+
+| Archetype | Duration | Easing | Overshoot | Best For |
+| :--- | :--- | :--- | :--- | :--- |
+| **Playful** | `150–300ms` | `ease_out_back` | `10–20%` | Social promos, consumer apps, upbeat reels |
+| **Premium** | `350–600ms` | `cubic_bezier(0.4,0,0.2,1)` | `0%` | Luxury, editorial, minimal brand stingers |
+| **Corporate** | `200–400ms` | `cubic_bezier(0.2,0,0,1)` | `0–3%` | B2B SaaS, clean announcements |
+| **Energetic** | `100–250ms` | `ease_out_expo` | `15–30%` | High-tempo launches, sports, hype teasers |
+
+- **Three Motion Layers**: Every beat needs **Primary** (hero text/action), **Secondary** (peripheral shapes reacting), and **Ambient** (continuous slow drift/crawl).
+- **Distance-Scaled Duration**: `100px = base`, `200px = 1.3×`, `400px = 1.6×` (large sweeps take longer than tiny accents).
+- **Simplicity Threshold**: `1` animated property = direct, `2` = polished, `3+` simultaneously on one element = noisy.
+
+---
+
 ## 3. Anti-Slop Hard Reject List
 
 Reject and fix immediately before showing the user if **any** of these 5 defects appear:
