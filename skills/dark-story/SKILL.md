@@ -58,12 +58,20 @@ Stage every shot as a front-planar shadow theater (`0` 3D perspective distortion
         { "property": "rotation", "expr": "sin(floor(t * 6.0) / 6.0 * 1.5) * 4.0", "start_sec": 0.0, "end_sec": 6.0 }
       ],
       "children": [
-        { "type": "svg", "src": "puppet_torso.svg", "x": 0, "y": 0, "width": 280, "height": 420 }
+        { "type": "svg", "src": "puppet_torso.svg", "position": "absolute", "x": 0, "y": 0, "width": 280, "height": 420 }
       ]
     }
   ]
 }
 ```
+
+### Mandatory Rigging Gotchas (Field-Verified)
+- **`"position": "absolute"` on ALL rig children**: Every child inside a puppet `container` that uses `x`/`y` **must** set `"position": "absolute"`. Without it, Taffy flexbox overrides `x`/`y` and collapses or inverts the character limbs.
+- **Math `expr` 8-Joint Walk-Cycle Pattern** (seamless loop at frequency `PI`):
+  - Opposite thighs: `30*sin(t*PI)` and `30*sin(t*PI + PI)`
+  - Knees (bend only on forward swing): `46*max(0, -cos(t*PI))`
+  - Arms (opposite phase to legs): `26*sin(t*PI + PI)`
+  - Wrap `t` with `floor(t * 6.0) / 6.0` for stepped `6 fps` wayang/kelir puppet cadence.
 
 ## 7. Pre-Delivery Visual & Audio QA Gate
 1. Run `rustren validate` (ensure overscaled backdrops if using `world` camera to avoid `EDGE_REVEAL`; `PACING_STAGNATION` will not fire as long as at least 1 subtle animation/flicker is active).
