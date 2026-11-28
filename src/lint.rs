@@ -210,7 +210,7 @@ fn collect_25d_preflight_qa(scene: &Scene, out: &mut Vec<LintWarning>) {
                     message: format!(
                         "layers[{i}] text at y={y:.0} is outside 9:16 safe band [{top_safe:.0}..{bot_safe:.0}] (risks TikTok/Reels HUD occlusion)"
                     ),
-                    fix: Some("place 9:16 readable text within 25%-70% vertical band; keep top/bottom 25% for decorative shapes".to_string()),
+                    fix: Some("place 9:16 readable text within the 15%-78% vertical safe band (avoid the top 15% and bottom 22% HUD zones); prefer the 25%-70% center band for hero copy and keep decorative shapes in the outer bands".to_string()),
                     affected_paths: Vec::new(),
                 });
             }

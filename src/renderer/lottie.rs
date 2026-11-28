@@ -155,11 +155,9 @@ fn resolve_color_override(item: &Value, base: [f32; 4]) -> [f32; 4] {
 fn acquire_zeroed_pixmap(w: u32, h: u32) -> Option<Pixmap> {
     let reused = LOTTIE_SCRATCH_POOL.with(|pool| {
         let mut p = pool.borrow_mut();
-        if let Some(pos) = p.iter().position(|pm| pm.width() == w && pm.height() == h) {
-            Some(p.swap_remove(pos))
-        } else {
-            None
-        }
+        p.iter()
+            .position(|pm| pm.width() == w && pm.height() == h)
+            .map(|pos| p.swap_remove(pos))
     });
     if let Some(pm) = reused {
         return Some(pm);
@@ -202,7 +200,12 @@ fn find_alpha_bounds(pm: &Pixmap) -> Option<(u32, u32, u32, u32)> {
     let data = pm.data();
     let (_, pixels, _) = unsafe { data.align_to::<u32>() };
     if pixels.len() != w * h {
-        return Some((0, 0, pm.width().saturating_sub(1), pm.height().saturating_sub(1)));
+        return Some((
+            0,
+            0,
+            pm.width().saturating_sub(1),
+            pm.height().saturating_sub(1),
+        ));
     }
 
     let mut min_y = h;
@@ -250,12 +253,7 @@ fn find_alpha_bounds(pm: &Pixmap) -> Option<(u32, u32, u32, u32)> {
     }
 }
 
-fn expand_bounds(
-    bounds: (u32, u32, u32, u32),
-    pad: u32,
-    w: u32,
-    h: u32,
-) -> (u32, u32, u32, u32) {
+fn expand_bounds(bounds: (u32, u32, u32, u32), pad: u32, w: u32, h: u32) -> (u32, u32, u32, u32) {
     (
         bounds.0.saturating_sub(pad),
         bounds.1.saturating_sub(pad),
@@ -264,7 +262,11 @@ fn expand_bounds(
     )
 }
 
-fn blur_pixmap_subrect(pm: &mut Pixmap, bounds: (u32, u32, u32, u32), radius: f32) -> (u32, u32, u32, u32) {
+fn blur_pixmap_subrect(
+    pm: &mut Pixmap,
+    bounds: (u32, u32, u32, u32),
+    radius: f32,
+) -> (u32, u32, u32, u32) {
     let pw = pm.width();
     let ph = pm.height();
     let pad = (radius * 2.0).ceil() as u32 + 2;
@@ -331,9 +333,12 @@ fn blit_subrect(
                 }
                 let d = dst_px[idx];
                 let inv_a = 255 - sa as u16;
-                let out_r = (s.red() as u16 + ((d.red() as u16 * inv_a + 127) / 255)).min(255) as u8;
-                let out_g = (s.green() as u16 + ((d.green() as u16 * inv_a + 127) / 255)).min(255) as u8;
-                let out_b = (s.blue() as u16 + ((d.blue() as u16 * inv_a + 127) / 255)).min(255) as u8;
+                let out_r =
+                    (s.red() as u16 + ((d.red() as u16 * inv_a + 127) / 255)).min(255) as u8;
+                let out_g =
+                    (s.green() as u16 + ((d.green() as u16 * inv_a + 127) / 255)).min(255) as u8;
+                let out_b =
+                    (s.blue() as u16 + ((d.blue() as u16 * inv_a + 127) / 255)).min(255) as u8;
                 let out_a = (sa as u16 + ((d.alpha() as u16 * inv_a + 127) / 255)).min(255) as u8;
                 dst_px[idx] = PremultipliedColorU8::from_rgba(
                     out_r.min(out_a),
@@ -366,7 +371,14 @@ fn blit_subrect(
         blend_mode,
         quality: FilterQuality::Nearest,
     };
-    dst.draw_pixmap(x0 as i32, y0 as i32, sub.as_ref(), &paint, Transform::identity(), None);
+    dst.draw_pixmap(
+        x0 as i32,
+        y0 as i32,
+        sub.as_ref(),
+        &paint,
+        Transform::identity(),
+        None,
+    );
 }
 
 /// Pure-Rust CPU Lottie (Bodymovin JSON) vector renderer on `tiny_skia`.
@@ -425,8 +437,11 @@ pub fn render_lottie_doc(
     rot_deg: f32,
     opacity: f32,
 ) -> bool {
-    let dst_tf = Transform::from_translate(rx, ry)
-        .post_concat(Transform::from_rotate_at(rot_deg, rx + w * 0.5, ry + h * 0.5));
+    let dst_tf = Transform::from_translate(rx, ry).post_concat(Transform::from_rotate_at(
+        rot_deg,
+        rx + w * 0.5,
+        ry + h * 0.5,
+    ));
     render_lottie_doc_ex(
         pixmap,
         doc,
@@ -519,8 +534,8 @@ pub fn render_lottie_doc_ex(
         }
         if out.is_empty() { None } else { Some(out) }
     });
-    let prev_overrides =
-        LOTTIE_COLOR_OVERRIDES.with(|cell| std::mem::replace(&mut *cell.borrow_mut(), parsed_overrides));
+    let prev_overrides = LOTTIE_COLOR_OVERRIDES
+        .with(|cell| std::mem::replace(&mut *cell.borrow_mut(), parsed_overrides));
 
     let assets = doc.get("assets").and_then(|v| v.as_array());
     let result = if let Some(layers) = doc.get("layers").and_then(|v| v.as_array()) {
@@ -574,14 +589,14 @@ fn extract_gaussian_blur_radius(layer: &Value, frame: f32) -> f32 {
     for ef in effects {
         let ty = ef.get("ty").and_then(|v| v.as_i64()).unwrap_or(-1);
         let en = ef.get("en").and_then(|v| v.as_i64()).unwrap_or(1);
-        if ty == 29 && en != 0 {
-            if let Some(params) = ef.get("ef").and_then(|v| v.as_array()) {
-                if let Some(blur_val) = params.first().and_then(|p| p.get("v")) {
-                    let b = eval_scalar(blur_val, frame, 0.0);
-                    if b > 0.0 {
-                        total += b * 0.35;
-                    }
-                }
+        if ty == 29
+            && en != 0
+            && let Some(params) = ef.get("ef").and_then(|v| v.as_array())
+            && let Some(blur_val) = params.first().and_then(|p| p.get("v"))
+        {
+            let b = eval_scalar(blur_val, frame, 0.0);
+            if b > 0.0 {
+                total += b * 0.35;
             }
         }
     }
@@ -622,7 +637,15 @@ fn render_layer_list(
         let needs_offscreen = (1..=4).contains(&tt) || bm_raw != 0 || blur_radius > 0.1;
 
         if !needs_offscreen {
-            render_single_layer(pixmap, layer, layers, assets, frame, parent_tf, parent_opacity);
+            render_single_layer(
+                pixmap,
+                layer,
+                layers,
+                assets,
+                frame,
+                parent_tf,
+                parent_opacity,
+            );
             continue;
         }
 
@@ -631,7 +654,15 @@ fn render_layer_list(
         let Some(mut layer_pm) = acquire_zeroed_pixmap(pw, ph) else {
             continue;
         };
-        render_single_layer(&mut layer_pm, layer, layers, assets, frame, parent_tf, parent_opacity);
+        render_single_layer(
+            &mut layer_pm,
+            layer,
+            layers,
+            assets,
+            frame,
+            parent_tf,
+            parent_opacity,
+        );
 
         let Some(mut dirty) = find_alpha_bounds(&layer_pm) else {
             // Layer produced zero visible pixels — return immediately without blur/matte/blit
@@ -663,13 +694,15 @@ fn render_layer_list(
 
             if let Some(m_idx) = matte_idx {
                 let (matte_pm, matte_bounds) = matte_cache.entry(m_idx).or_insert_with(|| {
-                    let mut m_pm = acquire_zeroed_pixmap(pw, ph)
-                        .unwrap_or_else(|| Pixmap::new(1, 1).unwrap());
+                    let mut m_pm =
+                        acquire_zeroed_pixmap(pw, ph).unwrap_or_else(|| Pixmap::new(1, 1).unwrap());
                     let m_layer = &layers[m_idx];
                     let m_ip = m_layer.get("ip").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
                     let m_op = m_layer.get("op").and_then(|v| v.as_f64()).unwrap_or(1e9) as f32;
                     if frame >= m_ip && frame < m_op {
-                        render_single_layer(&mut m_pm, m_layer, layers, assets, frame, parent_tf, 1.0);
+                        render_single_layer(
+                            &mut m_pm, m_layer, layers, assets, frame, parent_tf, 1.0,
+                        );
                     }
                     let mb = find_alpha_bounds(&m_pm);
                     (m_pm, mb)
@@ -688,9 +721,19 @@ fn render_layer_list(
                                 if ix0 > ix1 || iy0 > iy1 {
                                     skip_blit = true;
                                 } else {
-                                    apply_track_matte_rect(&mut layer_pm, matte_pm, tt, (ix0, iy0, ix1, iy1));
+                                    apply_track_matte_rect(
+                                        &mut layer_pm,
+                                        matte_pm,
+                                        tt,
+                                        (ix0, iy0, ix1, iy1),
+                                    );
                                     // Blit only the intersected region (outside intersection is clipped)
-                                    blit_subrect(pixmap, &layer_pm, (ix0, iy0, ix1, iy1), blend_mode);
+                                    blit_subrect(
+                                        pixmap,
+                                        &layer_pm,
+                                        (ix0, iy0, ix1, iy1),
+                                        blend_mode,
+                                    );
                                     release_zeroed_pixmap(layer_pm, Some(dirty));
                                     continue;
                                 }
@@ -704,7 +747,12 @@ fn render_layer_list(
                             let ix1 = dirty.2.min(mb.2);
                             let iy1 = dirty.3.min(mb.3);
                             if ix0 <= ix1 && iy0 <= iy1 {
-                                apply_track_matte_rect(&mut layer_pm, matte_pm, tt, (ix0, iy0, ix1, iy1));
+                                apply_track_matte_rect(
+                                    &mut layer_pm,
+                                    matte_pm,
+                                    tt,
+                                    (ix0, iy0, ix1, iy1),
+                                );
                             }
                         }
                     }
@@ -752,8 +800,16 @@ fn apply_track_matte_rect(
             let factor_u16: u16 = match tt {
                 1 => m.alpha() as u16,
                 2 => 255 - m.alpha() as u16,
-                3 => ((54u32 * m.red() as u32 + 183u32 * m.green() as u32 + 18u32 * m.blue() as u32) >> 8) as u16,
-                4 => 255 - (((54u32 * m.red() as u32 + 183u32 * m.green() as u32 + 18u32 * m.blue() as u32) >> 8) as u16),
+                3 => {
+                    ((54u32 * m.red() as u32 + 183u32 * m.green() as u32 + 18u32 * m.blue() as u32)
+                        >> 8) as u16
+                }
+                4 => {
+                    255 - (((54u32 * m.red() as u32
+                        + 183u32 * m.green() as u32
+                        + 18u32 * m.blue() as u32)
+                        >> 8) as u16)
+                }
                 _ => 255,
             };
             if factor_u16 == 0 {
@@ -792,19 +848,21 @@ fn render_single_layer(
             let sw = layer.get("sw").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
             let sh = layer.get("sh").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
             if sw > 0.0 && sh > 0.0 {
-                let hex = layer.get("sc").and_then(|v| v.as_str()).unwrap_or("#ffffff");
-                if let Some((r, g, b)) = parse_hex_rgb(hex) {
-                    if let Some(rect) = Rect::from_xywh(0.0, 0.0, sw, sh) {
-                        let mut pb = PathBuilder::new();
-                        pb.push_rect(rect);
-                        if let Some(path) = pb.finish() {
-                            let mut paint = Paint::default();
-                            paint.set_color(
-                                Color::from_rgba(r, g, b, final_op).unwrap_or(Color::WHITE),
-                            );
-                            paint.anti_alias = true;
-                            pixmap.fill_path(&path, &paint, FillRule::Winding, layer_tf, None);
-                        }
+                let hex = layer
+                    .get("sc")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("#ffffff");
+                if let Some((r, g, b)) = parse_hex_rgb(hex)
+                    && let Some(rect) = Rect::from_xywh(0.0, 0.0, sw, sh)
+                {
+                    let mut pb = PathBuilder::new();
+                    pb.push_rect(rect);
+                    if let Some(path) = pb.finish() {
+                        let mut paint = Paint::default();
+                        paint
+                            .set_color(Color::from_rgba(r, g, b, final_op).unwrap_or(Color::WHITE));
+                        paint.anti_alias = true;
+                        pixmap.fill_path(&path, &paint, FillRule::Winding, layer_tf, None);
                     }
                 }
             }
@@ -817,62 +875,56 @@ fn render_single_layer(
         }
         2 => {
             // Image layer (embedded data:image/...;base64,... or local file path)
-            if let (Some(ref_id), Some(asset_list)) = (
-                layer.get("refId").and_then(|v| v.as_str()),
-                assets,
-            ) {
-                if let Some(asset) = asset_list
+            if let (Some(ref_id), Some(asset_list)) =
+                (layer.get("refId").and_then(|v| v.as_str()), assets)
+                && let Some(asset) = asset_list
                     .iter()
                     .find(|a| a.get("id").and_then(|v| v.as_str()) == Some(ref_id))
-                {
-                    if let Some(img_pm) = decode_lottie_image_asset(asset) {
-                        let target_w = asset
-                            .get("w")
-                            .and_then(|v| v.as_f64())
-                            .map(|v| v as f32)
-                            .unwrap_or(img_pm.width() as f32);
-                        let target_h = asset
-                            .get("h")
-                            .and_then(|v| v.as_f64())
-                            .map(|v| v as f32)
-                            .unwrap_or(img_pm.height() as f32);
-                        let sx = if img_pm.width() > 0 {
-                            target_w / img_pm.width() as f32
-                        } else {
-                            1.0
-                        };
-                        let sy = if img_pm.height() > 0 {
-                            target_h / img_pm.height() as f32
-                        } else {
-                            1.0
-                        };
-                        let draw_tf = Transform::from_scale(sx, sy).post_concat(layer_tf);
-                        let paint = PixmapPaint {
-                            opacity: final_op,
-                            quality: FilterQuality::Bilinear,
-                            ..PixmapPaint::default()
-                        };
-                        pixmap.draw_pixmap(0, 0, (*img_pm).as_ref(), &paint, draw_tf, None);
-                    }
-                }
+                && let Some(img_pm) = decode_lottie_image_asset(asset)
+            {
+                let target_w = asset
+                    .get("w")
+                    .and_then(|v| v.as_f64())
+                    .map(|v| v as f32)
+                    .unwrap_or(img_pm.width() as f32);
+                let target_h = asset
+                    .get("h")
+                    .and_then(|v| v.as_f64())
+                    .map(|v| v as f32)
+                    .unwrap_or(img_pm.height() as f32);
+                let sx = if img_pm.width() > 0 {
+                    target_w / img_pm.width() as f32
+                } else {
+                    1.0
+                };
+                let sy = if img_pm.height() > 0 {
+                    target_h / img_pm.height() as f32
+                } else {
+                    1.0
+                };
+                let draw_tf = Transform::from_scale(sx, sy).post_concat(layer_tf);
+                let paint = PixmapPaint {
+                    opacity: final_op,
+                    quality: FilterQuality::Bilinear,
+                    ..PixmapPaint::default()
+                };
+                pixmap.draw_pixmap(0, 0, (*img_pm).as_ref(), &paint, draw_tf, None);
             }
         }
         0 => {
             // Precomp layer
-            if let (Some(ref_id), Some(asset_list)) = (
-                layer.get("refId").and_then(|v| v.as_str()),
-                assets,
-            ) {
+            if let (Some(ref_id), Some(asset_list)) =
+                (layer.get("refId").and_then(|v| v.as_str()), assets)
+            {
                 let st = layer.get("st").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
                 let sr = layer.get("sr").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
                 let sub_frame = (frame - st) / sr.max(0.001);
                 if let Some(comp) = asset_list
                     .iter()
                     .find(|a| a.get("id").and_then(|v| v.as_str()) == Some(ref_id))
+                    && let Some(sub_layers) = comp.get("layers").and_then(|v| v.as_array())
                 {
-                    if let Some(sub_layers) = comp.get("layers").and_then(|v| v.as_array()) {
-                        render_layer_list(pixmap, sub_layers, assets, sub_frame, layer_tf, final_op);
-                    }
+                    render_layer_list(pixmap, sub_layers, assets, sub_frame, layer_tf, final_op);
                 }
             }
         }
@@ -918,11 +970,27 @@ fn resolve_layer_transform(
 }
 
 fn eval_ks(ks: &Value, frame: f32) -> (Transform, f32) {
-    let a = ks.get("a").map(|v| eval_vec2(v, frame, [0.0, 0.0])).unwrap_or([0.0, 0.0]);
-    let p = ks.get("p").map(|v| eval_vec2(v, frame, [0.0, 0.0])).unwrap_or([0.0, 0.0]);
-    let s = ks.get("s").map(|v| eval_vec2(v, frame, [100.0, 100.0])).unwrap_or([100.0, 100.0]);
-    let r = ks.get("r").map(|v| eval_scalar(v, frame, 0.0)).unwrap_or(0.0);
-    let o = ks.get("o").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0) / 100.0;
+    let a = ks
+        .get("a")
+        .map(|v| eval_vec2(v, frame, [0.0, 0.0]))
+        .unwrap_or([0.0, 0.0]);
+    let p = ks
+        .get("p")
+        .map(|v| eval_vec2(v, frame, [0.0, 0.0]))
+        .unwrap_or([0.0, 0.0]);
+    let s = ks
+        .get("s")
+        .map(|v| eval_vec2(v, frame, [100.0, 100.0]))
+        .unwrap_or([100.0, 100.0]);
+    let r = ks
+        .get("r")
+        .map(|v| eval_scalar(v, frame, 0.0))
+        .unwrap_or(0.0);
+    let o = ks
+        .get("o")
+        .map(|v| eval_scalar(v, frame, 100.0))
+        .unwrap_or(100.0)
+        / 100.0;
 
     let tf = Transform::from_translate(-a[0], -a[1])
         .post_concat(Transform::from_scale(s[0] / 100.0, s[1] / 100.0))
@@ -941,7 +1009,12 @@ fn group_has_paint(items: &[Value]) -> bool {
     })
 }
 
-fn collect_unpainted_group_paths(items: &[Value], frame: f32, local_tf: Transform, out: &mut Vec<Path>) {
+fn collect_unpainted_group_paths(
+    items: &[Value],
+    frame: f32,
+    local_tf: Transform,
+    out: &mut Vec<Path>,
+) {
     let mut tf = local_tf;
     for item in items {
         if item.get("ty").and_then(|v| v.as_str()) == Some("tr") {
@@ -956,10 +1029,10 @@ fn collect_unpainted_group_paths(items: &[Value], frame: f32, local_tf: Transfor
         let ty = item.get("ty").and_then(|v| v.as_str()).unwrap_or("");
         let maybe_path = match ty {
             "gr" => {
-                if let Some(sub) = item.get("it").and_then(|v| v.as_array()) {
-                    if !group_has_paint(sub) {
-                        collect_unpainted_group_paths(sub, frame, tf, out);
-                    }
+                if let Some(sub) = item.get("it").and_then(|v| v.as_array())
+                    && !group_has_paint(sub)
+                {
+                    collect_unpainted_group_paths(sub, frame, tf, out);
                 }
                 None
             }
@@ -969,10 +1042,10 @@ fn collect_unpainted_group_paths(items: &[Value], frame: f32, local_tf: Transfor
             "sh" => build_bezier_path(item, frame),
             _ => None,
         };
-        if let Some(path) = maybe_path {
-            if let Some(transformed) = path.transform(tf) {
-                out.push(transformed);
-            }
+        if let Some(path) = maybe_path
+            && let Some(transformed) = path.transform(tf)
+        {
+            out.push(transformed);
         }
     }
 }
@@ -997,9 +1070,18 @@ fn render_shape_group(
                 group_op = (group_op * tr_op).clamp(0.0, 1.0);
             }
             Some("tm") if !item.get("hd").and_then(|v| v.as_bool()).unwrap_or(false) => {
-                let s = item.get("s").map(|v| eval_scalar(v, frame, 0.0)).unwrap_or(0.0);
-                let e = item.get("e").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0);
-                let o = item.get("o").map(|v| eval_scalar(v, frame, 0.0)).unwrap_or(0.0);
+                let s = item
+                    .get("s")
+                    .map(|v| eval_scalar(v, frame, 0.0))
+                    .unwrap_or(0.0);
+                let e = item
+                    .get("e")
+                    .map(|v| eval_scalar(v, frame, 100.0))
+                    .unwrap_or(100.0);
+                let o = item
+                    .get("o")
+                    .map(|v| eval_scalar(v, frame, 0.0))
+                    .unwrap_or(0.0);
                 trim_paths = Some((s, e, o));
             }
             _ => {}
@@ -1015,10 +1097,10 @@ fn render_shape_group(
         let ty = item.get("ty").and_then(|v| v.as_str()).unwrap_or("");
         match ty {
             "gr" => {
-                if let Some(sub) = item.get("it").and_then(|v| v.as_array()) {
-                    if !group_has_paint(sub) {
-                        collect_unpainted_group_paths(sub, frame, Transform::identity(), &mut paths);
-                    }
+                if let Some(sub) = item.get("it").and_then(|v| v.as_array())
+                    && !group_has_paint(sub)
+                {
+                    collect_unpainted_group_paths(sub, frame, Transform::identity(), &mut paths);
                 }
             }
             "rc" => {
@@ -1053,22 +1135,30 @@ fn render_shape_group(
         let ty = item.get("ty").and_then(|v| v.as_str()).unwrap_or("");
         match ty {
             "gr" => {
-                if let Some(sub) = item.get("it").and_then(|v| v.as_array()) {
-                    if group_has_paint(sub) {
-                        render_shape_group(pixmap, sub, frame, tf, group_op, trim_paths);
-                    }
+                if let Some(sub) = item.get("it").and_then(|v| v.as_array())
+                    && group_has_paint(sub)
+                {
+                    render_shape_group(pixmap, sub, frame, tf, group_op, trim_paths);
                 }
             }
             "fl" => {
                 let c = resolve_color_override(
                     item,
-                    item.get("c").map(|v| eval_color(v, frame)).unwrap_or([1.0, 1.0, 1.0, 1.0]),
+                    item.get("c")
+                        .map(|v| eval_color(v, frame))
+                        .unwrap_or([1.0, 1.0, 1.0, 1.0]),
                 );
-                let o = item.get("o").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0) / 100.0;
+                let o = item
+                    .get("o")
+                    .map(|v| eval_scalar(v, frame, 100.0))
+                    .unwrap_or(100.0)
+                    / 100.0;
                 let alpha = (c[3] * o * group_op).clamp(0.0, 1.0);
                 if alpha > 0.001 && !paths.is_empty() {
                     let mut paint = Paint::default();
-                    paint.set_color(Color::from_rgba(c[0], c[1], c[2], alpha).unwrap_or(Color::WHITE));
+                    paint.set_color(
+                        Color::from_rgba(c[0], c[1], c[2], alpha).unwrap_or(Color::WHITE),
+                    );
                     paint.anti_alias = true;
                     let rule = if item.get("r").and_then(|v| v.as_i64()) == Some(2) {
                         FillRule::EvenOdd
@@ -1079,54 +1169,79 @@ fn render_shape_group(
                 }
             }
             "gf" => {
-                let o = item.get("o").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0) / 100.0;
+                let o = item
+                    .get("o")
+                    .map(|v| eval_scalar(v, frame, 100.0))
+                    .unwrap_or(100.0)
+                    / 100.0;
                 let alpha = (o * group_op).clamp(0.0, 1.0);
-                if alpha > 0.001 && !paths.is_empty() {
-                    if let Some(shader) = build_gradient_shader(item, frame, alpha) {
-                        let paint = Paint {
-                            shader,
-                            anti_alias: true,
-                            ..Paint::default()
-                        };
-                        let rule = if item.get("r").and_then(|v| v.as_i64()) == Some(2) {
-                            FillRule::EvenOdd
-                        } else {
-                            FillRule::Winding
-                        };
-                        fill_paths_combined(pixmap, &paths, &paint, rule, tf);
-                    }
+                if alpha > 0.001
+                    && !paths.is_empty()
+                    && let Some(shader) = build_gradient_shader(item, frame, alpha)
+                {
+                    let paint = Paint {
+                        shader,
+                        anti_alias: true,
+                        ..Paint::default()
+                    };
+                    let rule = if item.get("r").and_then(|v| v.as_i64()) == Some(2) {
+                        FillRule::EvenOdd
+                    } else {
+                        FillRule::Winding
+                    };
+                    fill_paths_combined(pixmap, &paths, &paint, rule, tf);
                 }
             }
             "st" => {
                 let c = resolve_color_override(
                     item,
-                    item.get("c").map(|v| eval_color(v, frame)).unwrap_or([1.0, 1.0, 1.0, 1.0]),
+                    item.get("c")
+                        .map(|v| eval_color(v, frame))
+                        .unwrap_or([1.0, 1.0, 1.0, 1.0]),
                 );
-                let o = item.get("o").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0) / 100.0;
-                let sw = item.get("w").map(|v| eval_scalar(v, frame, 2.0)).unwrap_or(2.0);
+                let o = item
+                    .get("o")
+                    .map(|v| eval_scalar(v, frame, 100.0))
+                    .unwrap_or(100.0)
+                    / 100.0;
+                let sw = item
+                    .get("w")
+                    .map(|v| eval_scalar(v, frame, 2.0))
+                    .unwrap_or(2.0);
                 let alpha = (c[3] * o * group_op).clamp(0.0, 1.0);
                 if alpha > 0.001 && sw > 0.0 && !paths.is_empty() {
                     let mut paint = Paint::default();
-                    paint.set_color(Color::from_rgba(c[0], c[1], c[2], alpha).unwrap_or(Color::WHITE));
+                    paint.set_color(
+                        Color::from_rgba(c[0], c[1], c[2], alpha).unwrap_or(Color::WHITE),
+                    );
                     paint.anti_alias = true;
                     let stroke = build_stroke_style(item, sw);
                     stroke_paths_with_trim(pixmap, &paths, &paint, &stroke, tf, trim_paths);
                 }
             }
             "gs" => {
-                let o = item.get("o").map(|v| eval_scalar(v, frame, 100.0)).unwrap_or(100.0) / 100.0;
-                let sw = item.get("w").map(|v| eval_scalar(v, frame, 2.0)).unwrap_or(2.0);
+                let o = item
+                    .get("o")
+                    .map(|v| eval_scalar(v, frame, 100.0))
+                    .unwrap_or(100.0)
+                    / 100.0;
+                let sw = item
+                    .get("w")
+                    .map(|v| eval_scalar(v, frame, 2.0))
+                    .unwrap_or(2.0);
                 let alpha = (o * group_op).clamp(0.0, 1.0);
-                if alpha > 0.001 && sw > 0.0 && !paths.is_empty() {
-                    if let Some(shader) = build_gradient_shader(item, frame, alpha) {
-                        let paint = Paint {
-                            shader,
-                            anti_alias: true,
-                            ..Paint::default()
-                        };
-                        let stroke = build_stroke_style(item, sw);
-                        stroke_paths_with_trim(pixmap, &paths, &paint, &stroke, tf, trim_paths);
-                    }
+                if alpha > 0.001
+                    && sw > 0.0
+                    && !paths.is_empty()
+                    && let Some(shader) = build_gradient_shader(item, frame, alpha)
+                {
+                    let paint = Paint {
+                        shader,
+                        anti_alias: true,
+                        ..Paint::default()
+                    };
+                    let stroke = build_stroke_style(item, sw);
+                    stroke_paths_with_trim(pixmap, &paths, &paint, &stroke, tf, trim_paths);
                 }
             }
             _ => {}
@@ -1309,8 +1424,14 @@ fn build_gradient_shader(item: &Value, frame: f32, opacity: f32) -> Option<Shade
         return None;
     }
 
-    let s = item.get("s").map(|v| eval_vec2(v, frame, [0.0, 0.0])).unwrap_or([0.0, 0.0]);
-    let e = item.get("e").map(|v| eval_vec2(v, frame, [100.0, 0.0])).unwrap_or([100.0, 0.0]);
+    let s = item
+        .get("s")
+        .map(|v| eval_vec2(v, frame, [0.0, 0.0]))
+        .unwrap_or([0.0, 0.0]);
+    let e = item
+        .get("e")
+        .map(|v| eval_vec2(v, frame, [100.0, 0.0]))
+        .unwrap_or([100.0, 0.0]);
     let grad_type = item.get("t").and_then(|v| v.as_i64()).unwrap_or(1);
 
     let dist = (e[0] - s[0]).hypot(e[1] - s[1]);
@@ -1357,9 +1478,19 @@ fn build_gradient_shader(item: &Value, frame: f32, opacity: f32) -> Option<Shade
 }
 
 fn build_rect_path(item: &Value, frame: f32) -> Option<Path> {
-    let p = item.get("p").map(|v| eval_vec2(v, frame, [0.0, 0.0])).unwrap_or([0.0, 0.0]);
-    let s = item.get("s").map(|v| eval_vec2(v, frame, [100.0, 100.0])).unwrap_or([100.0, 100.0]);
-    let r = item.get("r").map(|v| eval_scalar(v, frame, 0.0)).unwrap_or(0.0).max(0.0);
+    let p = item
+        .get("p")
+        .map(|v| eval_vec2(v, frame, [0.0, 0.0]))
+        .unwrap_or([0.0, 0.0]);
+    let s = item
+        .get("s")
+        .map(|v| eval_vec2(v, frame, [100.0, 100.0]))
+        .unwrap_or([100.0, 100.0]);
+    let r = item
+        .get("r")
+        .map(|v| eval_scalar(v, frame, 0.0))
+        .unwrap_or(0.0)
+        .max(0.0);
     let w = s[0].abs();
     let h = s[1].abs();
     if w <= 0.0 || h <= 0.0 {
@@ -1372,12 +1503,19 @@ fn build_rect_path(item: &Value, frame: f32) -> Option<Path> {
     if rad <= 0.01 {
         pb.push_rect(Rect::from_xywh(x, y, w, h)?);
     } else {
-        let k = rad * 0.55228475;
+        let k = rad * 0.552_284_8;
         pb.move_to(x + rad, y);
         pb.line_to(x + w - rad, y);
         pb.cubic_to(x + w - rad + k, y, x + w, y + rad - k, x + w, y + rad);
         pb.line_to(x + w, y + h - rad);
-        pb.cubic_to(x + w, y + h - rad + k, x + w - rad + k, y + h, x + w - rad, y + h);
+        pb.cubic_to(
+            x + w,
+            y + h - rad + k,
+            x + w - rad + k,
+            y + h,
+            x + w - rad,
+            y + h,
+        );
         pb.line_to(x + rad, y + h);
         pb.cubic_to(x + rad - k, y + h, x, y + h - rad + k, x, y + h - rad);
         pb.line_to(x, y + rad);
@@ -1388,15 +1526,21 @@ fn build_rect_path(item: &Value, frame: f32) -> Option<Path> {
 }
 
 fn build_ellipse_path(item: &Value, frame: f32) -> Option<Path> {
-    let p = item.get("p").map(|v| eval_vec2(v, frame, [0.0, 0.0])).unwrap_or([0.0, 0.0]);
-    let s = item.get("s").map(|v| eval_vec2(v, frame, [100.0, 100.0])).unwrap_or([100.0, 100.0]);
+    let p = item
+        .get("p")
+        .map(|v| eval_vec2(v, frame, [0.0, 0.0]))
+        .unwrap_or([0.0, 0.0]);
+    let s = item
+        .get("s")
+        .map(|v| eval_vec2(v, frame, [100.0, 100.0]))
+        .unwrap_or([100.0, 100.0]);
     let rx = s[0].abs() * 0.5;
     let ry = s[1].abs() * 0.5;
     if rx <= 0.0 || ry <= 0.0 {
         return None;
     }
-    let kx = rx * 0.55228475;
-    let ky = ry * 0.55228475;
+    let kx = rx * 0.552_284_8;
+    let ky = ry * 0.552_284_8;
     let cx = p[0];
     let cy = p[1];
     let mut pb = PathBuilder::new();
@@ -1410,16 +1554,35 @@ fn build_ellipse_path(item: &Value, frame: f32) -> Option<Path> {
 }
 
 fn build_polystar_path(item: &Value, frame: f32) -> Option<Path> {
-    let p = item.get("p").map(|v| eval_vec2(v, frame, [0.0, 0.0])).unwrap_or([0.0, 0.0]);
-    let pts = item.get("pt").map(|v| eval_scalar(v, frame, 5.0)).unwrap_or(5.0).round().max(3.0) as usize;
-    let or = item.get("or").map(|v| eval_scalar(v, frame, 50.0)).unwrap_or(50.0);
-    let ir = item.get("ir").map(|v| eval_scalar(v, frame, 25.0)).unwrap_or(25.0);
-    let rot = item.get("r").map(|v| eval_scalar(v, frame, 0.0)).unwrap_or(0.0).to_radians();
+    let p = item
+        .get("p")
+        .map(|v| eval_vec2(v, frame, [0.0, 0.0]))
+        .unwrap_or([0.0, 0.0]);
+    let pts = item
+        .get("pt")
+        .map(|v| eval_scalar(v, frame, 5.0))
+        .unwrap_or(5.0)
+        .round()
+        .max(3.0) as usize;
+    let or = item
+        .get("or")
+        .map(|v| eval_scalar(v, frame, 50.0))
+        .unwrap_or(50.0);
+    let ir = item
+        .get("ir")
+        .map(|v| eval_scalar(v, frame, 25.0))
+        .unwrap_or(25.0);
+    let rot = item
+        .get("r")
+        .map(|v| eval_scalar(v, frame, 0.0))
+        .unwrap_or(0.0)
+        .to_radians();
     let is_star = item.get("sy").and_then(|v| v.as_i64()).unwrap_or(1) == 1;
     let total = if is_star { pts * 2 } else { pts };
     let mut pb = PathBuilder::new();
     for i in 0..total {
-        let ang = rot - std::f32::consts::FRAC_PI_2 + (i as f32) * std::f32::consts::TAU / (total as f32);
+        let ang =
+            rot - std::f32::consts::FRAC_PI_2 + (i as f32) * std::f32::consts::TAU / (total as f32);
         let rad = if is_star && i % 2 == 1 { ir } else { or };
         let px = p[0] + rad * ang.cos();
         let py = p[1] + rad * ang.sin();
@@ -1450,7 +1613,14 @@ fn build_bezier_path(item: &Value, frame: f32) -> Option<Path> {
         let oa = o_pts[idx];
         let b = v_pts[next];
         let ib = i_pts[next];
-        pb.cubic_to(a[0] + oa[0], a[1] + oa[1], b[0] + ib[0], b[1] + ib[1], b[0], b[1]);
+        pb.cubic_to(
+            a[0] + oa[0],
+            a[1] + oa[1],
+            b[0] + ib[0],
+            b[1] + ib[1],
+            b[0],
+            b[1],
+        );
     }
     if closed {
         pb.close();
@@ -1458,18 +1628,27 @@ fn build_bezier_path(item: &Value, frame: f32) -> Option<Path> {
     pb.finish()
 }
 
-fn extract_shape_points(shape_val: &Value) -> Option<(Vec<[f32; 2]>, Vec<[f32; 2]>, Vec<[f32; 2]>, bool)> {
+fn extract_shape_points(
+    shape_val: &Value,
+) -> Option<(Vec<[f32; 2]>, Vec<[f32; 2]>, Vec<[f32; 2]>, bool)> {
     let v_arr = shape_val.get("v")?.as_array()?;
     let i_arr = shape_val.get("i")?.as_array()?;
     let o_arr = shape_val.get("o")?.as_array()?;
-    let closed = shape_val.get("c").and_then(|v| v.as_bool()).unwrap_or(false);
+    let closed = shape_val
+        .get("c")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let parse_arr = |arr: &[Value]| -> Vec<[f32; 2]> {
         arr.iter()
             .map(|entry| {
                 let a = entry.as_array();
                 [
-                    a.and_then(|x| x.first()).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
-                    a.and_then(|x| x.get(1)).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                    a.and_then(|x| x.first())
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0) as f32,
+                    a.and_then(|x| x.get(1))
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0) as f32,
                 ]
             })
             .collect()
@@ -1517,7 +1696,16 @@ fn compile_shape_prop(prop: &Value) -> CompiledShapeProp {
         let oy = kf.pointer("/o/y").and_then(first_f32).unwrap_or(0.0);
         let ix = kf.pointer("/i/x").and_then(first_f32).unwrap_or(1.0);
         let iy = kf.pointer("/i/y").and_then(first_f32).unwrap_or(1.0);
-        out.push(TypedShapeKf { t, hold, s, e, ox, oy, ix, iy });
+        out.push(TypedShapeKf {
+            t,
+            hold,
+            s,
+            e,
+            ox,
+            oy,
+            ix,
+            iy,
+        });
     }
     CompiledShapeProp::Animated(out)
 }
@@ -1542,10 +1730,13 @@ fn eval_shape_points(prop: &Value, frame: f32) -> Option<ShapePts> {
                 let pos = kfs.partition_point(|kf| kf.t <= frame);
                 let idx = pos.saturating_sub(1);
                 if idx + 1 >= kfs.len() {
-                    return kfs[idx]
-                        .s
-                        .clone()
-                        .or_else(|| if idx > 0 { kfs[idx - 1].e.clone() } else { None });
+                    return kfs[idx].s.clone().or_else(|| {
+                        if idx > 0 {
+                            kfs[idx - 1].e.clone()
+                        } else {
+                            None
+                        }
+                    });
                 }
                 let cur = &kfs[idx];
                 let next = &kfs[idx + 1];
@@ -1553,20 +1744,19 @@ fn eval_shape_points(prop: &Value, frame: f32) -> Option<ShapePts> {
                 if cur.hold || next.t <= cur.t {
                     return Some(s_pts.clone());
                 }
-                if let Some(e_pts) = cur.e.as_ref().or(next.s.as_ref()) {
-                    if s_pts.0.len() == e_pts.0.len()
-                        && s_pts.1.len() == e_pts.1.len()
-                        && s_pts.2.len() == e_pts.2.len()
-                    {
-                        let raw_t = ((frame - cur.t) / (next.t - cur.t)).clamp(0.0, 1.0);
-                        let eased = eval_bezier_params(cur.ox, cur.oy, cur.ix, cur.iy, raw_t);
-                        return Some((
-                            lerp_pts(&s_pts.0, &e_pts.0, eased),
-                            lerp_pts(&s_pts.1, &e_pts.1, eased),
-                            lerp_pts(&s_pts.2, &e_pts.2, eased),
-                            s_pts.3,
-                        ));
-                    }
+                if let Some(e_pts) = cur.e.as_ref().or(next.s.as_ref())
+                    && s_pts.0.len() == e_pts.0.len()
+                    && s_pts.1.len() == e_pts.1.len()
+                    && s_pts.2.len() == e_pts.2.len()
+                {
+                    let raw_t = ((frame - cur.t) / (next.t - cur.t)).clamp(0.0, 1.0);
+                    let eased = eval_bezier_params(cur.ox, cur.oy, cur.ix, cur.iy, raw_t);
+                    return Some((
+                        lerp_pts(&s_pts.0, &e_pts.0, eased),
+                        lerp_pts(&s_pts.1, &e_pts.1, eased),
+                        lerp_pts(&s_pts.2, &e_pts.2, eased),
+                        s_pts.3,
+                    ));
                 }
                 Some(s_pts.clone())
             }
@@ -1605,7 +1795,12 @@ fn eval_color(prop: &Value, frame: f32) -> [f32; 4] {
         g /= 255.0;
         b /= 255.0;
     }
-    [r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0), a.clamp(0.0, 1.0)]
+    [
+        r.clamp(0.0, 1.0),
+        g.clamp(0.0, 1.0),
+        b.clamp(0.0, 1.0),
+        a.clamp(0.0, 1.0),
+    ]
 }
 
 fn compile_vec_prop(prop: &Value) -> CompiledVecProp {
@@ -1636,7 +1831,16 @@ fn compile_vec_prop(prop: &Value) -> CompiledVecProp {
         let oy = kf.pointer("/o/y").and_then(first_f32).unwrap_or(0.0);
         let ix = kf.pointer("/i/x").and_then(first_f32).unwrap_or(1.0);
         let iy = kf.pointer("/i/y").and_then(first_f32).unwrap_or(1.0);
-        out.push(TypedVecKf { t, hold, s, e, ox, oy, ix, iy });
+        out.push(TypedVecKf {
+            t,
+            hold,
+            s,
+            e,
+            ox,
+            oy,
+            ix,
+            iy,
+        });
     }
     CompiledVecProp::Animated(out)
 }
@@ -1674,12 +1878,11 @@ fn eval_vec_n(prop: &Value, frame: f32, default: &[f32]) -> Vec<f32> {
                     if !kfs[idx].s.is_empty() {
                         return kfs[idx].s.clone();
                     }
-                    if idx > 0 {
-                        if let Some(prev_e) = &kfs[idx - 1].e {
-                            if !prev_e.is_empty() {
-                                return prev_e.clone();
-                            }
-                        }
+                    if idx > 0
+                        && let Some(prev_e) = &kfs[idx - 1].e
+                        && !prev_e.is_empty()
+                    {
+                        return prev_e.clone();
                     }
                     return default.to_vec();
                 }
@@ -1762,10 +1965,10 @@ fn decode_lottie_image_asset(asset: &Value) -> Option<Arc<Pixmap>> {
     let key = hasher.finish();
 
     let cache = LOTTIE_IMAGE_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    if let Ok(guard) = cache.lock() {
-        if let Some(cached) = guard.get(&key) {
-            return cached.clone();
-        }
+    if let Ok(guard) = cache.lock()
+        && let Some(cached) = guard.get(&key)
+    {
+        return cached.clone();
     }
 
     let decoded = decode_image_bytes(u, p).and_then(|bytes| {
@@ -1858,9 +2061,33 @@ mod tests {
         }"#;
 
         let mut pm0 = Pixmap::new(200, 200).unwrap();
-        assert!(render_lottie_json(&mut pm0, lottie_json.as_bytes(), 0.0, true, 1.0, 0.0, 0.0, 200.0, 200.0, 0.0, 1.0));
+        assert!(render_lottie_json(
+            &mut pm0,
+            lottie_json.as_bytes(),
+            0.0,
+            true,
+            1.0,
+            0.0,
+            0.0,
+            200.0,
+            200.0,
+            0.0,
+            1.0
+        ));
         let mut pm1 = Pixmap::new(200, 200).unwrap();
-        assert!(render_lottie_json(&mut pm1, lottie_json.as_bytes(), 1.0, true, 1.0, 0.0, 0.0, 200.0, 200.0, 0.0, 1.0));
+        assert!(render_lottie_json(
+            &mut pm1,
+            lottie_json.as_bytes(),
+            1.0,
+            true,
+            1.0,
+            0.0,
+            0.0,
+            200.0,
+            200.0,
+            0.0,
+            1.0
+        ));
 
         // Pixel at (40, 100) should be orange at t=0 and transparent at t=1
         assert!(pm0.pixel(40, 100).unwrap().alpha() > 200);
@@ -1983,7 +2210,19 @@ mod tests {
         }).to_string();
 
         let mut pm = Pixmap::new(100, 100).unwrap();
-        assert!(render_lottie_json(&mut pm, lottie_json.as_bytes(), 0.0, false, 1.0, 0.0, 0.0, 100.0, 100.0, 0.0, 1.0));
+        assert!(render_lottie_json(
+            &mut pm,
+            lottie_json.as_bytes(),
+            0.0,
+            false,
+            1.0,
+            0.0,
+            0.0,
+            100.0,
+            100.0,
+            0.0,
+            1.0
+        ));
         // Inside matte [30..70, 30..70] should be visible purple-ish gradient
         let center = pm.pixel(50, 50).unwrap();
         assert!(center.alpha() > 240 && center.red() > 80 && center.blue() > 80);
@@ -2077,7 +2316,9 @@ mod tests {
             1.0,
         ));
         let px_h3 = pm_hex3.pixel(20, 50).unwrap();
-        assert!(px_h3.alpha() > 240 && px_h3.green() > 240 && px_h3.blue() > 240 && px_h3.red() < 15);
+        assert!(
+            px_h3.alpha() > 240 && px_h3.green() > 240 && px_h3.blue() > 240 && px_h3.red() < 15
+        );
 
         // Test non-identity parent_transform (90deg rotation around canvas center (50, 50))
         let rot_tf = Transform::from_rotate_at(90.0, 50.0, 50.0);

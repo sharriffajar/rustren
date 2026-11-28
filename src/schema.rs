@@ -1397,7 +1397,9 @@ impl FontWeightSpec {
     pub fn from_str_loose(s: &str) -> Option<Self> {
         match s.trim().to_ascii_lowercase().as_str() {
             "thin" | "100" => Some(FontWeightSpec::Thin),
-            "extralight" | "extra_light" | "extra-light" | "200" => Some(FontWeightSpec::ExtraLight),
+            "extralight" | "extra_light" | "extra-light" | "200" => {
+                Some(FontWeightSpec::ExtraLight)
+            }
             "light" | "300" => Some(FontWeightSpec::Light),
             "normal" | "regular" | "400" => Some(FontWeightSpec::Normal),
             "medium" | "500" => Some(FontWeightSpec::Medium),

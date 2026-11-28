@@ -131,7 +131,7 @@ rustren render examples/cuboid_carousel.html -o cuboid.mp4
 
 ## Key Features
 *(Full field-level reference in [SCHEMA.md](SCHEMA.md) and machine-readable [schema.json](schema.json).)*
-- **Capability Registry & Version Gate**: `rustren capabilities` publishes renderer version (`1.1`), schema version (`1.1`), supported features, and HTTP API contracts.
+- **Capability Registry & Version Gate**: `rustren capabilities` publishes renderer version (`1.2`), schema version (`1.2`), supported features, and HTTP API contracts.
 - **Layout, 2.5D & Typography**: Flexbox (`taffy`), 2.5D perspective & `track_matte`, non-uniform `scale_x`/`scale_y` & custom `pivot`, rich text spans & RTL/BiDi, built-in per-char/word `text_animator`, dynamic text (typewriter/counter/timecode), `clip_feather`, `wave_warp` (transverse & longitudinal `stretch_x`/`stretch_y`), gradients, blur, shadow, and blend modes.
 - **Composition Profiles & Timelines**: Multi-aspect-ratio `profiles` (`--composition <name>`) and global, local, or `series` timelines with overlap.
 - **Anti-OOM Media & A/V Sync**: Windowed LRU `video` decoder for long clips (`playback_rate` including reverse, `loop`, animatable `focal_x`/`focal_y`, `luma_key`, trim/volume) and multi-track `audio` with fades and ducking.
@@ -145,7 +145,7 @@ rustren render examples/cuboid_carousel.html -o cuboid.mp4
 ### Quick Install (Prebuilt Binary — No Rust Required)
 Always installs the latest GitHub Release automatically:
 
-**Linux (`x86_64`) / macOS (`Apple Silicon`):**
+**Linux (`x86_64`) / macOS (`Apple Silicon`) / Android Termux (`aarch64`):**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sharriffajar/rustren/main/scripts/install.sh | sh
 ```

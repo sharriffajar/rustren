@@ -1,10 +1,10 @@
 use axum::{
+    Json, Router,
     body::{Body, Bytes},
     extract::{ConnectInfo, DefaultBodyLimit, Path as AxumPath, State},
-    http::{header, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -14,13 +14,13 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio::sync::{mpsc, RwLock, Semaphore};
+use tokio::sync::{RwLock, Semaphore, mpsc};
 use uuid::Uuid;
 
 use crate::{
     collect_lint_warnings, render_scene_to_file,
     schema::Scene,
-    security::{validate_remote_url, validate_scene_for_service, ServiceLimits},
+    security::{ServiceLimits, validate_remote_url, validate_scene_for_service},
 };
 
 #[derive(Clone)]
@@ -162,16 +162,17 @@ fn extract_clean_json(raw: &str) -> String {
 
     // Strip markdown code fences or chatbot intro/outro text by extracting outermost {...}
     if let (Some(start), Some(end)) = (no_bom.find('{'), no_bom.rfind('}'))
-        && end >= start {
-            let sliced = &no_bom[start..=end];
-            if serde_json::from_str::<serde_json::Value>(sliced).is_ok() {
-                return sliced.to_string();
-            }
-            let normalized = sliced
-                .replace(['\u{201C}', '\u{201D}'], "\"")
-                .replace(['\u{2018}', '\u{2019}'], "'");
-            return normalized;
+        && end >= start
+    {
+        let sliced = &no_bom[start..=end];
+        if serde_json::from_str::<serde_json::Value>(sliced).is_ok() {
+            return sliced.to_string();
         }
+        let normalized = sliced
+            .replace(['\u{201C}', '\u{201D}'], "\"")
+            .replace(['\u{2018}', '\u{2019}'], "'");
+        return normalized;
+    }
 
     no_bom.to_string()
 }
@@ -202,7 +203,10 @@ fn check_auth(headers: &HeaderMap, expected: &Option<String>) -> Result<(), Resp
     if bearer_ok || header_ok {
         Ok(())
     } else {
-        Err(api_error(StatusCode::UNAUTHORIZED, "Invalid or missing API key"))
+        Err(api_error(
+            StatusCode::UNAUTHORIZED,
+            "Invalid or missing API key",
+        ))
     }
 }
 
@@ -576,7 +580,10 @@ async fn layout_endpoint(
 
     match res {
         Ok(Ok(val)) => Json(val).into_response(),
-        Ok(Err(e)) => api_error(StatusCode::BAD_REQUEST, format!("Layout inspect failed: {e}")),
+        Ok(Err(e)) => api_error(
+            StatusCode::BAD_REQUEST,
+            format!("Layout inspect failed: {e}"),
+        ),
         Err(e) => api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Layout worker panicked: {e}"),
@@ -613,9 +620,10 @@ async fn submit_job(
             webhook_url,
         } => {
             if let Some(comp_name) = composition
-                && let Err(e) = scene.apply_profile(&comp_name) {
-                    return api_error(StatusCode::BAD_REQUEST, e.to_string());
-                }
+                && let Err(e) = scene.apply_profile(&comp_name)
+            {
+                return api_error(StatusCode::BAD_REQUEST, e.to_string());
+            }
             (scene, webhook_url)
         }
         SubmitJobPayload::Direct(scene) => (scene, None),
@@ -628,9 +636,10 @@ async fn submit_job(
         return api_error(StatusCode::BAD_REQUEST, e.to_string());
     }
     if let Some(ref url) = webhook_url
-        && let Err(e) = validate_remote_url(url) {
-            return api_error(StatusCode::BAD_REQUEST, format!("Invalid webhook_url: {e}"));
-        }
+        && let Err(e) = validate_remote_url(url)
+    {
+        return api_error(StatusCode::BAD_REQUEST, format!("Invalid webhook_url: {e}"));
+    }
 
     let warnings = collect_lint_warnings(&scene);
     let job_id = Uuid::new_v4().to_string();
@@ -687,8 +696,8 @@ async fn get_job_status(
     let Some(job) = jobs.get(&id) else {
         return api_error(StatusCode::NOT_FOUND, "Job not found");
     };
-    let video_url = matches!(job.status, JobStatus::Completed)
-        .then(|| format!("/jobs/{}/video", job.id));
+    let video_url =
+        matches!(job.status, JobStatus::Completed).then(|| format!("/jobs/{}/video", job.id));
     Json(JobStatusResponse {
         job_id: job.id.clone(),
         status: job.status.clone(),
@@ -755,10 +764,9 @@ async fn process_job(state: AppState, job: QueuedJob) {
     let out_clone = output_path.clone();
 
     let started = Instant::now();
-    let render_res = tokio::task::spawn_blocking(move || {
-        render_scene_to_file(&scene, &out_clone, &cache_dir)
-    })
-    .await;
+    let render_res =
+        tokio::task::spawn_blocking(move || render_scene_to_file(&scene, &out_clone, &cache_dir))
+            .await;
 
     drop(permit);
     let elapsed = started.elapsed().as_secs_f32();

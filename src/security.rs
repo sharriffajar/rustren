@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use std::net::{IpAddr, ToSocketAddrs};
 
 use crate::schema::{Layer, LayerKind, Scene};
@@ -29,13 +29,24 @@ pub fn validate_remote_url(raw_url: &str) -> Result<()> {
         let p = host_port[end + 1..]
             .strip_prefix(':')
             .and_then(|s| s.parse::<u16>().ok())
-            .unwrap_or(if trimmed.starts_with("https://") { 443 } else { 80 });
+            .unwrap_or(if trimmed.starts_with("https://") {
+                443
+            } else {
+                80
+            });
         (h, p)
     } else if let Some((h, p_str)) = host_port.rsplit_once(':') {
         let p = p_str.parse::<u16>().unwrap_or(80);
         (h, p)
     } else {
-        (host_port, if trimmed.starts_with("https://") { 443 } else { 80 })
+        (
+            host_port,
+            if trimmed.starts_with("https://") {
+                443
+            } else {
+                80
+            },
+        )
     };
 
     if host.eq_ignore_ascii_case("localhost") {
@@ -178,20 +189,23 @@ fn validate_layers_assets(
             bail!("Total layer count exceeds maximum allowed ({MAX_LAYERS})");
         }
         if layer.blur > 200.0 || !layer.blur.is_finite() {
-            bail!("Layer blur ({}) exceeds maximum allowed (200.0)", layer.blur);
+            bail!(
+                "Layer blur ({}) exceeds maximum allowed (200.0)",
+                layer.blur
+            );
         }
-        if let Some(ref w) = layer.wave_warp {
-            if !w.amplitude.is_finite() || w.amplitude.abs() > 500.0 {
-                bail!(
-                    "wave_warp.amplitude ({}) exceeds maximum allowed (500.0)",
-                    w.amplitude
-                );
-            }
+        if let Some(ref w) = layer.wave_warp
+            && (!w.amplitude.is_finite() || w.amplitude.abs() > 500.0)
+        {
+            bail!(
+                "wave_warp.amplitude ({}) exceeds maximum allowed (500.0)",
+                w.amplitude
+            );
         }
-        if let Some(ref e) = layer.echo {
-            if e.count > 24 {
-                bail!("echo.count ({}) exceeds maximum allowed (24)", e.count);
-            }
+        if let Some(ref e) = layer.echo
+            && e.count > 24
+        {
+            bail!("echo.count ({}) exceeds maximum allowed (24)", e.count);
         }
         if let Some(ref matte) = layer.matte_layer {
             validate_layers_assets(

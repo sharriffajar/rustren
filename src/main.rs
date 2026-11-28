@@ -1,3 +1,15 @@
+// Design-level clippy lints intentionally allowed (renderer entry points take many
+// parameters, scene/schema types are large by design, and `chunks_exact` on RGBA
+// buffers is clearer than `as_chunks` for the minimum supported toolchain).
+#![allow(
+    clippy::type_complexity,
+    clippy::too_many_arguments,
+    clippy::result_large_err,
+    clippy::large_enum_variant,
+    clippy::needless_range_loop,
+    clippy::chunks_exact_to_as_chunks
+)]
+
 mod actions;
 mod animation;
 mod assets;
@@ -707,11 +719,14 @@ fn main() -> Result<()> {
                 fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
             }
             let base_dir = input.parent();
-            let assets =
-                match AssetStore::load_for_scene_with_base(scene, Path::new(&cache_dir), base_dir) {
-                    Ok(a) => a,
-                    Err(e) => fail(&error_format, "missing_asset", &format!("{e:#}"), 1),
-                };
+            let assets = match AssetStore::load_for_scene_with_base(
+                scene,
+                Path::new(&cache_dir),
+                base_dir,
+            ) {
+                Ok(a) => a,
+                Err(e) => fail(&error_format, "missing_asset", &format!("{e:#}"), 1),
+            };
             if let Err(e) = render_snapshots(scene, &assets, &t, &output, sheet, cols) {
                 fail(&error_format, "snapshot_failed", &format!("{e:#}"), 1);
             }
@@ -762,11 +777,14 @@ fn main() -> Result<()> {
                 fail(&error_format, "invalid_scene", &format!("{e:#}"), 2);
             }
             let base_dir = input.parent();
-            let assets =
-                match AssetStore::load_for_scene_with_base(scene, Path::new(&cache_dir), base_dir) {
-                    Ok(a) => a,
-                    Err(e) => fail(&error_format, "missing_asset", &format!("{e:#}"), 1),
-                };
+            let assets = match AssetStore::load_for_scene_with_base(
+                scene,
+                Path::new(&cache_dir),
+                base_dir,
+            ) {
+                Ok(a) => a,
+                Err(e) => fail(&error_format, "missing_asset", &format!("{e:#}"), 1),
+            };
             let layout = match renderer::inspect_layout_at_time(scene, &assets, t) {
                 Ok(l) => l,
                 Err(e) => fail(&error_format, "layout_failed", &format!("{e:#}"), 1),
@@ -1329,7 +1347,7 @@ pub fn render_scene_to_file_with_base(
             pct(dedup_hits, dedup_misses)
         );
         let mut ranked: Vec<(usize, u64)> = total_layer_ns.into_iter().enumerate().collect();
-        ranked.sort_by(|a, b| b.1.cmp(&a.1));
+        ranked.sort_by_key(|b| std::cmp::Reverse(b.1));
         println!("top root layers (cumulative CPU time across {total_frames} frames):");
         for (idx, ns) in ranked.into_iter().filter(|(_, ns)| *ns > 0).take(10) {
             let name = scene.layers[idx].name.as_deref().unwrap_or("(unnamed)");

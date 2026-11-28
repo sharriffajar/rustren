@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::Serialize;
 
 use crate::schema::Scene;
@@ -99,9 +99,12 @@ pub struct AnimationCapabilities {
 #[derive(Debug, Clone, Serialize)]
 pub struct EffectCapabilities {
     pub blur: bool,
+    pub motion_blur: bool,
     pub box_shadow: bool,
     pub blend_mode: bool,
     pub wave_warp: bool,
+    pub grain_mode: bool,
+    pub echo_tint_colors: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -230,9 +233,12 @@ impl CapabilityRegistry {
                 },
                 effects: EffectCapabilities {
                     blur: true,
+                    motion_blur: true,
                     box_shadow: true,
                     blend_mode: true,
                     wave_warp: true,
+                    grain_mode: true,
+                    echo_tint_colors: true,
                 },
                 typography: TypographyCapabilities {
                     custom_fonts: true,
@@ -266,14 +272,12 @@ impl CapabilityRegistry {
 
 fn parse_major_minor(v: &str) -> Result<(u32, u32)> {
     let mut parts = v.trim().split('.');
-    let major: u32 = parts
-        .next()
-        .and_then(|s| s.parse().ok())
-        .ok_or_else(|| anyhow::anyhow!("Invalid schema_version format '{v}' (expected 'major.minor', e.g. '1.1')"))?;
-    let minor: u32 = parts
-        .next()
-        .and_then(|s| s.parse().ok())
-        .ok_or_else(|| anyhow::anyhow!("Invalid schema_version format '{v}' (expected 'major.minor', e.g. '1.1')"))?;
+    let major: u32 = parts.next().and_then(|s| s.parse().ok()).ok_or_else(|| {
+        anyhow::anyhow!("Invalid schema_version format '{v}' (expected 'major.minor', e.g. '1.1')")
+    })?;
+    let minor: u32 = parts.next().and_then(|s| s.parse().ok()).ok_or_else(|| {
+        anyhow::anyhow!("Invalid schema_version format '{v}' (expected 'major.minor', e.g. '1.1')")
+    })?;
     if parts.next().is_some() {
         bail!("Invalid schema_version format '{v}' (expected 'major.minor', e.g. '1.1')");
     }

@@ -1703,8 +1703,8 @@ fn parse_layer_element(
             let focal_y = get_attr_f32(elem, "focal-y")
                 .or_else(|| get_attr_f32(elem, "focal_y"))
                 .unwrap_or(0.5);
-            let luma_key = get_attr_f32(elem, "luma-key")
-                .or_else(|| get_attr_f32(elem, "luma_key"));
+            let luma_key =
+                get_attr_f32(elem, "luma-key").or_else(|| get_attr_f32(elem, "luma_key"));
             let volume = get_attr_f32(elem, "volume").unwrap_or(1.0);
             let muted = get_attr_str(elem, "muted").is_some();
             let opacity = get_attr_f32(elem, "opacity").unwrap_or(1.0);
@@ -1970,26 +1970,23 @@ fn parse_layer_element(
                     .max(0.01);
                 let ref_w = width.unwrap_or(1920.0);
                 let ref_h = height.unwrap_or(1080.0);
-                let make_anim = |property: AnimProperty,
-                                 from: f32,
-                                 to: f32,
-                                 easing: Easing|
-                 -> Animation {
-                    Animation {
-                        property,
-                        from: AnimValue::Number(from),
-                        to: AnimValue::Number(to),
-                        start_sec: 0.0,
-                        end_sec: dur,
-                        easing,
-                        bezier: None,
-                        spring: None,
-                        keyframes: Vec::new(),
-                        repeat: None,
-                        yoyo: false,
-                        expr: None,
-                    }
-                };
+                let make_anim =
+                    |property: AnimProperty, from: f32, to: f32, easing: Easing| -> Animation {
+                        Animation {
+                            property,
+                            from: AnimValue::Number(from),
+                            to: AnimValue::Number(to),
+                            start_sec: 0.0,
+                            end_sec: dur,
+                            easing,
+                            bezier: None,
+                            spring: None,
+                            keyframes: Vec::new(),
+                            repeat: None,
+                            yoyo: false,
+                            expr: None,
+                        }
+                    };
                 for child in children.iter_mut().skip(1) {
                     if child.overlap_secs <= 0.0 {
                         child.overlap_secs = dur;
@@ -2633,7 +2630,10 @@ mod tests {
         let map = color_overrides.as_ref().expect("color_overrides parsed");
         assert_eq!(map.get("accent").map(String::as_str), Some("#38BDF8"));
         assert_eq!(map.get("#f00").map(String::as_str), Some("#00FF00"));
-        assert_eq!(scene.layers[0].animations[0].property, AnimProperty::Progress);
+        assert_eq!(
+            scene.layers[0].animations[0].property,
+            AnimProperty::Progress
+        );
 
         // Simple 2-rect 1280x720 background SVG must NOT trigger static_monolithic_svg
         let warnings = crate::lint::collect_lint_warnings_structured(&scene);
@@ -2664,7 +2664,9 @@ mod tests {
         let LayerKind::Rect { gradient, .. } = &rg_scene.layers[0].kind else {
             panic!("Expected Rect layer");
         };
-        let g = gradient.as_ref().expect("Expected parsed radial gradient on rect");
+        let g = gradient
+            .as_ref()
+            .expect("Expected parsed radial gradient on rect");
         assert_eq!(g.kind, GradientTypeSpec::Radial);
         assert_eq!(g.cx, Some(0.3));
         assert_eq!(g.cy, Some(0.3));

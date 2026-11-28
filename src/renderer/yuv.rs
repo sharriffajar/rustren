@@ -35,12 +35,10 @@ pub(super) fn rgba_to_yuv420p_into(rgba: &[u8], width: u32, height: u32, out: &m
             let (r11, g11, b11) = (rgba[i11] as i32, rgba[i11 + 1] as i32, rgba[i11 + 2] as i32);
 
             let y_x0 = bx * 2;
-            y_plane[y0_off + y_x0] =
-                (((66 * r00 + 129 * g00 + 25 * b00 + 128) >> 8) + 16) as u8;
+            y_plane[y0_off + y_x0] = (((66 * r00 + 129 * g00 + 25 * b00 + 128) >> 8) + 16) as u8;
             y_plane[y0_off + y_x0 + 1] =
                 (((66 * r01 + 129 * g01 + 25 * b01 + 128) >> 8) + 16) as u8;
-            y_plane[y1_off + y_x0] =
-                (((66 * r10 + 129 * g10 + 25 * b10 + 128) >> 8) + 16) as u8;
+            y_plane[y1_off + y_x0] = (((66 * r10 + 129 * g10 + 25 * b10 + 128) >> 8) + 16) as u8;
             y_plane[y1_off + y_x0 + 1] =
                 (((66 * r11 + 129 * g11 + 25 * b11 + 128) >> 8) + 16) as u8;
 
@@ -50,11 +48,9 @@ pub(super) fn rgba_to_yuv420p_into(rgba: &[u8], width: u32, height: u32, out: &m
 
             let uv_idx = uv_row_off + bx;
             u_plane[uv_idx] =
-                (((-38 * r_sum - 74 * g_sum + 112 * b_sum + 512) >> 10) + 128).clamp(16, 240)
-                    as u8;
+                (((-38 * r_sum - 74 * g_sum + 112 * b_sum + 512) >> 10) + 128).clamp(16, 240) as u8;
             v_plane[uv_idx] =
-                (((112 * r_sum - 94 * g_sum - 18 * b_sum + 512) >> 10) + 128).clamp(16, 240)
-                    as u8;
+                (((112 * r_sum - 94 * g_sum - 18 * b_sum + 512) >> 10) + 128).clamp(16, 240) as u8;
         }
     }
 }

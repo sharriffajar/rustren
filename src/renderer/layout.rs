@@ -7,7 +7,7 @@ use tiny_skia::Transform;
 
 use crate::animation::eval_property;
 use crate::schema::{
-    AlignSpec, AnimProperty, AnchorSpec, FlexDirectionSpec, Layer, LayerKind, LayoutSpec,
+    AlignSpec, AnchorSpec, AnimProperty, FlexDirectionSpec, Layer, LayerKind, LayoutSpec,
     PositionSpec, TextAlignSpec, TimelineMode,
 };
 
@@ -115,7 +115,13 @@ pub(super) fn resolve_child_timelines(
                 vec![Some((parent_time, parent_duration, false)); children.len()]
             } else {
                 (0..children.len())
-                    .map(|i| Some((parent_time - (i as f32) * stagger_secs, parent_duration, false)))
+                    .map(|i| {
+                        Some((
+                            parent_time - (i as f32) * stagger_secs,
+                            parent_duration,
+                            false,
+                        ))
+                    })
                     .collect()
             }
         }
@@ -136,9 +142,9 @@ pub(super) fn resolve_child_timelines(
             let mut cursor = 0.0f32;
             let mut out = Vec::with_capacity(children.len());
             for (i, child) in children.iter().enumerate() {
-                let c_start =
-                    (cursor + child.start_sec + (i as f32) * stagger_secs - child.overlap_secs)
-                        .max(0.0);
+                let c_start = (cursor + child.start_sec + (i as f32) * stagger_secs
+                    - child.overlap_secs)
+                    .max(0.0);
                 let c_dur = child
                     .duration_secs
                     .or_else(|| child.end_sec.map(|e| (e - child.start_sec).max(0.0)))
@@ -278,10 +284,24 @@ pub(super) fn build_taffy_child_node(
     } = &child.kind
     {
         let cw = width
-            .map(|w| Dimension::Length(eval_property(&child.animations, AnimProperty::Width, time_sec, w)))
+            .map(|w| {
+                Dimension::Length(eval_property(
+                    &child.animations,
+                    AnimProperty::Width,
+                    time_sec,
+                    w,
+                ))
+            })
             .unwrap_or(Dimension::Auto);
         let ch = height
-            .map(|h| Dimension::Length(eval_property(&child.animations, AnimProperty::Height, time_sec, h)))
+            .map(|h| {
+                Dimension::Length(eval_property(
+                    &child.animations,
+                    AnimProperty::Height,
+                    time_sec,
+                    h,
+                ))
+            })
             .unwrap_or(Dimension::Auto);
         let (_pt, pr, _pb, pl) = layout.padding_trbl();
         let next_hint = width
@@ -327,10 +347,12 @@ pub(super) fn build_taffy_child_node(
         LayerKind::Circle { r, scale, .. } => {
             let s = eval_property(&child.animations, AnimProperty::Scale, time_sec, *scale);
             let eff_r = eval_property(&child.animations, AnimProperty::R, time_sec, *r) * s;
-            (Dimension::Length(eff_r * 2.0), Dimension::Length(eff_r * 2.0))
+            (
+                Dimension::Length(eff_r * 2.0),
+                Dimension::Length(eff_r * 2.0),
+            )
         }
-        LayerKind::Waveform { width, height, .. }
-        | LayerKind::Particles { width, height, .. } => {
+        LayerKind::Waveform { width, height, .. } | LayerKind::Particles { width, height, .. } => {
             (Dimension::Length(*width), Dimension::Length(*height))
         }
         LayerKind::Container { .. } => unreachable!(),
@@ -342,10 +364,9 @@ pub(super) fn build_taffy_child_node(
             height.map(Dimension::Length).unwrap_or(Dimension::Auto),
         ),
         #[cfg(feature = "exp-3d")]
-        LayerKind::Mesh3d { width, height, .. } => (
-            Dimension::Length(*width),
-            Dimension::Length(*height),
-        ),
+        LayerKind::Mesh3d { width, height, .. } => {
+            (Dimension::Length(*width), Dimension::Length(*height))
+        }
         LayerKind::Text {
             content,
             spans,

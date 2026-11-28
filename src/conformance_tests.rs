@@ -1339,7 +1339,10 @@ fn test_v1_1_frozen_golden_regression_and_phase0_primitives() {
         audio_paths: Vec::new(),
     };
     let evicted = store.evict_images_before(&shot_scene, 11.0);
-    assert_eq!(evicted, 1, "shot1.png (end=10.0) should be evicted at t=11.0");
+    assert_eq!(
+        evicted, 1,
+        "shot1.png (end=10.0) should be evicted at t=11.0"
+    );
     assert!(!store.images.contains_key("shot1.png"));
     assert!(store.images.contains_key("shot2.png"));
     assert!(store.images.contains_key("shot3.png"));
@@ -1363,10 +1366,14 @@ fn test_v1_1_frozen_golden_regression_and_phase0_primitives() {
     crate::lint::validate_no_unknown_fields(v11_json).unwrap();
     let v11_scene: crate::schema::Scene = serde_json::from_str(v11_json).unwrap();
     assert_eq!(v11_scene.schema_version, "1.1");
-    let assets = crate::assets::AssetStore::load_for_scene(&v11_scene, &std::env::temp_dir()).unwrap();
+    let assets =
+        crate::assets::AssetStore::load_for_scene(&v11_scene, &std::env::temp_dir()).unwrap();
     let f_a = crate::renderer::render_frame_at_time(&v11_scene, &assets, 0.5).unwrap();
     let f_b = crate::renderer::render_frame_at_time(&v11_scene, &assets, 0.5).unwrap();
-    assert_eq!(f_a, f_b, "frozen v1.1 scene must remain bit-for-bit deterministic");
+    assert_eq!(
+        f_a, f_b,
+        "frozen v1.1 scene must remain bit-for-bit deterministic"
+    );
     assert!(f_a.iter().any(|&b| b > 0));
 }
 
@@ -1397,7 +1404,10 @@ fn test_v1_2_world_camera_rack_focus_and_preflight_qa() {
     let assets = crate::assets::AssetStore::load_for_scene(&scene, &std::env::temp_dir()).unwrap();
     let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
     let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 3.0).unwrap();
-    assert_ne!(f0, f1, "world camera truck_right must move world-space planes over time");
+    assert_ne!(
+        f0, f1,
+        "world camera truck_right must move world-space planes over time"
+    );
 
     // Pre-flight QA must flag EDGE_REVEAL on non-overscaled 160x90 backdrop during truck_right
     let warnings = crate::lint::collect_lint_warnings_structured(&scene);
@@ -1431,6 +1441,88 @@ fn test_v1_2_living_raster_uv_warp_and_2d_relight() {
     let assets = crate::assets::AssetStore::load_for_scene(&scene, &std::env::temp_dir()).unwrap();
     let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
     let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 0.4).unwrap();
-    assert_ne!(f0, f1, "uv_warp + flickering 2D relight must animate pixels across frames");
+    assert_ne!(
+        f0, f1,
+        "uv_warp + flickering 2D relight must animate pixels across frames"
+    );
     assert!(f0.iter().any(|&b| b > 0));
+}
+
+fn render_scene_json_at(json: &str, t: f32) -> Vec<u8> {
+    crate::lint::validate_no_unknown_fields(json).unwrap();
+    let scene: crate::schema::Scene = serde_json::from_str(json).unwrap();
+    crate::capabilities::validate_scene_capabilities(&scene).unwrap();
+    let assets = crate::assets::AssetStore::load_for_scene(&scene, &std::env::temp_dir()).unwrap();
+    crate::renderer::render_frame_at_time(&scene, &assets, t).unwrap()
+}
+
+#[test]
+fn test_v1_2_layer_motion_blur_is_velocity_driven() {
+    let scene_with = |mb: f32| {
+        format!(
+            r##"{{
+            "schema_version": "1.2",
+            "canvas": {{ "width": 160, "height": 90, "fps": 24, "duration_secs": 3.0, "background": "#f3f0e6" }},
+            "layers": [
+                {{
+                    "type": "rect", "x": 0, "y": 30, "width": 30, "height": 30, "color": "#e35b54",
+                    "motion_blur": {mb},
+                    "animations": [
+                        {{ "property": "x", "from": 0, "to": 100, "start_sec": 0.0, "end_sec": 1.0, "easing": "linear" }}
+                    ]
+                }}
+            ]
+        }}"##
+        )
+    };
+    let sharp_moving = render_scene_json_at(&scene_with(0.0), 0.5);
+    let blur_moving = render_scene_json_at(&scene_with(2.0), 0.5);
+    assert_ne!(
+        sharp_moving, blur_moving,
+        "motion_blur must smear a layer that is moving"
+    );
+
+    // At rest (animation finished) velocity is zero, so blur must collapse to the sharp frame.
+    let sharp_rest = render_scene_json_at(&scene_with(0.0), 2.0);
+    let blur_rest = render_scene_json_at(&scene_with(2.0), 2.0);
+    assert_eq!(
+        sharp_rest, blur_rest,
+        "motion_blur must be a no-op when the layer is not moving"
+    );
+}
+
+#[test]
+fn test_v1_2_world_whip_presets_and_camera_motion_blur() {
+    for preset in ["whip_left", "whip_right"] {
+        let scene_with = |mb: f32| {
+            format!(
+                r##"{{
+                "schema_version": "1.2",
+                "canvas": {{ "width": 160, "height": 90, "fps": 24, "duration_secs": 2.0, "background": "#020617" }},
+                "world": {{ "preset": "{preset}", "motion_blur": {mb} }},
+                "layers": [
+                    {{ "type": "rect", "space": "world", "depth_slot": "subject",
+                       "x": 60, "y": 25, "width": 40, "height": 40, "color": "#38bdf8" }}
+                ]
+            }}"##
+            )
+        };
+        let times = [0.2f32, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8];
+        let sharp: Vec<Vec<u8>> = times
+            .iter()
+            .map(|&t| render_scene_json_at(&scene_with(0.0), t))
+            .collect();
+        let blurred: Vec<Vec<u8>> = times
+            .iter()
+            .map(|&t| render_scene_json_at(&scene_with(1.5), t))
+            .collect();
+        assert!(
+            sharp.windows(2).any(|w| w[0] != w[1]),
+            "{preset} must move the world camera over time"
+        );
+        assert!(
+            sharp.iter().zip(&blurred).any(|(a, b)| a != b),
+            "{preset} with world.motion_blur must differ from the sharp render during the whip"
+        );
+    }
 }

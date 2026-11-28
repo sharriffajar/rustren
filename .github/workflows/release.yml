@@ -62,9 +62,40 @@ jobs:
           name: ${{ matrix.asset }}
           path: ${{ matrix.asset }}
 
+  build-android:
+    name: Build (aarch64-linux-android)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Build release binary (Android NDK)
+        run: |
+          NDK="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"
+          BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          [ -d "$BIN" ] || { echo "Android NDK toolchain not found at: $BIN" >&2; exit 1; }
+          export CC_aarch64_linux_android="$BIN/aarch64-linux-android24-clang"
+          export AR_aarch64_linux_android="$BIN/llvm-ar"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$BIN/aarch64-linux-android24-clang"
+          cargo build --release --target aarch64-linux-android
+
+      - name: Package Android (Termux) binary
+        run: |
+          tar -czf rustren-android-aarch64.tar.gz -C target/aarch64-linux-android/release rustren
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustren-android-aarch64.tar.gz
+          path: rustren-android-aarch64.tar.gz
+
   publish:
     name: Publish Release
-    needs: build
+    needs: [build, build-android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

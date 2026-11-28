@@ -1,10 +1,10 @@
 mod cache;
 pub(crate) mod camera25d;
 mod fx;
-mod living_raster;
-mod lottie;
 pub mod inspect;
 mod layout;
+mod living_raster;
+mod lottie;
 pub mod mesh3d;
 mod svg_draw;
 #[cfg(test)]
@@ -28,8 +28,7 @@ use std::fmt::Write as _;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use tiny_skia::{
-    Color, FillRule, FilterQuality, Mask, Paint, PathBuilder, Pixmap, PixmapPaint, Rect,
-    Transform,
+    Color, FillRule, FilterQuality, Mask, Paint, PathBuilder, Pixmap, PixmapPaint, Rect, Transform,
 };
 
 use self::cache::{
@@ -58,11 +57,10 @@ use crate::schema::{
 
 use self::fx::{
     apply_surface_effects_cropped, apply_wave_warp, build_shadow_pixmap_cropped,
-    can_use_blur_cache,
-    combine_shadow_and_foreground, crop_pixmap_padded, fast_blur_rgba, find_alpha_bounds,
-    finished_cursor_blink_signature, hash_silhouette_alpha, is_extrinsic_pose_prop,
-    layer_base_opacity, layer_pose_offset_and_scale, map_blend_mode, set_layer_base_scale,
-    set_layer_opacity, splitmix64, warp_perspective_3d_cropped,
+    can_use_blur_cache, combine_shadow_and_foreground, crop_pixmap_padded, fast_blur_rgba,
+    find_alpha_bounds, finished_cursor_blink_signature, hash_silhouette_alpha,
+    is_extrinsic_pose_prop, layer_base_opacity, layer_pose_offset_and_scale, map_blend_mode,
+    set_layer_base_scale, set_layer_opacity, splitmix64, warp_perspective_3d_cropped,
 };
 use self::layout::{
     LayoutBox, apply_anchor, build_pivot_transform_with_skew, compute_flex_layout,
@@ -575,9 +573,8 @@ pub fn render_frame_at_time_with_base_profile(
             } else {
                 None
             };
-            let needs_living_raster = layer.uv_warp.is_some()
-                || layer.relight.is_some()
-                || layer.motion_blur > 0.01;
+            let needs_living_raster =
+                layer.uv_warp.is_some() || layer.relight.is_some() || layer.motion_blur > 0.01;
             if (world_cam.is_some() && layer.space == crate::schema::LayerSpace::World)
                 || needs_living_raster
             {
@@ -622,29 +619,31 @@ pub fn render_frame_at_time_with_base_profile(
                             .as_deref()
                             .and_then(|s| assets.images.get(s));
                         living_raster::apply_2d_normal_relight(
-                            layer_pm,
-                            relight,
-                            normal,
-                            emission,
-                            time_sec,
+                            layer_pm, relight, normal, emission, time_sec,
                         );
                     }
                     let mut mb_rx = 0.0f32;
                     let mut mb_ry = 0.0f32;
                     if layer.motion_blur > 0.01 {
-                        let x_now = eval_property(&layer.animations, AnimProperty::X, time_sec, 0.0);
-                        let y_now = eval_property(&layer.animations, AnimProperty::Y, time_sec, 0.0);
+                        let x_now =
+                            eval_property(&layer.animations, AnimProperty::X, time_sec, 0.0);
+                        let y_now =
+                            eval_property(&layer.animations, AnimProperty::Y, time_sec, 0.0);
                         let x_prev = eval_property(&layer.animations, AnimProperty::X, t_prev, 0.0);
                         let y_prev = eval_property(&layer.animations, AnimProperty::Y, t_prev, 0.0);
-                        mb_rx += ((x_now - x_prev).abs() * layer.motion_blur * 0.5).clamp(0.0, 96.0);
-                        mb_ry += ((y_now - y_prev).abs() * layer.motion_blur * 0.5).clamp(0.0, 96.0);
+                        mb_rx +=
+                            ((x_now - x_prev).abs() * layer.motion_blur * 0.5).clamp(0.0, 96.0);
+                        mb_ry +=
+                            ((y_now - y_prev).abs() * layer.motion_blur * 0.5).clamp(0.0, 96.0);
                     }
                     if let (Some(cam), Some(prev_cam)) = (world_cam, world_cam_prev)
                         && layer.space == crate::schema::LayerSpace::World
                         && cam.motion_blur > 0.01
                     {
-                        mb_rx += ((cam.x - prev_cam.x).abs() as f32 * cam.motion_blur * 0.5).clamp(0.0, 96.0);
-                        mb_ry += ((cam.y - prev_cam.y).abs() as f32 * cam.motion_blur * 0.5).clamp(0.0, 96.0);
+                        mb_rx +=
+                            ((cam.x - prev_cam.x).abs() * cam.motion_blur * 0.5).clamp(0.0, 96.0);
+                        mb_ry +=
+                            ((cam.y - prev_cam.y).abs() * cam.motion_blur * 0.5).clamp(0.0, 96.0);
                     }
                     if mb_rx >= 1.0 || mb_ry >= 1.0 {
                         fx::fast_blur_1d_rgba(
@@ -874,20 +873,18 @@ fn draw_rgba_frame(
     );
     let s = eval_property(&layer.animations, AnimProperty::Scale, time_sec, scale);
 
-    let eff_sx = s
-        * eval_property(
-            &layer.animations,
-            AnimProperty::ScaleX,
-            time_sec,
-            layer.scale_x,
-        );
-    let eff_sy = s
-        * eval_property(
-            &layer.animations,
-            AnimProperty::ScaleY,
-            time_sec,
-            layer.scale_y,
-        );
+    let eff_sx = s * eval_property(
+        &layer.animations,
+        AnimProperty::ScaleX,
+        time_sec,
+        layer.scale_x,
+    );
+    let eff_sy = s * eval_property(
+        &layer.animations,
+        AnimProperty::ScaleY,
+        time_sec,
+        layer.scale_y,
+    );
 
     if w <= 0.0 || h <= 0.0 || op <= 0.0 || eff_sx <= 0.0 || eff_sy <= 0.0 {
         return Ok(());
@@ -1817,7 +1814,8 @@ fn render_layer_scoped(
             pw,
             ph,
         )? {
-            let xform = Transform::from_translate(wx as f32, wy as f32).post_concat(parent_transform);
+            let xform =
+                Transform::from_translate(wx as f32, wy as f32).post_concat(parent_transform);
             pixmap.draw_pixmap(0, 0, w_fg.as_ref(), &paint, xform, None);
         }
     } else {
@@ -1826,7 +1824,8 @@ fn render_layer_scoped(
                 Transform::from_translate(sx.round(), sy.round()).post_concat(parent_transform);
             pixmap.draw_pixmap(0, 0, sh_arc.as_ref().as_ref(), &paint, sh_xform, None);
         }
-        let fg_xform = Transform::from_translate(fg_x as f32, fg_y as f32).post_concat(parent_transform);
+        let fg_xform =
+            Transform::from_translate(fg_x as f32, fg_y as f32).post_concat(parent_transform);
         pixmap.draw_pixmap(0, 0, fg_pm.as_ref(), &paint, fg_xform, None);
     }
     Ok(())
@@ -1871,20 +1870,18 @@ fn render_layer_inner(
             let op = eval_property(&layer.animations, AnimProperty::Opacity, time_sec, *opacity)
                 * parent_opacity;
             let s = eval_property(&layer.animations, AnimProperty::Scale, time_sec, *scale);
-            let eff_sx = s
-                * eval_property(
-                    &layer.animations,
-                    AnimProperty::ScaleX,
-                    time_sec,
-                    layer.scale_x,
-                );
-            let eff_sy = s
-                * eval_property(
-                    &layer.animations,
-                    AnimProperty::ScaleY,
-                    time_sec,
-                    layer.scale_y,
-                );
+            let eff_sx = s * eval_property(
+                &layer.animations,
+                AnimProperty::ScaleX,
+                time_sec,
+                layer.scale_x,
+            );
+            let eff_sy = s * eval_property(
+                &layer.animations,
+                AnimProperty::ScaleY,
+                time_sec,
+                layer.scale_y,
+            );
             let rot = eval_property(
                 &layer.animations,
                 AnimProperty::Rotation,
@@ -2075,7 +2072,8 @@ fn render_layer_inner(
 
             if let Some(path) = PathBuilder::from_circle(cx, cy, r) {
                 let circumference = 2.0 * std::f32::consts::PI * r;
-                let stroke_dash = build_progress_stroke_dash(circumference, prog, dash_offset, None);
+                let stroke_dash =
+                    build_progress_stroke_dash(circumference, prog, dash_offset, None);
                 draw_styled_path(
                     pixmap,
                     &path,
@@ -2361,20 +2359,12 @@ fn render_layer_inner(
                 video.fps,
                 video.frame_count,
             );
-            let eff_focal_x = eval_property(
-                &layer.animations,
-                AnimProperty::FocalX,
-                time_sec,
-                *focal_x,
-            )
-            .clamp(0.0, 1.0);
-            let eff_focal_y = eval_property(
-                &layer.animations,
-                AnimProperty::FocalY,
-                time_sec,
-                *focal_y,
-            )
-            .clamp(0.0, 1.0);
+            let eff_focal_x =
+                eval_property(&layer.animations, AnimProperty::FocalX, time_sec, *focal_x)
+                    .clamp(0.0, 1.0);
+            let eff_focal_y =
+                eval_property(&layer.animations, AnimProperty::FocalY, time_sec, *focal_y)
+                    .clamp(0.0, 1.0);
             let frame = video.frame(frame_idx)?;
             let keyed_frame = luma_key
                 .as_ref()
@@ -2758,20 +2748,18 @@ fn render_layer_inner(
             let op = eval_property(&layer.animations, AnimProperty::Opacity, time_sec, *opacity)
                 * parent_opacity;
             let s = eval_property(&layer.animations, AnimProperty::Scale, time_sec, *scale);
-            let eff_sx = s
-                * eval_property(
-                    &layer.animations,
-                    AnimProperty::ScaleX,
-                    time_sec,
-                    layer.scale_x,
-                );
-            let eff_sy = s
-                * eval_property(
-                    &layer.animations,
-                    AnimProperty::ScaleY,
-                    time_sec,
-                    layer.scale_y,
-                );
+            let eff_sx = s * eval_property(
+                &layer.animations,
+                AnimProperty::ScaleX,
+                time_sec,
+                layer.scale_x,
+            );
+            let eff_sy = s * eval_property(
+                &layer.animations,
+                AnimProperty::ScaleY,
+                time_sec,
+                layer.scale_y,
+            );
             let rot = eval_property(
                 &layer.animations,
                 AnimProperty::Rotation,

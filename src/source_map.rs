@@ -233,23 +233,116 @@ pub struct SourceIssue {
 
 /// HTML attribute names the compiler reads as numbers (`get_attr_f32`).
 const NUMERIC_ATTRIBUTES: &[&str] = &[
-    "angle", "bar-gap", "bars", "blur", "border-radius", "border-width", "clip-feather",
-    "column-gap", "count",
-    "cx", "cy", "decimals", "delay", "dur", "duration", "duration-sec", "duration-secs",
-    "duration_secs", "dynamic-end", "dynamic-start", "echo-count", "echo-decay", "echo-step",
-    "echo_count", "echo_decay", "echo_step", "end", "end-sec", "fade-in", "fade-in-secs",
-    "fade-out", "fade-out-secs", "flex-grow", "font-size", "fov", "fps", "from", "grain",
-    "gravity", "h", "halftone", "height", "letter-spacing", "line-height", "margin", "max-width",
-    "offset", "opacity", "outline-width", "overlap", "overlap-secs", "padding", "path-progress",
-    "perspective", "playback-rate", "r", "radius", "rotate-x", "rotate-y", "rotate-z", "rotate_x",
-    "rotate_y", "rotation", "row-gap", "scale", "scale-x", "scale-y", "scale_x", "scale_y", "seed",
-    "shadow-blur", "shadow-x", "shadow-y", "size", "skew-x", "skew-y", "skew_x", "skew_y", "speed",
-    "spread", "stagger", "stagger-secs",
-    "start", "start-sec", "stroke-dashoffset", "stroke-width", "to", "trim-end", "trim-end-sec",
-    "trim-start", "trim-start-sec", "vignette", "volume", "w", "width", "x", "y", "z", "z-index",
-    "z_index", "wave-warp-amplitude", "wave-warp-wavelength", "wave-warp-speed", "wave-warp-phase",
-    "text-animator-start", "text-animator-stagger", "text-animator-duration",
-    "text-animator-y-offset", "text-animator-x-offset", "text-animator-opacity-from",
+    "angle",
+    "bar-gap",
+    "bars",
+    "blur",
+    "border-radius",
+    "border-width",
+    "clip-feather",
+    "column-gap",
+    "count",
+    "cx",
+    "cy",
+    "decimals",
+    "delay",
+    "dur",
+    "duration",
+    "duration-sec",
+    "duration-secs",
+    "duration_secs",
+    "dynamic-end",
+    "dynamic-start",
+    "echo-count",
+    "echo-decay",
+    "echo-step",
+    "echo_count",
+    "echo_decay",
+    "echo_step",
+    "end",
+    "end-sec",
+    "fade-in",
+    "fade-in-secs",
+    "fade-out",
+    "fade-out-secs",
+    "flex-grow",
+    "font-size",
+    "fov",
+    "fps",
+    "from",
+    "grain",
+    "gravity",
+    "h",
+    "halftone",
+    "height",
+    "letter-spacing",
+    "line-height",
+    "margin",
+    "max-width",
+    "offset",
+    "opacity",
+    "outline-width",
+    "overlap",
+    "overlap-secs",
+    "padding",
+    "path-progress",
+    "perspective",
+    "playback-rate",
+    "r",
+    "radius",
+    "rotate-x",
+    "rotate-y",
+    "rotate-z",
+    "rotate_x",
+    "rotate_y",
+    "rotation",
+    "row-gap",
+    "scale",
+    "scale-x",
+    "scale-y",
+    "scale_x",
+    "scale_y",
+    "seed",
+    "shadow-blur",
+    "shadow-x",
+    "shadow-y",
+    "size",
+    "skew-x",
+    "skew-y",
+    "skew_x",
+    "skew_y",
+    "speed",
+    "spread",
+    "stagger",
+    "stagger-secs",
+    "start",
+    "start-sec",
+    "stroke-dashoffset",
+    "stroke-width",
+    "to",
+    "trim-end",
+    "trim-end-sec",
+    "trim-start",
+    "trim-start-sec",
+    "vignette",
+    "volume",
+    "w",
+    "width",
+    "x",
+    "y",
+    "z",
+    "z-index",
+    "z_index",
+    "wave-warp-amplitude",
+    "wave-warp-wavelength",
+    "wave-warp-speed",
+    "wave-warp-phase",
+    "text-animator-start",
+    "text-animator-stagger",
+    "text-animator-duration",
+    "text-animator-y-offset",
+    "text-animator-x-offset",
+    "text-animator-opacity-from",
     "text-animator-scale-from",
 ];
 
@@ -258,7 +351,10 @@ const BOX_SHORTHAND_ATTRIBUTES: &[&str] = &["padding", "margin", "gap"];
 
 /// Tags whose attributes are raw SVG/HTML, not scene authoring.
 fn is_opaque_tag(name: &str) -> bool {
-    matches!(name, "html" | "head" | "body" | "meta" | "link" | "script" | "style")
+    matches!(
+        name,
+        "html" | "head" | "body" | "meta" | "link" | "script" | "style"
+    )
 }
 
 /// Known JSON/schema field names that the HTML compiler expects in kebab-case.
@@ -449,7 +545,6 @@ pub fn lint_html_source(src: &str) -> Vec<SourceIssue> {
                 });
                 continue;
             }
-
         }
     }
 
@@ -513,7 +608,11 @@ mod tests {
         let issues = lint_html_source(src);
         let codes: Vec<_> = issues.iter().map(|i| i.code).collect();
         assert_eq!(codes, ["unparsed_attribute"], "{issues:?}");
-        assert!(issues[0].message.starts_with("line 2, column 12"), "{}", issues[0].message);
+        assert!(
+            issues[0].message.starts_with("line 2, column 12"),
+            "{}",
+            issues[0].message
+        );
         assert_eq!(issues[0].path, "rect[0].x");
     }
 

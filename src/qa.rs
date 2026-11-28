@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::Serialize;
 use std::path::Path;
 use std::process::Command;
@@ -59,8 +59,8 @@ pub fn run_qa(video_path: &Path, json_output: bool) -> Result<QaReport> {
             String::from_utf8_lossy(&probe.stderr).trim()
         );
     }
-    let meta: serde_json::Value = serde_json::from_slice(&probe.stdout)
-        .context("Failed to parse ffprobe JSON output")?;
+    let meta: serde_json::Value =
+        serde_json::from_slice(&probe.stdout).context("Failed to parse ffprobe JSON output")?;
 
     let mut width = 0u32;
     let mut height = 0u32;
@@ -184,31 +184,31 @@ pub fn run_qa(video_path: &Path, json_output: bool) -> Result<QaReport> {
             message: "No audio stream detected (silent video).".to_string(),
         });
     } else {
-        if let Some(peak) = true_peak_dbtp {
-            if peak > -1.0 {
-                issues.push(QaIssue {
-                    severity: "warn",
-                    category: "ears",
-                    code: "audio_clipping",
-                    message: format!(
-                        "True peak {:.1} dBTP exceeds -1.0 dBTP (clipping risk).",
-                        peak
-                    ),
-                });
-            }
+        if let Some(peak) = true_peak_dbtp
+            && peak > -1.0
+        {
+            issues.push(QaIssue {
+                severity: "warn",
+                category: "ears",
+                code: "audio_clipping",
+                message: format!(
+                    "True peak {:.1} dBTP exceeds -1.0 dBTP (clipping risk).",
+                    peak
+                ),
+            });
         }
-        if let Some(lufs) = integrated_lufs {
-            if lufs < -28.0 {
-                issues.push(QaIssue {
-                    severity: "warn",
-                    category: "ears",
-                    code: "audio_too_quiet",
-                    message: format!(
-                        "Integrated loudness {:.1} LUFS is very quiet (target -14 to -18 LUFS).",
-                        lufs
-                    ),
-                });
-            }
+        if let Some(lufs) = integrated_lufs
+            && lufs < -28.0
+        {
+            issues.push(QaIssue {
+                severity: "warn",
+                category: "ears",
+                code: "audio_too_quiet",
+                message: format!(
+                    "Integrated loudness {:.1} LUFS is very quiet (target -14 to -18 LUFS).",
+                    lufs
+                ),
+            });
         }
     }
 
@@ -239,10 +239,7 @@ pub fn run_qa(video_path: &Path, json_output: bool) -> Result<QaReport> {
     if json_output {
         println!("{}", serde_json::to_string_pretty(&report)?);
     } else {
-        println!(
-            "rustren qa: {} [{}]",
-            report.file, report.verdict
-        );
+        println!("rustren qa: {} [{}]", report.file, report.verdict);
         println!(
             "  video: {}x{} · {:.2}s · codec={}",
             report.width,
@@ -294,18 +291,18 @@ fn parse_kv_f64(line: &str, key: &str) -> Option<f64> {
 pub fn parse_blackdetect(stderr: &str) -> Vec<TimeSpan> {
     let mut out = Vec::new();
     for line in stderr.lines() {
-        if line.contains("black_start:") {
-            if let (Some(s), Some(e), Some(d)) = (
+        if line.contains("black_start:")
+            && let (Some(s), Some(e), Some(d)) = (
                 parse_kv_f64(line, "black_start:"),
                 parse_kv_f64(line, "black_end:"),
                 parse_kv_f64(line, "black_duration:"),
-            ) {
-                out.push(TimeSpan {
-                    start_sec: s,
-                    end_sec: e,
-                    duration_sec: d,
-                });
-            }
+            )
+        {
+            out.push(TimeSpan {
+                start_sec: s,
+                end_sec: e,
+                duration_sec: d,
+            });
         }
     }
     out
@@ -317,14 +314,14 @@ pub fn parse_freezedetect(stderr: &str) -> Vec<TimeSpan> {
     for line in stderr.lines() {
         if let Some(s) = parse_kv_f64(line, "freeze_start: ") {
             cur_start = Some(s);
-        } else if let Some(d) = parse_kv_f64(line, "freeze_duration: ") {
-            if let Some(s) = cur_start.take() {
-                out.push(TimeSpan {
-                    start_sec: s,
-                    end_sec: s + d,
-                    duration_sec: d,
-                });
-            }
+        } else if let Some(d) = parse_kv_f64(line, "freeze_duration: ")
+            && let Some(s) = cur_start.take()
+        {
+            out.push(TimeSpan {
+                start_sec: s,
+                end_sec: s + d,
+                duration_sec: d,
+            });
         }
     }
     out
@@ -344,13 +341,20 @@ pub fn parse_ebur128_summary(stderr: &str) -> (Option<f64>, Option<f64>) {
             continue;
         }
         if let Some(rest) = trimmed.strip_prefix("I:") {
-            if let Some(val) = rest.split_whitespace().next().and_then(|s| s.parse::<f64>().ok()) {
+            if let Some(val) = rest
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.parse::<f64>().ok())
+            {
                 lufs = Some(val);
             }
-        } else if let Some(rest) = trimmed.strip_prefix("Peak:") {
-            if let Some(val) = rest.split_whitespace().next().and_then(|s| s.parse::<f64>().ok()) {
-                peak = Some(val);
-            }
+        } else if let Some(rest) = trimmed.strip_prefix("Peak:")
+            && let Some(val) = rest
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.parse::<f64>().ok())
+        {
+            peak = Some(val);
         }
     }
     (lufs, peak)

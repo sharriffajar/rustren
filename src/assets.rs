@@ -183,10 +183,7 @@ impl VideoAsset {
     /// Number of ffmpeg window decodes performed so far (test/metrics hook).
     #[allow(dead_code)]
     pub fn decode_count(&self) -> u64 {
-        self.cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .decodes
+        self.cache.lock().unwrap_or_else(|e| e.into_inner()).decodes
     }
 }
 
@@ -469,7 +466,10 @@ fn collect_layer_assets(
         for extra_src in [
             layer.uv_warp.as_ref().and_then(|u| u.mask_src.as_deref()),
             layer.relight.as_ref().and_then(|r| r.normal_src.as_deref()),
-            layer.relight.as_ref().and_then(|r| r.emission_src.as_deref()),
+            layer
+                .relight
+                .as_ref()
+                .and_then(|r| r.emission_src.as_deref()),
         ]
         .into_iter()
         .flatten()
@@ -520,12 +520,11 @@ fn collect_layer_assets(
                         if let Ok(doc) = serde_json::from_str::<serde_json::Value>(src) {
                             lotties.insert(src.clone(), doc);
                         }
-                    } else if let Ok(path) = resolve_to_path_with_base(src, cache_dir, base_dir) {
-                        if let Ok(bytes) = fs::read(&path) {
-                            if let Ok(doc) = serde_json::from_slice::<serde_json::Value>(&bytes) {
-                                lotties.insert(src.clone(), doc);
-                            }
-                        }
+                    } else if let Ok(path) = resolve_to_path_with_base(src, cache_dir, base_dir)
+                        && let Ok(bytes) = fs::read(&path)
+                        && let Ok(doc) = serde_json::from_slice::<serde_json::Value>(&bytes)
+                    {
+                        lotties.insert(src.clone(), doc);
                     }
                 }
             }
@@ -601,9 +600,7 @@ fn load_video_asset(path: &Path) -> Result<VideoAsset> {
                     .and_then(|s| s.parse::<usize>().ok())
                     .or_else(|| st["nb_frames"].as_u64().map(|n| n as usize))
                     .filter(|n| *n > 0);
-                duration = st["duration"]
-                    .as_str()
-                    .and_then(|s| s.parse::<f64>().ok());
+                duration = st["duration"].as_str().and_then(|s| s.parse::<f64>().ok());
                 has_video = true;
             }
             Some("audio") => has_audio = true,
@@ -706,7 +703,9 @@ pub fn resolve_to_path_with_base(
             .next()
             .and_then(|s| Path::new(s).extension())
             .and_then(|e| e.to_str())
-            .filter(|e| !e.is_empty() && e.len() <= 8 && e.bytes().all(|b| b.is_ascii_alphanumeric()))
+            .filter(|e| {
+                !e.is_empty() && e.len() <= 8 && e.bytes().all(|b| b.is_ascii_alphanumeric())
+            })
             .unwrap_or("bin");
         let cached_path = cache_dir.join(format!("{}.{}", hash, ext));
 
@@ -740,12 +739,8 @@ pub fn resolve_to_path_with_base(
         ));
         fs::write(&tmp_path, &bytes)
             .with_context(|| format!("Failed to write temp cache file: {}", tmp_path.display()))?;
-        fs::rename(&tmp_path, &cached_path).with_context(|| {
-            format!(
-                "Failed to finalize cache file: {}",
-                cached_path.display()
-            )
-        })?;
+        fs::rename(&tmp_path, &cached_path)
+            .with_context(|| format!("Failed to finalize cache file: {}", cached_path.display()))?;
         Ok(cached_path)
     } else {
         Ok(resolve_local_asset(src, base_dir))

@@ -145,7 +145,9 @@ fn test_track_matte_inside_25d_container() {
     };
     let frame = render_frame(&scene, &assets, 0).unwrap();
     let green_pixels = frame
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .filter(|px| px[1] > 180 && px[0] < 50 && px[2] < 50)
         .count();
     assert!(
@@ -189,10 +191,23 @@ fn test_waveform_color_animation() {
     };
     let f0 = crate::renderer::render_frame_at_time(&scene, &assets, 0.0).unwrap();
     let f1 = crate::renderer::render_frame_at_time(&scene, &assets, 1.0).unwrap();
-    let red_t0 = f0.chunks_exact(4).filter(|p| p[0] > 200 && p[2] < 50).count();
-    let blue_t1 = f1.chunks_exact(4).filter(|p| p[2] > 200 && p[0] < 50).count();
+    let red_t0 = f0
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .filter(|p| p[0] > 200 && p[2] < 50)
+        .count();
+    let blue_t1 = f1
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .filter(|p| p[2] > 200 && p[0] < 50)
+        .count();
     assert!(red_t0 > 100, "waveform at t=0 should be red, got {red_t0}");
-    assert!(blue_t1 > 100, "waveform at t=1 should be blue, got {blue_t1}");
+    assert!(
+        blue_t1 > 100,
+        "waveform at t=1 should be blue, got {blue_t1}"
+    );
 }
 
 #[test]
@@ -623,7 +638,7 @@ mod exp_3d_tests {
             images: HashMap::new(),
             videos: HashMap::new(),
             svgs: HashMap::new(),
-        lotties: HashMap::new(),
+            lotties: HashMap::new(),
             audio_paths: vec![],
             #[cfg(feature = "exp-3d")]
             mesh3d: HashMap::new(),
@@ -781,7 +796,7 @@ mod exp_3d_tests {
                 images: HashMap::new(),
                 videos: HashMap::new(),
                 svgs: HashMap::new(),
-        lotties: HashMap::new(),
+                lotties: HashMap::new(),
                 audio_paths: vec![],
                 #[cfg(feature = "exp-3d")]
                 mesh3d: HashMap::new(),
@@ -842,7 +857,7 @@ mod exp_3d_tests {
                 images: HashMap::new(),
                 videos: HashMap::new(),
                 svgs: HashMap::new(),
-        lotties: HashMap::new(),
+                lotties: HashMap::new(),
                 audio_paths: vec![],
                 #[cfg(feature = "exp-3d")]
                 mesh3d: HashMap::new(),
@@ -1588,7 +1603,11 @@ fn test_video_luma_key_makes_black_pixels_transparent() {
     let mut frame = Vec::with_capacity(16 * 16 * 4);
     for _y in 0..16 {
         for x in 0..16 {
-            let c = if x < 8 { [0, 0, 0, 255] } else { [255, 255, 255, 255] };
+            let c = if x < 8 {
+                [0, 0, 0, 255]
+            } else {
+                [255, 255, 255, 255]
+            };
             frame.extend_from_slice(&c);
         }
     }
@@ -1644,7 +1663,10 @@ fn test_text_animator_staggers_chars_and_words() {
 
     let word = r#", "text_animator": { "mode": "word", "start_sec": 0.0, "stagger_secs": 0.5, "duration_secs": 0.4, "opacity_from": 0.0, "easing": "linear" }"#;
     let partial = render(word, 0.4);
-    assert!(partial > 0, "first word must be visible once its stagger completes");
+    assert!(
+        partial > 0,
+        "first word must be visible once its stagger completes"
+    );
     assert!(
         partial < base,
         "with word stagger the second word must still be hidden (partial={partial} full={base})"
@@ -1756,7 +1778,10 @@ fn test_wave_warp_displaces_pixels_deterministically() {
     let right_edge = red_right_edge(&warped, 100, 5, 100);
     let left_edge = red_right_edge(&warped, 100, 15, 100);
     let warped_mid = red_right_edge(&warped, 100, 50, 100);
-    assert_eq!(base_edge, 49, "unwarped half-rect right edge must be at x=49");
+    assert_eq!(
+        base_edge, 49,
+        "unwarped half-rect right edge must be at x=49"
+    );
     assert!(
         right_edge > base_edge + 4,
         "positive wave phase must stretch the boundary right (base={base_edge} warped={right_edge})"
@@ -1797,7 +1822,10 @@ fn test_video_windowed_decode_is_bounded_and_deterministic() {
         .arg(&video_path)
         .status()
         .expect("ffmpeg must be available for the windowed decode test");
-    assert!(status.success(), "ffmpeg failed to generate the windowed test clip");
+    assert!(
+        status.success(),
+        "ffmpeg failed to generate the windowed test clip"
+    );
 
     let json = format!(
         r##"{{
@@ -1815,7 +1843,10 @@ fn test_video_windowed_decode_is_bounded_and_deterministic() {
         .get(&video_path.display().to_string())
         .expect("video asset must be loaded");
 
-    assert_eq!(asset.frame_count, 150, "clip must report 150 decoded frames");
+    assert_eq!(
+        asset.frame_count, 150,
+        "clip must report 150 decoded frames"
+    );
     assert!(
         asset.cache_capacity <= 96,
         "window must stay bounded (capacity={})",
@@ -1834,9 +1865,15 @@ fn test_video_windowed_decode_is_bounded_and_deterministic() {
     };
 
     let first = center(0);
-    assert!(first[0] > 200 && first[2] < 60, "frame 0 must be red: {first:?}");
+    assert!(
+        first[0] > 200 && first[2] < 60,
+        "frame 0 must be red: {first:?}"
+    );
     let last = center(149);
-    assert!(last[2] > 200 && last[0] < 60, "frame 149 must be blue: {last:?}");
+    assert!(
+        last[2] > 200 && last[0] < 60,
+        "frame 149 must be blue: {last:?}"
+    );
 
     for idx in 0..150usize {
         let _ = asset.frame(idx).unwrap();

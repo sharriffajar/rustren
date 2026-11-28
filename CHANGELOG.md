@@ -3,6 +3,30 @@
 All notable changes to `rustren` are documented in this file.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-11-27
+
+### Added
+- **Schema `1.2` — 2.5D Living Diorama Pipeline**: `scene.world` camera (`x`, `y`, `z`, `roll`, `focus_z`, `dof_strength`, `preset`, `animations`) with presets `push_in`, `pull_out`, `truck_left`, `truck_right`, `rack_focus`, `punch_cut`, `whip_left`, `whip_right`; per-layer `space` (`screen` / `world`), `depth_slot` and `depth_z`; O(1) dual-blur rack focus. Schema `1.0` and `1.1` scenes still load unchanged.
+- **Velocity-Driven 1D `motion_blur`**: `motion_blur` on any layer (animated `x` / `y`) and on `scene.world` (camera pan) applies a directional box blur proportional to per-frame velocity and collapses to zero at rest. HTML: `motion-blur`.
+- **Living raster (`uv_warp` + `relight`)**: rigidity-masked procedural UV warp and half-res 2D normal / emission relighting with flickering lights.
+- **Chromatic `echo` tint (`tint_colors`) and `grain_mode`**: `echo.tint_colors` (HTML `echo-colors`) and `grain_mode: "fine" | "film"` (HTML `grain-mode`).
+- **Lottie upgrades**: gradient fills / strokes (`gf` / `gs`), track mattes (`tt` 1..4), blend modes, Gaussian blur, image and precomp layers with parent chains, bezier path morphing, typed keyframe cache with O(log N) lookup.
+- **Pre-flight lints**: `EDGE_REVEAL`, `PACING_STAGNATION` and `SAFE_ZONE_9_16`.
+- **Examples and skills**: `examples/kinetic_flat_promo_9x16.json`, self-contained `examples/simple_motion_promo_27s/`, and the standalone `skills/simple-motion/SKILL.md` quality floor (routed from the root `SKILL.md`).
+- **Typed SDKs regenerated** from `schema.json` (TypeScript and Python) with the new fields.
+
+### Changed
+- **Performance**: vCPU partitioning between `rayon` and `ffmpeg`, shot-windowed image eviction, integer fast-path for `vignette` + `grain`, scratch pool and dirty-rect optimisations for Lottie and world layers.
+- **Build profile**: added `[profile.release-fast]` (no LTO, 16 codegen units, incremental) for quick deploy builds. Official release artifacts still use `--release`.
+- **Code health**: `cargo fmt` applied repo-wide and clippy cleaned for the supported toolchain.
+
+### Fixed
+- **`SAFE_ZONE_9_16` hint and docs**: the lint hint and `SKILL.md` now state the band the lint actually enforces (15%\u201378% vertical, avoiding the top 15% and bottom 22% HUD zones) instead of 25%\u201370%.
+
+### Migration
+- Scenes using any 0.6.0 feature must declare `"schema_version": "1.2"`. 0.5.x binaries reject the new fields as unknown.
+- Vignette and grain now use an integer fast-path, so pixel output can differ by at most a few levels from 0.5.1 on scenes that use them.
+
 ## [0.5.1] - 2026-11-25
 
 ### Added

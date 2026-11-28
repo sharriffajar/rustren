@@ -11,8 +11,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::html::substitute_variables;
 use super::Compiler;
+use super::html::substitute_variables;
 use crate::ir::CompiledScene;
 use crate::schema::Scene;
 
@@ -258,10 +258,9 @@ fn expand_json_layers(
             .unwrap_or(false);
 
         if is_include {
-            let src = item
-                .get("src")
-                .and_then(|s| s.as_str())
-                .ok_or_else(|| anyhow::anyhow!("JSON layer 'include' wajib memiliki field 'src'"))?;
+            let src = item.get("src").and_then(|s| s.as_str()).ok_or_else(|| {
+                anyhow::anyhow!("JSON layer 'include' wajib memiliki field 'src'")
+            })?;
 
             if depth >= MAX_INCLUDE_DEPTH {
                 anyhow::bail!(
@@ -276,7 +275,10 @@ fn expand_json_layers(
                 None => Path::new(src).to_path_buf(),
             };
             let inc_raw = std::fs::read_to_string(&inc_path).with_context(|| {
-                format!("Failed to read included JSON file '{}' ({:?})", src, inc_path)
+                format!(
+                    "Failed to read included JSON file '{}' ({:?})",
+                    src, inc_path
+                )
             })?;
 
             let mut child_vars = parent_vars.clone();
@@ -332,8 +334,7 @@ fn expand_json_layers(
         // Recursively expand children inside containers
         let mut cloned = item.clone();
         if let Some(children) = cloned.get_mut("children").and_then(|c| c.as_array_mut()) {
-            let expanded_children =
-                expand_json_layers(children, base_dir, depth, parent_vars)?;
+            let expanded_children = expand_json_layers(children, base_dir, depth, parent_vars)?;
             *children = expanded_children;
         }
         out.push(cloned);

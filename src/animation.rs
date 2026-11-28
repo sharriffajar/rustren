@@ -1,4 +1,6 @@
-use crate::schema::{AnimProperty, AnimValue, Animation, Easing, RepeatMode, RepeatSpec, SpringConfig};
+use crate::schema::{
+    AnimProperty, AnimValue, Animation, Easing, RepeatMode, RepeatSpec, SpringConfig,
+};
 use evalexpr::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -14,74 +16,98 @@ fn create_math_context(time_sec: f32, current_val: f32) -> HashMapContext<Defaul
     let _ = context.set_value("val".into(), Value::Float(current_val as f64));
     let _ = context.set_value("PI".into(), Value::Float(std::f64::consts::PI));
 
-    let _ = context.set_function("clamp".into(), Function::<DefaultNumericTypes>::new(|argument| {
-        let args = argument.as_tuple()?;
-        if args.len() != 3 {
-            return Err(EvalexprError::wrong_function_argument_amount(3, args.len()));
-        }
-        let v: f64 = args[0].as_number()?;
-        let min: f64 = args[1].as_number()?;
-        let max: f64 = args[2].as_number()?;
-        Ok(Value::Float(v.clamp(min, max)))
-    }));
+    let _ = context.set_function(
+        "clamp".into(),
+        Function::<DefaultNumericTypes>::new(|argument| {
+            let args = argument.as_tuple()?;
+            if args.len() != 3 {
+                return Err(EvalexprError::wrong_function_argument_amount(3, args.len()));
+            }
+            let v: f64 = args[0].as_number()?;
+            let min: f64 = args[1].as_number()?;
+            let max: f64 = args[2].as_number()?;
+            Ok(Value::Float(v.clamp(min, max)))
+        }),
+    );
 
-    let _ = context.set_function("lerp".into(), Function::<DefaultNumericTypes>::new(|argument| {
-        let args = argument.as_tuple()?;
-        if args.len() != 3 {
-            return Err(EvalexprError::wrong_function_argument_amount(3, args.len()));
-        }
-        let a: f64 = args[0].as_number()?;
-        let b: f64 = args[1].as_number()?;
-        let t: f64 = args[2].as_number()?;
-        Ok(Value::Float(a + (b - a) * t))
-    }));
+    let _ = context.set_function(
+        "lerp".into(),
+        Function::<DefaultNumericTypes>::new(|argument| {
+            let args = argument.as_tuple()?;
+            if args.len() != 3 {
+                return Err(EvalexprError::wrong_function_argument_amount(3, args.len()));
+            }
+            let a: f64 = args[0].as_number()?;
+            let b: f64 = args[1].as_number()?;
+            let t: f64 = args[2].as_number()?;
+            Ok(Value::Float(a + (b - a) * t))
+        }),
+    );
 
-    let _ = context.set_function("smoothstep".into(), Function::<DefaultNumericTypes>::new(|argument| {
-        let args = argument.as_tuple()?;
-        if args.len() != 3 {
-            return Err(EvalexprError::wrong_function_argument_amount(3, args.len()));
-        }
-        let edge0: f64 = args[0].as_number()?;
-        let edge1: f64 = args[1].as_number()?;
-        let x: f64 = args[2].as_number()?;
-        let t = ((x - edge0) / (edge1 - edge0).max(1e-9)).clamp(0.0, 1.0);
-        Ok(Value::Float(t * t * (3.0 - 2.0 * t)))
-    }));
+    let _ = context.set_function(
+        "smoothstep".into(),
+        Function::<DefaultNumericTypes>::new(|argument| {
+            let args = argument.as_tuple()?;
+            if args.len() != 3 {
+                return Err(EvalexprError::wrong_function_argument_amount(3, args.len()));
+            }
+            let edge0: f64 = args[0].as_number()?;
+            let edge1: f64 = args[1].as_number()?;
+            let x: f64 = args[2].as_number()?;
+            let t = ((x - edge0) / (edge1 - edge0).max(1e-9)).clamp(0.0, 1.0);
+            Ok(Value::Float(t * t * (3.0 - 2.0 * t)))
+        }),
+    );
 
-    let _ = context.set_function("abs".into(), Function::<DefaultNumericTypes>::new(|argument| {
-        let v: f64 = argument.as_number()?;
-        Ok(Value::Float(v.abs()))
-    }));
+    let _ = context.set_function(
+        "abs".into(),
+        Function::<DefaultNumericTypes>::new(|argument| {
+            let v: f64 = argument.as_number()?;
+            Ok(Value::Float(v.abs()))
+        }),
+    );
 
-    let _ = context.set_function("min".into(), Function::<DefaultNumericTypes>::new(|argument| {
-        let args = argument.as_tuple()?;
-        if args.len() != 2 {
-            return Err(EvalexprError::wrong_function_argument_amount(2, args.len()));
-        }
-        let a: f64 = args[0].as_number()?;
-        let b: f64 = args[1].as_number()?;
-        Ok(Value::Float(a.min(b)))
-    }));
+    let _ = context.set_function(
+        "min".into(),
+        Function::<DefaultNumericTypes>::new(|argument| {
+            let args = argument.as_tuple()?;
+            if args.len() != 2 {
+                return Err(EvalexprError::wrong_function_argument_amount(2, args.len()));
+            }
+            let a: f64 = args[0].as_number()?;
+            let b: f64 = args[1].as_number()?;
+            Ok(Value::Float(a.min(b)))
+        }),
+    );
 
-    let _ = context.set_function("max".into(), Function::<DefaultNumericTypes>::new(|argument| {
-        let args = argument.as_tuple()?;
-        if args.len() != 2 {
-            return Err(EvalexprError::wrong_function_argument_amount(2, args.len()));
-        }
-        let a: f64 = args[0].as_number()?;
-        let b: f64 = args[1].as_number()?;
-        Ok(Value::Float(a.max(b)))
-    }));
+    let _ = context.set_function(
+        "max".into(),
+        Function::<DefaultNumericTypes>::new(|argument| {
+            let args = argument.as_tuple()?;
+            if args.len() != 2 {
+                return Err(EvalexprError::wrong_function_argument_amount(2, args.len()));
+            }
+            let a: f64 = args[0].as_number()?;
+            let b: f64 = args[1].as_number()?;
+            Ok(Value::Float(a.max(b)))
+        }),
+    );
 
-    let _ = context.set_function("sin".into(), Function::<DefaultNumericTypes>::new(|argument| {
-        let v: f64 = argument.as_number()?;
-        Ok(Value::Float(v.sin()))
-    }));
+    let _ = context.set_function(
+        "sin".into(),
+        Function::<DefaultNumericTypes>::new(|argument| {
+            let v: f64 = argument.as_number()?;
+            Ok(Value::Float(v.sin()))
+        }),
+    );
 
-    let _ = context.set_function("cos".into(), Function::<DefaultNumericTypes>::new(|argument| {
-        let v: f64 = argument.as_number()?;
-        Ok(Value::Float(v.cos()))
-    }));
+    let _ = context.set_function(
+        "cos".into(),
+        Function::<DefaultNumericTypes>::new(|argument| {
+            let v: f64 = argument.as_number()?;
+            Ok(Value::Float(v.cos()))
+        }),
+    );
 
     context
 }
@@ -113,7 +139,8 @@ pub fn eval_spring_physics(elapsed_sec: f32, cfg: SpringConfig) -> f32 {
     if zeta < 1.0 - 1e-4 {
         let omega_d = omega0 * (1.0 - zeta * zeta).sqrt();
         let exp = (-zeta * omega0 * t).exp();
-        1.0 - exp * ((omega_d * t).cos() + (zeta / (1.0 - zeta * zeta).sqrt()) * (omega_d * t).sin())
+        1.0 - exp
+            * ((omega_d * t).cos() + (zeta / (1.0 - zeta * zeta).sqrt()) * (omega_d * t).sin())
     } else if (zeta - 1.0).abs() <= 1e-4 {
         let exp = (-omega0 * t).exp();
         1.0 - exp * (1.0 + omega0 * t)
@@ -323,7 +350,10 @@ fn eval_anim_step(anim: &Animation, time_sec: f32) -> AnimStep {
     }
 }
 
-fn eval_keyframes_step(kfs: &[crate::schema::Keyframe], time_sec: f32) -> Option<(&crate::schema::Keyframe, &crate::schema::Keyframe, f32)> {
+fn eval_keyframes_step(
+    kfs: &[crate::schema::Keyframe],
+    time_sec: f32,
+) -> Option<(&crate::schema::Keyframe, &crate::schema::Keyframe, f32)> {
     let first = kfs.first()?;
     if kfs.len() == 1 || time_sec <= first.time {
         return Some((first, first, 0.0));
@@ -341,15 +371,21 @@ fn eval_keyframes_step(kfs: &[crate::schema::Keyframe], time_sec: f32) -> Option
     Some((last, last, 1.0))
 }
 
-pub fn eval_property(animations: &[Animation], prop: AnimProperty, time_sec: f32, default: f32) -> f32 {
+pub fn eval_property(
+    animations: &[Animation],
+    prop: AnimProperty,
+    time_sec: f32,
+    default: f32,
+) -> f32 {
     let mut matching = animations.iter().filter(|a| a.property == prop).peekable();
     let Some(first) = matching.peek().copied() else {
         return default;
     };
     if let Some(expr_str) = &first.expr
-        && let Ok(v) = eval_math_expression(expr_str, time_sec, default) {
-            return v;
-        }
+        && let Ok(v) = eval_math_expression(expr_str, time_sec, default)
+    {
+        return v;
+    }
     if !first.keyframes.is_empty() {
         if time_sec <= first.keyframes[0].time {
             return match first.keyframes[0].value {
@@ -367,18 +403,20 @@ pub fn eval_property(animations: &[Animation], prop: AnimProperty, time_sec: f32
     let mut result = default;
     for anim in matching {
         if let Some(expr_str) = &anim.expr
-            && let Ok(v) = eval_math_expression(expr_str, time_sec, result) {
-                result = v;
-                continue;
-            }
+            && let Ok(v) = eval_math_expression(expr_str, time_sec, result)
+        {
+            result = v;
+            continue;
+        }
         if !anim.keyframes.is_empty() {
             if time_sec < anim.keyframes[0].time {
                 break;
             }
             if let Some((k0, k1, eased_t)) = eval_keyframes_step(&anim.keyframes, time_sec)
-                && let (AnimValue::Number(v0), AnimValue::Number(v1)) = (&k0.value, &k1.value) {
-                    result = *v0 + (*v1 - *v0) * eased_t;
-                }
+                && let (AnimValue::Number(v0), AnimValue::Number(v1)) = (&k0.value, &k1.value)
+            {
+                result = *v0 + (*v1 - *v0) * eased_t;
+            }
             continue;
         }
         if time_sec < anim.start_sec {
@@ -453,24 +491,25 @@ pub fn eval_color_property(
                 break;
             }
             if let Some((k0, k1, eased_t)) = eval_keyframes_step(&anim.keyframes, time_sec)
-                && let (AnimValue::Color(c0s), AnimValue::Color(c1s)) = (&k0.value, &k1.value) {
-                    if let (Some(c0), Some(c1)) = (parse_rgba_u8(c0s), parse_rgba_u8(c1s)) {
-                        let lerp = |a: u8, b: u8| -> u8 {
-                            ((a as f32) + ((b as f32) - (a as f32)) * eased_t)
-                                .round()
-                                .clamp(0.0, 255.0) as u8
-                        };
-                        result = Some(format!(
-                            "#{:02X}{:02X}{:02X}{:02X}",
-                            lerp(c0[0], c1[0]),
-                            lerp(c0[1], c1[1]),
-                            lerp(c0[2], c1[2]),
-                            lerp(c0[3], c1[3])
-                        ));
-                    } else {
-                        result = Some(c1s.clone());
-                    }
+                && let (AnimValue::Color(c0s), AnimValue::Color(c1s)) = (&k0.value, &k1.value)
+            {
+                if let (Some(c0), Some(c1)) = (parse_rgba_u8(c0s), parse_rgba_u8(c1s)) {
+                    let lerp = |a: u8, b: u8| -> u8 {
+                        ((a as f32) + ((b as f32) - (a as f32)) * eased_t)
+                            .round()
+                            .clamp(0.0, 255.0) as u8
+                    };
+                    result = Some(format!(
+                        "#{:02X}{:02X}{:02X}{:02X}",
+                        lerp(c0[0], c1[0]),
+                        lerp(c0[1], c1[1]),
+                        lerp(c0[2], c1[2]),
+                        lerp(c0[3], c1[3])
+                    ));
+                } else {
+                    result = Some(c1s.clone());
                 }
+            }
             continue;
         }
         if time_sec < anim.start_sec {

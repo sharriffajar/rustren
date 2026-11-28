@@ -148,7 +148,14 @@ fn downsample_and_blur_quarter_into(src: &Pixmap, small: &mut Pixmap) {
             quality: FilterQuality::Bilinear,
             ..PixmapPaint::default()
         };
-        small.draw_pixmap(0, 0, src.as_ref(), &paint, Transform::from_scale(sx, sy), None);
+        small.draw_pixmap(
+            0,
+            0,
+            src.as_ref(),
+            &paint,
+            Transform::from_scale(sx, sy),
+            None,
+        );
     }
     super::fx::fast_blur_rgba(small.data_mut(), qw, qh, 3.0);
 }
@@ -495,12 +502,8 @@ pub fn composite_world_layer(
     };
 
     let layer_z = layer.effective_depth_z();
-    let cam_tf = compute_plane_camera_transform(
-        cam,
-        layer_z,
-        dst.width() as f32,
-        dst.height() as f32,
-    );
+    let cam_tf =
+        compute_plane_camera_transform(cam, layer_z, dst.width() as f32, dst.height() as f32);
     let lw = layer_pm.width() as usize;
     let lh = layer_pm.height() as usize;
 
@@ -540,20 +543,24 @@ pub fn composite_world_layer(
         };
         let key = format!("{}|{}x{}", src, layer_pm.width(), layer_pm.height());
         let cache = RACK_FOCUS_BLUR_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-        let blurred_arc: Arc<Pixmap> =
-            if let Some(hit) = cache.lock().unwrap_or_else(|e| e.into_inner()).get(&key).cloned() {
-                hit
-            } else {
-                let built = Arc::new(
-                    downsample_and_blur_quarter(layer_pm)
-                        .ok_or_else(|| anyhow!("Failed to build 1/4-res rack focus blur twin"))?,
-                );
-                let mut guard = cache.lock().unwrap_or_else(|e| e.into_inner());
-                if guard.len() < 128 {
-                    guard.insert(key, built.clone());
-                }
-                built
-            };
+        let blurred_arc: Arc<Pixmap> = if let Some(hit) = cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&key)
+            .cloned()
+        {
+            hit
+        } else {
+            let built = Arc::new(
+                downsample_and_blur_quarter(layer_pm)
+                    .ok_or_else(|| anyhow!("Failed to build 1/4-res rack focus blur twin"))?,
+            );
+            let mut guard = cache.lock().unwrap_or_else(|e| e.into_inner());
+            if guard.len() < 128 {
+                guard.insert(key, built.clone());
+            }
+            built
+        };
 
         if !composite_affine_fused(
             dst,

@@ -2,8 +2,8 @@
 name: rustren
 description: Render MP4 videos from declarative HTML or JSON scenes with the browserless `rustren` CLI (Rust, ffmpeg). Use when the user wants to generate, animate, preview, or debug a video (promo, explainer, captions, charts, motion comics from still images, vertical TikTok/Reels, lower thirds). Covers the author -> validate -> snapshot -> render loop. Don't use for full 3D game engines (experimental CPU `mesh3d` is opt-in via `--features exp-3d`), live streaming, or editing existing video timelines frame-by-frame in a GUI.
 metadata:
-  skill_version: "1.4.1"
-  rustren_version: "0.5.1"
+  skill_version: "1.5.0"
+  rustren_version: "0.6.0"
   schema_version: "1.2"
   renderer_version: "1.2"
 ---
@@ -322,6 +322,7 @@ errors point at the offending tag (`line 2, column 3: <include> is missing a src
 
 ## Changelog
 
+- **1.5.0** (rustren 0.6.0, schema 1.2): documented the 2.5D `world` camera (presets incl. `whip_left` / `whip_right`, `space`, `depth_slot`), velocity-driven `motion_blur`, `uv_warp` / `relight` living raster, Lottie upgrades, `grain_mode`, echo `tint_colors`, and routed flat kinetic promo work to `skills/simple-motion/SKILL.md`.
 - **1.4.1** (rustren 0.5.1, schema 1.1): added longitudinal `wave_warp` axes (`stretch_x`, `stretch_y`) for rubber-band stretched typography and full `font_weight` support (`thin`..`black` and numeric `100`..`900`).
 - **1.4.0** (rustren 0.5.0, schema 1.1): added non-uniform `scale_x`/`scale_y` + custom `pivot_x`/`pivot_y`, per-character/word `text_animator`, multiline `line_height` & `anchor: "center"` without `max_width`, `clip_feather`, `wave_warp`, anti-OOM windowed `video` decoder (`playback_rate`, `loop`, `focal_x`/`focal_y`, `luma_key`), transparent PNG premultiply alpha, HTTP API `GET /` & `/llms.txt` discovery + `POST /snapshot` & `POST /layout`, and installer auto-setup of `~/.claude/skills/rustren/SKILL.md`.
 - **1.3.0** (rustren 0.4.0, schema 1.1): agent autonomy pass. MCP now actuates (scene actions are
@@ -402,4 +403,14 @@ See [examples/kinetic_flat_promo_9x16.json](examples/kinetic_flat_promo_9x16.jso
 - **Whip-Pan Camera Presets**: Use `"world": { "preset": "whip_left", "motion_blur": 1.4 }` or `"whip_right"` (alongside `push_in`, `pull_out`, `truck_left`, `truck_right`, `rack_focus`, `punch_cut`) for high-energy camera handoffs on `space: "world"` layers.
 - **Film Grain Mode**: Use `"grain_mode": "fine"` (default monochrome luma grain) or `"film"` (organic 35mm-style grain) alongside `"grain": 0.0..1.0` (HTML: `grain-mode="film"`).
 - **Shape-Driven Transitions**: Use full-bleed circle scale-throughs, inverted `track_matte` oval cutouts, and staggered tilted `rect` curtain wipes instead of hard cuts.
-- **9:16 Safe-Zone Discipline**: Keep readable text inside the **25%–70% vertical band** (`lint` warns via `SAFE_ZONE_9_16`); use the top/bottom 25% for drifting geometric accents.
+- **9:16 Safe-Zone Discipline**: Text outside the **15%–78% vertical safe band** (top 15% and bottom 22% are TikTok/Reels/Shorts HUD danger zones) triggers `SAFE_ZONE_9_16` in `validate`. Aim for the **25%–70% center band** for hero copy and use the outer bands for drifting geometric accents.
+
+## 2.5D World Camera, Motion Blur & Living Raster (schema 1.2)
+
+Set `"schema_version": "1.2"` to use these features.
+
+- **World camera**: `"world": { "preset": "push_in" | "pull_out" | "truck_left" | "truck_right" | "rack_focus" | "punch_cut" | "whip_left" | "whip_right", "focus_z": 0.25, "dof_strength": 1.2, "motion_blur": 1.4 }` plus optional `x`, `y`, `z`, `roll`, `animations`. Layers opt in with `"space": "world"` and a `depth_slot` (e.g. `backdrop`, `subject`) or `depth_z`; `"space": "screen"` layers (default) ignore the camera. Overscale backdrops so `lint` does not warn `EDGE_REVEAL`.
+- **Motion blur**: `"motion_blur": 0.6..2.0` on a layer blurs along its animated `x` / `y` velocity; on `world` it blurs world-space layers during a camera pan. It is a no-op at rest, so enable it only on fast moves. Put it on moving text or wipes, not on the whole camera when vectors must stay crisp.
+- **Living raster**: `"uv_warp": { "amplitude_x", "amplitude_y", "freq", "wavelength", "mask_src" }` for rigid-masked procedural wobble, and `"relight": { "ambient", "lights": [{ "x", "y", "z", "color", "intensity", "radius", "flicker_amp", "flicker_freq" }], "normal_src", "emission_src" }` for 2D normal-mapped lighting.
+- **Lottie**: gradient fills / strokes, track mattes, blend modes, Gaussian blur, image and precomp layers, parent chains and bezier path morphing are supported; run `rustren validate` for unsupported features.
+- **Lints**: `EDGE_REVEAL` (camera reveals a backdrop edge), `PACING_STAGNATION` (long dead hold) and `SAFE_ZONE_9_16` (text outside the Reels/TikTok safe band).

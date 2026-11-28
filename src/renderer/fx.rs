@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use tiny_skia::{BlendMode as SkiaBlendMode, Pixmap};
 
 use crate::animation::eval_property;
@@ -7,7 +7,7 @@ use crate::schema::{
     WaveWarpSpec,
 };
 
-use super::layout::{resolve_xy, LayoutBox};
+use super::layout::{LayoutBox, resolve_xy};
 use super::parse_hex_color;
 
 pub(super) fn map_blend_mode(mode: BlendModeSpec) -> SkiaBlendMode {
@@ -198,9 +198,9 @@ pub(super) fn find_alpha_bounds(pixmap: &Pixmap) -> Option<(u32, u32, u32, u32)>
         let row_start = (y as usize) * wu * 4;
         let row = &data[row_start..row_start + wu * 4];
         let mut chunks = row.chunks_exact(8);
-        let has_nonzero_chunk = chunks.by_ref().any(|c| {
-            u64::from_ne_bytes([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]) != 0
-        });
+        let has_nonzero_chunk = chunks
+            .by_ref()
+            .any(|c| u64::from_ne_bytes([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]) != 0);
         let has_nonzero = has_nonzero_chunk || chunks.remainder().iter().any(|&b| b != 0);
         if !has_nonzero {
             continue;
@@ -348,7 +348,12 @@ pub(super) fn build_shadow_pixmap_cropped(
         let d_off = ((pad as usize + row) * dw + (pad as usize)) * 4;
         let s_row = &src_data[s_off..s_off + (content_w as usize) * 4];
         let d_row = &mut dst_data[d_off..d_off + (content_w as usize) * 4];
-        for (s, d) in s_row.as_chunks::<4>().0.iter().zip(d_row.chunks_exact_mut(4)) {
+        for (s, d) in s_row
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(d_row.chunks_exact_mut(4))
+        {
             let a = (s[3] as f32 / 255.0) * sa;
             if a > 0.0 {
                 d[0] = (sr * a * 255.0).round().clamp(0.0, 255.0) as u8;
@@ -482,10 +487,14 @@ pub(super) fn apply_surface_effects_cropped(
         if vig <= 0.0 && !has_ht && gr > 0.0 {
             let scale_q8 = (gr * 48.0 * 65536.0 / (127.0 * 255.0)).round() as i32;
             for y in 0..h {
-                let gy = if is_film_grain { (by + y as i32) >> 1 } else { by + y as i32 };
+                let gy = if is_film_grain {
+                    (by + y as i32) >> 1
+                } else {
+                    by + y as i32
+                };
                 let ty = (((gy + grain_oy) & 255) as usize) << 8;
                 let row = &mut data[y * w * 4..(y + 1) * w * 4];
-                for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                for (x, px) in row.as_chunks_mut::<4>().0.iter_mut().enumerate() {
                     let a = px[3];
                     if a == 0 {
                         continue;
@@ -517,15 +526,20 @@ pub(super) fn apply_surface_effects_cropped(
             for y in 0..h {
                 let ny = (y as f32 + 0.5 - half_h) / half_h;
                 let ny_sq = ny * ny;
-                let gy = if is_film_grain { (by + y as i32) >> 1 } else { by + y as i32 };
+                let gy = if is_film_grain {
+                    (by + y as i32) >> 1
+                } else {
+                    by + y as i32
+                };
                 let ty = (((gy + grain_oy) & 255) as usize) << 8;
                 let row = &mut data[y * w * 4..(y + 1) * w * 4];
-                for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                for (x, px) in row.as_chunks_mut::<4>().0.iter_mut().enumerate() {
                     let a = px[3];
                     if a == 0 {
                         continue;
                     }
-                    let fac_q8 = ((1.0 - ((vx[x] + ny_sq) * vig_k).min(vig)).max(0.0) * 256.0) as i32;
+                    let fac_q8 =
+                        ((1.0 - ((vx[x] + ny_sq) * vig_k).min(vig)).max(0.0) * 256.0) as i32;
                     let delta = if scale_q8 != 0 {
                         let tx = if is_film_grain {
                             (((bx + x as i32) >> 1) + grain_ox) as usize & 255
@@ -557,7 +571,7 @@ pub(super) fn apply_surface_effects_cropped(
             let v_row = (wyf - wx0) * step_uv;
             let ty = (((by + y as i32 + grain_oy) & 255) as usize) << 8;
             let row = &mut data[y * w * 4..(y + 1) * w * 4];
-            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+            for (x, px) in row.as_chunks_mut::<4>().0.iter_mut().enumerate() {
                 let a = px[3];
                 if a == 0 {
                     continue;
@@ -768,7 +782,11 @@ pub(super) fn warp_perspective_3d_cropped(
     }
     let rx = rotate_x_deg.to_radians();
     let ry = rotate_y_deg.to_radians();
-    let d = if perspective > 1.0 { perspective } else { 800.0 };
+    let d = if perspective > 1.0 {
+        perspective
+    } else {
+        800.0
+    };
 
     let (srx, crx) = rx.sin_cos();
     let (sry, cry) = ry.sin_cos();
@@ -1127,10 +1145,7 @@ fn is_layer_fx_geometry_static(layer: &Layer, time_sec: f32) -> bool {
         return false;
     }
     if !layer.animations.iter().all(|a| {
-        a.expr.is_none()
-            && a.repeat.is_none()
-            && a.keyframes.is_empty()
-            && time_sec >= a.end_sec
+        a.expr.is_none() && a.repeat.is_none() && a.keyframes.is_empty() && time_sec >= a.end_sec
     }) {
         return false;
     }

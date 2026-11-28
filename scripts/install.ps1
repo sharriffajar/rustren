@@ -28,14 +28,20 @@ try {
 
     Write-Host "Installed rustren to $(Join-Path $InstallDir 'rustren.exe')"
 
-    # Install agent skill for Claude Code / AI coding agents (disable with RUSTREN_NO_SKILLS=1)
+    # Install agent skills for Claude Code / AI coding agents (disable with RUSTREN_NO_SKILLS=1)
     if ($env:RUSTREN_NO_SKILLS -ne "1") {
         try {
             $SkillDir = Join-Path $HOME ".claude\skills\rustren"
+            $SmSubDir = Join-Path $SkillDir "skills\simple-motion"
+            $SmTopDir = Join-Path $HOME ".claude\skills\simple-motion"
             $SkillUrl = "https://raw.githubusercontent.com/$Repo/main/SKILL.md"
-            New-Item -ItemType Directory -Path $SkillDir -Force | Out-Null
+            $SmUrl = "https://raw.githubusercontent.com/$Repo/main/skills/simple-motion/SKILL.md"
+            New-Item -ItemType Directory -Path $SmSubDir -Force | Out-Null
+            New-Item -ItemType Directory -Path $SmTopDir -Force | Out-Null
             Invoke-WebRequest -Uri $SkillUrl -OutFile (Join-Path $SkillDir "SKILL.md") -UseBasicParsing
-            Write-Host "Installed agent skill to $(Join-Path $SkillDir 'SKILL.md')"
+            Invoke-WebRequest -Uri $SmUrl -OutFile (Join-Path $SmSubDir "SKILL.md") -UseBasicParsing
+            Copy-Item -Path (Join-Path $SmSubDir "SKILL.md") -Destination (Join-Path $SmTopDir "SKILL.md") -Force
+            Write-Host "Installed agent skills to $SkillDir and $SmTopDir"
         } catch {
             # Best-effort; do not fail binary install if offline/rate-limited
         }

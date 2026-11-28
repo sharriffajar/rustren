@@ -1,6 +1,6 @@
 //! Cross-thread render caches, frame buffer pools, and cache hit/miss telemetry.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use cosmic_text::{FontSystem, SwashCache};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -95,7 +95,9 @@ thread_local! {
 pub(super) fn take_scratch_rgba(needed: usize, zeroed: bool) -> Vec<u8> {
     let reused = THREAD_RGBA_POOL.with(|cell| {
         let mut pool = cell.borrow_mut();
-        pool.iter().position(|b| b.capacity() >= needed).map(|pos| pool.swap_remove(pos))
+        pool.iter()
+            .position(|b| b.capacity() >= needed)
+            .map(|pos| pool.swap_remove(pos))
     });
     match reused {
         Some(mut buf) => {
@@ -208,14 +210,29 @@ pub fn record_frame_dedup_hits(count: u64) {
 }
 
 pub fn clear_render_caches() {
-    GLOBAL_BLUR_CACHE.write().unwrap_or_else(|e| e.into_inner()).clear();
-    GLOBAL_WARP_CACHE.write().unwrap_or_else(|e| e.into_inner()).clear();
-    GLOBAL_SHADOW_CACHE.write().unwrap_or_else(|e| e.into_inner()).clear();
-    GLOBAL_FRAME_DEDUP_CACHE.write().unwrap_or_else(|e| e.into_inner()).clear();
+    GLOBAL_BLUR_CACHE
+        .write()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
+    GLOBAL_WARP_CACHE
+        .write()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
+    GLOBAL_SHADOW_CACHE
+        .write()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
+    GLOBAL_FRAME_DEDUP_CACHE
+        .write()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
     THREAD_RGBA_POOL.with(|cell| cell.borrow_mut().clear());
     #[cfg(feature = "pro")]
     {
-        GLOBAL_FRAME_POOL.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        GLOBAL_FRAME_POOL
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clear();
     }
     text::clear_text_raster_cache();
 }
@@ -253,11 +270,12 @@ pub fn get_frame_dedup_stats() -> (u64, u64) {
 
 pub(super) fn take_fx_scratch_pixmap(pw: u32, ph: u32) -> Result<Pixmap> {
     if let Some(pm) = THREAD_FX_SCRATCH.with(|c| c.borrow_mut().take())
-        && pm.width() == pw && pm.height() == ph {
-            return Ok(pm);
-        }
-    Pixmap::new(pw, ph)
-        .ok_or_else(|| anyhow!("Failed to allocate layer fx pixmap {}x{}", pw, ph))
+        && pm.width() == pw
+        && pm.height() == ph
+    {
+        return Ok(pm);
+    }
+    Pixmap::new(pw, ph).ok_or_else(|| anyhow!("Failed to allocate layer fx pixmap {}x{}", pw, ph))
 }
 
 pub(super) fn return_fx_scratch_pixmap(mut pm: Pixmap, dirty: Option<(u32, u32, u32, u32)>) {

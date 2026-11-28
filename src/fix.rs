@@ -799,7 +799,8 @@ mod tests {
 
     #[test]
     fn renames_snake_case_html_attributes() {
-        let raw = "<scene width=\"640\">\n  <text font_size=\"32\" max_width=\"200\">Hi</text>\n</scene>";
+        let raw =
+            "<scene width=\"640\">\n  <text font_size=\"32\" max_width=\"200\">Hi</text>\n</scene>";
         let (fixed, applied) = fix_html_str(raw);
         assert!(fixed.contains("font-size=\"32\""), "{fixed}");
         assert!(fixed.contains("max-width=\"200\""), "{fixed}");

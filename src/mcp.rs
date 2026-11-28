@@ -12,11 +12,11 @@
 //! It is stdio-only (no tokio/axum), so it is available in every build.
 
 use anyhow::{Context, Result};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
-use crate::actions::{execute_action, ActionRequest};
+use crate::actions::{ActionRequest, execute_action};
 use crate::schema::Scene;
 
 pub fn run_mcp_server(scene_path: &Path) -> Result<()> {

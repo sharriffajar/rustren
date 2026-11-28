@@ -192,10 +192,9 @@ pub fn apply_rigidity_uv_warp(
 
                             let fx = ((su - sx0 as f32) * 256.0 + 0.5) as u32;
                             let inv_fx = 256 - fx;
-                            dst[out_i] = ((src_bytes[i0] as u32 * inv_fx
-                                + src_bytes[i1] as u32 * fx
-                                + 128)
-                                >> 8) as u8;
+                            dst[out_i] =
+                                ((src_bytes[i0] as u32 * inv_fx + src_bytes[i1] as u32 * fx + 128)
+                                    >> 8) as u8;
                             dst[out_i + 1] = ((src_bytes[i0 + 1] as u32 * inv_fx
                                 + src_bytes[i1 + 1] as u32 * fx
                                 + 128)
@@ -431,7 +430,7 @@ pub fn apply_2d_normal_relight(
             // Process in 2x2 tiles for ~4x fewer sqrt/div lighting evaluations while keeping full-res albedo/alpha
             let mut y = y0;
             while y <= y1 {
-                let has_y1 = y + 1 <= y1;
+                let has_y1 = y < y1;
                 let y_sample = if has_y1 { y as f32 + 0.5 } else { y as f32 };
                 let ny_uv = y_sample * inv_hf;
 
@@ -451,7 +450,7 @@ pub fn apply_2d_normal_relight(
 
                 let mut x = x0;
                 while x <= x1 {
-                    let has_x1 = x + 1 <= x1;
+                    let has_x1 = x < x1;
                     let idx00 = row0 + x;
                     let p00 = pixels[idx00];
                     let p10 = if has_x1 {
@@ -543,8 +542,7 @@ pub fn apply_2d_normal_relight(
                         pixels[row1 + x] = modulate_pixel(p01, lr_q8, lg_q8, lb_q8, er, eg, eb);
                     }
                     if has_x1 && has_y1 && p11.alpha() != 0 {
-                        pixels[row1 + x + 1] =
-                            modulate_pixel(p11, lr_q8, lg_q8, lb_q8, er, eg, eb);
+                        pixels[row1 + x + 1] = modulate_pixel(p11, lr_q8, lg_q8, lb_q8, er, eg, eb);
                     }
 
                     x += 2;

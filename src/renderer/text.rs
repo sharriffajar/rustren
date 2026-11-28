@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use cosmic_text::{
     Align, Attrs, Buffer, Color as CosmicColor, Family, FontSystem, Metrics, Shaping, SwashCache,
     Weight,
@@ -17,7 +17,7 @@ use crate::schema::{
 };
 
 use super::layout::{
-    apply_anchor, build_pivot_transform_with_skew, effective_end_sec, resolve_xy, LayoutBox,
+    LayoutBox, apply_anchor, build_pivot_transform_with_skew, effective_end_sec, resolve_xy,
 };
 use super::parse_hex_color;
 use super::svg_draw::build_gradient_shader;
@@ -73,9 +73,10 @@ pub(super) fn resolve_dynamic_text<'a>(
             let take_n = ((total_chars as f32) * p).round() as usize;
             let mut out: String = text.chars().take(take_n).collect();
             if let Some(cur) = cursor
-                && (p < 1.0 || ((time_sec * 2.0) as u32).is_multiple_of(2)) {
-                    out.push_str(cur);
-                }
+                && (p < 1.0 || ((time_sec * 2.0) as u32).is_multiple_of(2))
+            {
+                out.push_str(cur);
+            }
             std::borrow::Cow::Owned(out)
         }
         DynamicTextSpec::Counter {
@@ -131,10 +132,15 @@ fn is_emoji_char(c: char) -> bool {
 }
 
 fn find_color_emoji_family(font_system: &FontSystem) -> Option<&'static str> {
-    ["Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji"].into_iter().find(|&candidate| font_system
-            .db()
-            .faces()
-            .any(|f| f.families.iter().any(|(name, _)| name == candidate))).map(|v| v as _)
+    ["Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji"]
+        .into_iter()
+        .find(|&candidate| {
+            font_system
+                .db()
+                .faces()
+                .any(|f| f.families.iter().any(|(name, _)| name == candidate))
+        })
+        .map(|v| v as _)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -183,7 +189,10 @@ pub(super) fn build_text_buffer(
             }
         }
     };
-    let default_attrs = Attrs::new().family(family).weight(weight).color(default_color);
+    let default_attrs = Attrs::new()
+        .family(family)
+        .weight(weight)
+        .color(default_color);
     if spans.is_empty() {
         let emoji_fam = if font_family.is_none() && content.chars().any(is_emoji_char) {
             find_color_emoji_family(font_system)
@@ -271,7 +280,10 @@ static GLOBAL_TEXT_RASTER_CACHE: LazyLock<
 > = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 pub(super) fn clear_text_raster_cache() {
-    GLOBAL_TEXT_RASTER_CACHE.write().unwrap_or_else(|e| e.into_inner()).clear();
+    GLOBAL_TEXT_RASTER_CACHE
+        .write()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
 }
 
 pub(super) fn reset_text_cache_stats() {
@@ -384,7 +396,12 @@ pub(super) fn measure_text_size_and_lines(
             feed(ff.as_bytes());
         }
         feed(&font_weight.to_u16().to_le_bytes());
-        feed(&max_width.map(f32::to_bits).unwrap_or(u32::MAX).to_le_bytes());
+        feed(
+            &max_width
+                .map(f32::to_bits)
+                .unwrap_or(u32::MAX)
+                .to_le_bytes(),
+        );
         feed(&scale.to_bits().to_le_bytes());
         h
     };
@@ -768,8 +785,13 @@ pub(super) fn render_text_layer(
         return Ok(());
     }
 
-    let eff_color = eval_color_property(&layer.animations, AnimProperty::Color, time_sec, Some(color))
-        .unwrap_or_else(|| color.clone());
+    let eff_color = eval_color_property(
+        &layer.animations,
+        AnimProperty::Color,
+        time_sec,
+        Some(color),
+    )
+    .unwrap_or_else(|| color.clone());
     let resolved_content =
         resolve_dynamic_text(layer, content, dynamic.as_ref(), time_sec, scene_duration);
     let effective_spans: &[TextSpan] = if dynamic.is_some() { &[] } else { spans };
@@ -787,8 +809,18 @@ pub(super) fn render_text_layer(
     );
     let bw = resolve_text_box_width(layout_override, effective_max_w, mw, *text_align);
     let (x, y) = apply_anchor(x, y, bw, mh, layer.anchor);
-    let sk_x = eval_property(&layer.animations, AnimProperty::SkewX, time_sec, layer.skew_x);
-    let sk_y = eval_property(&layer.animations, AnimProperty::SkewY, time_sec, layer.skew_y);
+    let sk_x = eval_property(
+        &layer.animations,
+        AnimProperty::SkewX,
+        time_sec,
+        layer.skew_x,
+    );
+    let sk_y = eval_property(
+        &layer.animations,
+        AnimProperty::SkewY,
+        time_sec,
+        layer.skew_y,
+    );
     let text_xform = build_pivot_transform_with_skew(
         x,
         y,
@@ -964,17 +996,17 @@ pub(super) fn render_text_layer(
             if let Some(grad) = gradient
                 && let Some(shader) =
                     build_gradient_shader(grad, pad as f32, pad as f32, bw, mh, raster_op)?
-                {
-                    let mut gp = Paint {
-                        shader,
-                        blend_mode: SkiaBlendMode::SourceIn,
-                        ..Paint::default()
-                    };
-                    gp.anti_alias = true;
-                    if let Some(r) = Rect::from_xywh(0.0, 0.0, tb_w as f32, tb_h as f32) {
-                        fill_pm.fill_rect(r, &gp, Transform::identity(), None);
-                    }
+            {
+                let mut gp = Paint {
+                    shader,
+                    blend_mode: SkiaBlendMode::SourceIn,
+                    ..Paint::default()
+                };
+                gp.anti_alias = true;
+                if let Some(r) = Rect::from_xywh(0.0, 0.0, tb_w as f32, tb_h as f32) {
+                    fill_pm.fill_rect(r, &gp, Transform::identity(), None);
                 }
+            }
 
             let final_pm = if let Some(out_spec) = outline.as_ref().filter(|o| o.width > 0.0) {
                 let oc = parse_hex_color(&out_spec.color, raster_op)?;
@@ -1044,7 +1076,9 @@ pub(super) fn render_text_layer(
         };
 
         if !super::cache::cache_disabled("text") {
-            let mut guard = GLOBAL_TEXT_RASTER_CACHE.write().unwrap_or_else(|e| e.into_inner());
+            let mut guard = GLOBAL_TEXT_RASTER_CACHE
+                .write()
+                .unwrap_or_else(|e| e.into_inner());
             if guard.len() >= MAX_TEXT_RASTER_CACHE_ENTRIES {
                 guard.clear();
             }
@@ -1132,8 +1166,7 @@ pub(super) fn render_text_layer(
                 let row_bytes = (sw * 4) as usize;
                 for row in 0..sh {
                     let d = row as usize * row_bytes;
-                    let s_off =
-                        ((((sy0 as u32 + row) * pm.width()) + sx0 as u32) * 4) as usize;
+                    let s_off = ((((sy0 as u32 + row) * pm.width()) + sx0 as u32) * 4) as usize;
                     dst[d..d + row_bytes].copy_from_slice(&src[s_off..s_off + row_bytes]);
                 }
 
@@ -1166,8 +1199,16 @@ pub(super) fn render_text_layer(
     }
 
     if let Some((pm_arc, ox, oy, needs_op)) = entry {
-        let base_x = if use_fx_buffer { x + ox } else { (x as i32) as f32 + ox };
-        let base_y = if use_fx_buffer { y + oy } else { (y as i32) as f32 + oy };
+        let base_x = if use_fx_buffer {
+            x + ox
+        } else {
+            (x as i32) as f32 + ox
+        };
+        let base_y = if use_fx_buffer {
+            y + oy
+        } else {
+            (y as i32) as f32 + oy
+        };
         let dst_xform = if sk_x == 0.0
             && sk_y == 0.0
             && (scale_x - 1.0).abs() < 1e-6

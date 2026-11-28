@@ -113,17 +113,17 @@ pub fn find(name: &str) -> Option<&'static Example> {
 /// Examples filtered by an optional tag, in declaration order.
 pub fn by_tag(tag: Option<&str>) -> Vec<&'static Example> {
     match tag {
-        Some(tag) => EXAMPLES
-            .iter()
-            .filter(|e| e.tags.contains(&tag))
-            .collect(),
+        Some(tag) => EXAMPLES.iter().filter(|e| e.tags.contains(&tag)).collect(),
         None => EXAMPLES.iter().collect(),
     }
 }
 
 /// Names of every distinct tag, for `structured` listings and error hints.
 pub fn all_tags() -> Vec<&'static str> {
-    let mut tags: Vec<&'static str> = EXAMPLES.iter().flat_map(|e| e.tags.iter().copied()).collect();
+    let mut tags: Vec<&'static str> = EXAMPLES
+        .iter()
+        .flat_map(|e| e.tags.iter().copied())
+        .collect();
     tags.sort_unstable();
     tags.dedup();
     tags
@@ -139,7 +139,11 @@ mod tests {
         names.sort_unstable();
         names.dedup();
         assert_eq!(names.len(), EXAMPLES.len());
-        assert!(EXAMPLES.iter().all(|e| !e.name.is_empty() && !e.source.is_empty()));
+        assert!(
+            EXAMPLES
+                .iter()
+                .all(|e| !e.name.is_empty() && !e.source.is_empty())
+        );
     }
 
     #[test]

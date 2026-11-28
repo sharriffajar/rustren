@@ -50,10 +50,18 @@ fn resolve_layer_index(scene: &Scene, index: Option<usize>, name: Option<&str>) 
         if idx < scene.layers.len() {
             return Ok(idx);
         }
-        anyhow::bail!("Layer index {} out of bounds (total: {})", idx, scene.layers.len());
+        anyhow::bail!(
+            "Layer index {} out of bounds (total: {})",
+            idx,
+            scene.layers.len()
+        );
     }
     if let Some(target_name) = name {
-        if let Some(idx) = scene.layers.iter().position(|l| l.name.as_deref() == Some(target_name)) {
+        if let Some(idx) = scene
+            .layers
+            .iter()
+            .position(|l| l.name.as_deref() == Some(target_name))
+        {
             return Ok(idx);
         }
         anyhow::bail!("Layer with name '{}' not found", target_name);
@@ -96,7 +104,9 @@ pub fn execute_action(scene: &mut Scene, req: ActionRequest) -> Result<ActionRes
             Ok(ActionResponse {
                 ok: true,
                 message: format!("Added layer at index {}", insert_idx),
-                data: Some(serde_json::json!({ "index": insert_idx, "total_layers": scene.layers.len() })),
+                data: Some(
+                    serde_json::json!({ "index": insert_idx, "total_layers": scene.layers.len() }),
+                ),
             })
         }
         ActionRequest::RemoveLayer { index, name } => {
@@ -105,7 +115,9 @@ pub fn execute_action(scene: &mut Scene, req: ActionRequest) -> Result<ActionRes
             Ok(ActionResponse {
                 ok: true,
                 message: format!("Removed layer at index {}", idx),
-                data: Some(serde_json::json!({ "removed_index": idx, "total_layers": scene.layers.len() })),
+                data: Some(
+                    serde_json::json!({ "removed_index": idx, "total_layers": scene.layers.len() }),
+                ),
             })
         }
         ActionRequest::AddAnimation {
@@ -118,7 +130,9 @@ pub fn execute_action(scene: &mut Scene, req: ActionRequest) -> Result<ActionRes
             Ok(ActionResponse {
                 ok: true,
                 message: format!("Added animation to layer {}", idx),
-                data: Some(serde_json::json!({ "layer_index": idx, "animations_count": scene.layers[idx].animations.len() })),
+                data: Some(
+                    serde_json::json!({ "layer_index": idx, "animations_count": scene.layers[idx].animations.len() }),
+                ),
             })
         }
     }

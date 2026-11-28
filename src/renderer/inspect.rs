@@ -6,8 +6,8 @@ use crate::assets::AssetStore;
 use crate::schema::{AnimProperty, Layer, LayerKind, Scene, TextSpan};
 
 use super::layout::{
-    apply_anchor, compute_flex_layout, effective_end_sec, resolve_child_timelines, resolve_xy,
-    LayoutBox,
+    LayoutBox, apply_anchor, compute_flex_layout, effective_end_sec, resolve_child_timelines,
+    resolve_xy,
 };
 use super::text::{measure_text_size_and_lines, resolve_dynamic_text, resolve_text_box_width};
 use super::with_thread_font_system;
@@ -179,8 +179,8 @@ fn collect_diagnostics_for_siblings(
                 || child.y < p.y - 1.5
                 || child.x + child.w > p.x + p.w + 1.5
                 || child.y + child.h > p.y + p.h + 1.5)
-            {
-                out.push(LayoutDiagnostic {
+        {
+            out.push(LayoutDiagnostic {
                     kind: LayoutDiagnosticKind::ContainerOverflow,
                     path: child.path.clone(),
                     name: child.name.clone(),
@@ -194,20 +194,23 @@ fn collect_diagnostics_for_siblings(
                     w: child.w,
                     h: child.h,
                 });
-            }
+        }
 
         if child.layer_type == "text"
             && let Some(tm) = &child.text_measured
-                && tm.line_count > 1
-                    && let Some(layer) = find_layer_by_path(scene, &child.path)
-                        && let LayerKind::Text {
-                            content,
-                            dynamic,
-                            max_width,
-                            ..
-                        } = &layer.kind
-                            && dynamic.is_none() && !content.contains('\n') && max_width.is_none() {
-                                out.push(LayoutDiagnostic {
+            && tm.line_count > 1
+            && let Some(layer) = find_layer_by_path(scene, &child.path)
+            && let LayerKind::Text {
+                content,
+                dynamic,
+                max_width,
+                ..
+            } = &layer.kind
+            && dynamic.is_none()
+            && !content.contains('\n')
+            && max_width.is_none()
+        {
+            out.push(LayoutDiagnostic {
                                     kind: LayoutDiagnosticKind::UnexpectedTextWrap,
                                     path: child.path.clone(),
                                     name: child.name.clone(),
@@ -220,7 +223,7 @@ fn collect_diagnostics_for_siblings(
                                     w: child.w,
                                     h: child.h,
                                 });
-                            }
+        }
 
         if !child.children.is_empty() {
             collect_diagnostics_for_siblings(
@@ -236,11 +239,19 @@ fn collect_diagnostics_for_siblings(
 
     for i in 0..siblings.len() {
         let a = &siblings[i];
-        if a.opacity <= 0.05 || a.w <= 0.0 || a.h <= 0.0 || is_container_backdrop(a, container_w, container_h) {
+        if a.opacity <= 0.05
+            || a.w <= 0.0
+            || a.h <= 0.0
+            || is_container_backdrop(a, container_w, container_h)
+        {
             continue;
         }
         for b in &siblings[(i + 1)..] {
-            if b.opacity <= 0.05 || b.w <= 0.0 || b.h <= 0.0 || is_container_backdrop(b, container_w, container_h) {
+            if b.opacity <= 0.05
+                || b.w <= 0.0
+                || b.h <= 0.0
+                || is_container_backdrop(b, container_w, container_h)
+            {
                 continue;
             }
             if a.layer_type != "text" && b.layer_type != "text" {
@@ -347,8 +358,12 @@ fn inspect_layer_layout(
             scale,
             ..
         } => {
-            let cx_base_offset = layout_override.map(|b| b.x + b.w * 0.5 - *cx).unwrap_or(0.0);
-            let cy_base_offset = layout_override.map(|b| b.y + b.h * 0.5 - *cy).unwrap_or(0.0);
+            let cx_base_offset = layout_override
+                .map(|b| b.x + b.w * 0.5 - *cx)
+                .unwrap_or(0.0);
+            let cy_base_offset = layout_override
+                .map(|b| b.y + b.h * 0.5 - *cy)
+                .unwrap_or(0.0);
             let eff_cx = cx_base_offset
                 + eval_property(&layer.animations, AnimProperty::Cx, local_t, *cx)
                 + eval_property(&layer.animations, AnimProperty::X, local_t, 0.0);
@@ -672,14 +687,8 @@ fn inspect_layer_layout(
                 .map(|h| eval_property(&layer.animations, AnimProperty::Height, local_t, h));
             let op = eval_property(&layer.animations, AnimProperty::Opacity, local_t, *opacity)
                 * parent_opacity;
-            let (cw, ch, child_boxes) = compute_flex_layout(
-                target_w,
-                target_h,
-                layout,
-                children,
-                font_system,
-                local_t,
-            )?;
+            let (cw, ch, child_boxes) =
+                compute_flex_layout(target_w, target_h, layout, children, font_system, local_t)?;
             let (cx, cy) = apply_anchor(cx, cy, cw, ch, layer.anchor);
             let container_end = effective_end_sec(layer, scene_duration);
             let child_timelines = resolve_child_timelines(

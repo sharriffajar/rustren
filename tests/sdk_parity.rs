@@ -50,7 +50,11 @@ fn py_class(text: &str, name: &str) -> String {
         .lines()
         .position(|l| l.starts_with(&class_marker) || l.starts_with(&functional_marker))
         .unwrap_or_else(|| panic!("rustren_types.py has no TypedDict {name}"));
-    let functional = text.lines().nth(start).unwrap().starts_with(&functional_marker);
+    let functional = text
+        .lines()
+        .nth(start)
+        .unwrap()
+        .starts_with(&functional_marker);
 
     let mut out = String::new();
     if functional {
@@ -161,7 +165,11 @@ fn assert_fields_cover(schema: &serde_json::Value, base: &str, name: &str, body:
         missing.is_empty() && extra.is_empty(),
         "{} {name} drifted from schema: missing {missing:?}, extra {extra:?}; \
          run `python3 scripts/gen_sdk.py`",
-        if py { "rustren_types.py" } else { "rustren.d.ts" }
+        if py {
+            "rustren_types.py"
+        } else {
+            "rustren.d.ts"
+        }
     );
 }
 
@@ -175,7 +183,13 @@ fn typescript_sdk_covers_schema_fields() {
         let body = ts_interface(&text, name);
         assert_fields_cover(&schema, &base, name, &body, false);
     }
-    for name in ["Canvas", "CompositionProfile", "AudioTrack", "Keyframe", "GradientStop"] {
+    for name in [
+        "Canvas",
+        "CompositionProfile",
+        "AudioTrack",
+        "Keyframe",
+        "GradientStop",
+    ] {
         let body = ts_interface(&text, name);
         let fields = field_names(&body, false);
         assert!(
@@ -195,7 +209,13 @@ fn python_sdk_covers_schema_fields() {
         let body = py_class(&text, name);
         assert_fields_cover(&schema, &base, name, &body, true);
     }
-    for name in ["Canvas", "CompositionProfile", "AudioTrack", "Keyframe", "GradientStop"] {
+    for name in [
+        "Canvas",
+        "CompositionProfile",
+        "AudioTrack",
+        "Keyframe",
+        "GradientStop",
+    ] {
         assert!(
             !field_names(&py_class(&text, name), true).is_empty(),
             "rustren_types.py class {name} has no fields"
@@ -308,7 +328,11 @@ fn typescript_required_fields_match_schema() {
             .collect()
     };
 
-    for name in LAYER_DEFS.iter().copied().chain(["IncludeLayer", "Animation", "TextSpan"]) {
+    for name in LAYER_DEFS
+        .iter()
+        .copied()
+        .chain(["IncludeLayer", "Animation", "TextSpan"])
+    {
         let expected: BTreeSet<String> = schema["$defs"][name]["required"]
             .as_array()
             .map(|a| a.iter().map(|v| v.as_str().unwrap().to_string()).collect())
